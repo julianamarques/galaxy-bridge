@@ -1,0 +1,8 @@
+.build/
+build/
+.swiftpm/
+*.xcodeproj/xcuserdata/
+.DS_Store
+Resources/adb
+Resources/adb-NOTICE.txt
+Resources/adb.version

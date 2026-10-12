@@ -1,0 +1,19 @@
+Samsung for Mac
+Copyright 2026 Juliana Marques
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes third-party components:
+
+adb 37.0.1, from the Android SDK Platform-Tools
+(https://developer.android.com/tools/releases/platform-tools)
+Copyright Google LLC and The Android Open Source Project.
+License notices are included in adb-NOTICE.txt.
+
+PhoneNumberKit 5.0.11 (https://github.com/PhoneNumberKit/PhoneNumberKit)
+Copyright (c) 2018 Roy Marmelstein
+Licensed under the MIT License. Includes phone number metadata from
+Google's libphonenumber, licensed under the Apache License, Version 2.0.
+
+Parts of the connection code (GalaxyKit) come from Galaxy Mirror
+(https://github.com/julianamarques/galaxy-mirror), by the same author.
