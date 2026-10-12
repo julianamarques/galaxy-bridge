@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "SamsungForMac",
+    name: "GalaxyBridge",
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "GalaxyKit", targets: ["GalaxyKit"]),
@@ -17,9 +17,9 @@ let package = Package(
             path: "Sources/GalaxyKit"
         ),
         .executableTarget(
-            name: "SamsungForMac",
+            name: "GalaxyBridge",
             dependencies: ["GalaxyKit"],
-            path: "Sources/SamsungForMac"
+            path: "Sources/GalaxyBridge"
         ),
         .testTarget(
             name: "GalaxyKitTests",

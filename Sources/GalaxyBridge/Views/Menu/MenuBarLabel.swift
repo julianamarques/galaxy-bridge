@@ -18,7 +18,7 @@ struct MenuBarLabel: View {
             #if DEBUG
             .task {
                 // Abre os Ajustes ao iniciar, para conferir o visual sem clicar no menu.
-                if ProcessInfo.processInfo.environment["SAMSUNG_PREVIEW_SETTINGS"] != nil { openSettings() }
+                if ProcessInfo.processInfo.environment["GALAXY_PREVIEW_SETTINGS"] != nil { openSettings() }
             }
             #endif
     }

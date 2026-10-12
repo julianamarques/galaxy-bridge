@@ -8,7 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         app.launched()
         #if DEBUG
-        if ProcessInfo.processInfo.environment["SAMSUNG_PREVIEW_MENU"] != nil { showMenuPreview() }
+        if ProcessInfo.processInfo.environment["GALAXY_PREVIEW_MENU"] != nil { showMenuPreview() }
         #endif
     }
 

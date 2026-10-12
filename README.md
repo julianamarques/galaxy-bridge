@@ -1,10 +1,10 @@
-# Samsung for Mac
+# Galaxy Bridge
 
 Use a Samsung Galaxy (or any Android 11+) together with your Mac — over Wi-Fi or a USB cable, with nothing to install on the phone.
 
-Samsung for Mac lives in the menu bar. It shows whether the Galaxy is connected and its battery level, and places calls on the phone from the Mac: type a number in the menu, or make the phone numbers in Safari, Contacts, Calendar and other apps (`tel:` links) ring through the Galaxy.
+Galaxy Bridge lives in the menu bar. It shows whether the Galaxy is connected and its battery level, and places calls on the phone from the Mac: type a number in the menu, or make the phone numbers in Safari, Contacts, Calendar and other apps (`tel:` links) ring through the Galaxy.
 
-It is the companion to [Galaxy Mirror](https://github.com/julianamarques/galaxy-mirror): Galaxy Mirror shows and controls the phone's screen, and Samsung for Mac brings the phone's features to the Mac. Both use the same `adb` server, so a Galaxy already set up in Galaxy Mirror can be used here without pairing again.
+It is the companion to [Galaxy Mirror](https://github.com/julianamarques/galaxy-mirror): Galaxy Mirror shows and controls the phone's screen, and Galaxy Bridge brings the phone's features to the Mac. Both use the same `adb` server, so a Galaxy already set up in Galaxy Mirror can be used here without pairing again.
 
 ## Requirements
 
@@ -14,11 +14,11 @@ It is the companion to [Galaxy Mirror](https://github.com/julianamarques/galaxy-
 ## Build
 
 ```bash
-./scripts/build-app.sh          # builds build/Samsung for Mac.app
+./scripts/build-app.sh          # builds build/Galaxy Bridge.app
 ./scripts/build-app.sh debug    # debug build
 ```
 
-`swift test` runs the tests.
+`swift test` runs the tests. In debug builds, `GALAXY_PREVIEW_MENU=1` shows the menu in a regular window and `GALAXY_PREVIEW_SETTINGS=1` opens Settings at launch, to check the design without clicking the menu bar.
 
 The build script copies the Swift package resources (PhoneNumberKit's phone number data) into the app and downloads `adb` (`scripts/fetch-adb.sh`, platform-tools 37.0.1) and checks its checksum. Keep this version the same as Galaxy Mirror's: two different `adb` versions restart each other's server and drop the connection.
 
@@ -27,7 +27,7 @@ The build script copies the Swift package resources (PhoneNumberKit's phone numb
 ```
 Sources/
 ├── GalaxyKit/        connection to the phone, shared with Galaxy Mirror (adb, Bonjour, pairing, device models)
-└── SamsungForMac/    the menu bar app
+└── GalaxyBridge/     the menu bar app
     ├── App/          entry point and app delegate (tel: links)
     ├── ViewModels/   AppModel (connection, battery, calls) and SetupModel (pairing)
     ├── Views/        menu, setup flow, settings and components

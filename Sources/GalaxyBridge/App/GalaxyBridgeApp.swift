@@ -2,7 +2,7 @@ import GalaxyKit
 import SwiftUI
 
 @main
-struct SamsungForMacApp: App {
+struct GalaxyBridgeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
