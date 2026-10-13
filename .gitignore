@@ -6,3 +6,5 @@ build/
 Resources/adb
 Resources/adb-NOTICE.txt
 Resources/adb.version
+.gradle/
+local.properties
