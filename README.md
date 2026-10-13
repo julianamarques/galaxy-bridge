@@ -18,7 +18,7 @@ It is the companion to [Galaxy Mirror](https://github.com/julianamarques/galaxy-
 ./scripts/build-app.sh debug    # debug build
 ```
 
-`swift test` runs the tests. In debug builds, `GALAXY_PREVIEW_MENU=1` shows the menu in a regular window and `GALAXY_PREVIEW_SETTINGS=1` opens Settings at launch, to check the design without clicking the menu bar.
+`swift test` runs the tests. The app icon is drawn in SwiftUI by `scripts/make-icon.swift`; run it after changing the drawing to regenerate `Resources/AppIcon.icns`. In debug builds, `GALAXY_PREVIEW_MENU=1` shows the menu in a regular window and `GALAXY_PREVIEW_SETTINGS=1` opens Settings at launch, to check the design without clicking the menu bar.
 
 The build script copies the Swift package resources (PhoneNumberKit's phone number data) into the app and downloads `adb` (`scripts/fetch-adb.sh`, platform-tools 37.0.1) and checks its checksum. Keep this version the same as Galaxy Mirror's: two different `adb` versions restart each other's server and drop the connection.
 

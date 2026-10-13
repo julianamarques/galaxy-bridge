@@ -16,6 +16,7 @@ APP="build/Galaxy Bridge.app"
 swift build -c "$CONFIG" ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}
 BIN="$(swift build -c "$CONFIG" --show-bin-path ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"})/GalaxyBridge"
 
+[ -f Resources/AppIcon.icns ] || swift scripts/make-icon.swift
 ./scripts/fetch-adb.sh
 
 rm -rf "$APP"
@@ -30,6 +31,7 @@ cp Resources/adb "$APP/Contents/MacOS/adb"
 cp Resources/adb-NOTICE.txt "$APP/Contents/Resources/adb-NOTICE.txt"
 cp LICENSE NOTICE "$APP/Contents/Resources/"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 codesign --force --sign - "$APP"
 
 echo "Pronto: $APP"

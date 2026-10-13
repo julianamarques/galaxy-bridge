@@ -8,6 +8,8 @@
 	<string>Galaxy Bridge</string>
 	<key>CFBundleExecutable</key>
 	<string>GalaxyBridge</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.julianamarques.GalaxyBridge</string>
 	<key>CFBundleName</key>
