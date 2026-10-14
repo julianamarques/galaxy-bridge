@@ -13,26 +13,34 @@ It is the companion to [Galaxy Mirror](https://github.com/julianamarques/galaxy-
 
 ## Build
 
+The Mac app is the Swift package in `macos/`:
+
 ```bash
+cd macos
 ./scripts/build-app.sh          # builds build/Galaxy Bridge.app
 ./scripts/build-app.sh debug    # debug build
 ```
 
-`swift test` runs the tests. The app icon is drawn in SwiftUI by `scripts/make-icon.swift`; run it after changing the drawing to regenerate `Resources/AppIcon.icns`. In debug builds, `GALAXY_PREVIEW_MENU=1` shows the menu in a regular window and `GALAXY_PREVIEW_SETTINGS=1` opens Settings at launch, to check the design without clicking the menu bar.
+`swift test` (in `macos/`) runs the tests. The app icon is drawn in SwiftUI by `scripts/make-icon.swift`; run it after changing the drawing to regenerate `Resources/AppIcon.icns`. In debug builds, `GALAXY_PREVIEW_MENU=1` shows the menu in a regular window and `GALAXY_PREVIEW_SETTINGS=1` opens Settings at launch, to check the design without clicking the menu bar.
 
 The build script copies the Swift package resources (PhoneNumberKit's phone number data) into the app and downloads `adb` (`scripts/fetch-adb.sh`, platform-tools 37.0.1) and checks its checksum. Keep this version the same as Galaxy Mirror's: two different `adb` versions restart each other's server and drop the connection.
 
 ## Structure
 
 ```
-Sources/
-├── GalaxyKit/        connection to the phone, shared with Galaxy Mirror (adb, Bonjour, pairing, device models)
-└── GalaxyBridge/     the menu bar app
-    ├── App/          entry point and app delegate (tel: links)
-    ├── ViewModels/   AppModel (connection, battery, calls) and SetupModel (pairing)
-    ├── Views/        menu, setup flow, settings and components
-    └── Extensions/   default tel: handler, launch at login, links
-Tests/GalaxyKitTests/
+macos/                    the Mac app (Swift package)
+├── Sources/
+│   ├── GalaxyKit/        connection to the phone, shared with Galaxy Mirror (adb, Bonjour, pairing, device models)
+│   └── GalaxyBridge/     the menu bar app
+│       ├── App/          entry point and app delegate (tel: links)
+│       ├── ViewModels/   AppModel (connection, battery, calls) and SetupModel (pairing)
+│       ├── Views/        menu, setup flow, settings and components
+│       └── Extensions/   default tel: handler, launch at login, links
+├── Tests/GalaxyKitTests/
+├── Resources/            Info.plist, icon, bundled adb
+└── scripts/              build, adb download, icon
+docs/                     architecture and plans
+spikes/                   Phase 0 experiments (throwaway)
 ```
 
 ## How it works
