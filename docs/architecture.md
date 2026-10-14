@@ -101,7 +101,7 @@ Each message is a 4-byte big-endian length followed by UTF-8 JSON:
 - Messages are capped at 1 MB. Files, in a later phase, will use a separate TLS connection per transfer, so they never block calls or notifications.
 - Swift uses `Codable` and Kotlin uses `kotlinx.serialization`. Each message has a fixture in `protocol/fixtures/` that both test suites decode and re-encode.
 
-Keep-alive: the **Mac** sends `ping` every 30 seconds and the phone answers `pong`. Phase 0 showed that the phone's own timers are delayed by up to 14 minutes while the CPU sleeps, but an incoming packet wakes it. If the Mac gets no answer for 75 seconds, it drops the connection. The phone reconnects when it notices the drop, or when `ConnectivityManager` reports a network change.
+Keep-alive: the **Mac** sends `ping` every 2 minutes and the phone answers `pong`. Phase 0 showed that the phone's own timers are delayed by minutes while the CPU sleeps, that a sleeping phone can go quiet for up to 15 minutes, and that waking it every minute costs battery. So the limits are generous: the Mac drops the connection after 5½ minutes without any message, and the phone after 6. The phone reconnects when it notices the drop, or when `ConnectivityManager` reports a network change. The exact intervals are in [protocol.md](../protocol/protocol.md).
 
 ## Messages
 
@@ -138,7 +138,7 @@ Keep-alive: the **Mac** sends `ping` every 30 seconds and the phone answers `pon
 
 ## Mac app
 
-- **`BridgeProtocol`** (new library target, no UI): message types, framing, the TLS identity and fingerprints, the pairing store. Unit-tested with the fixtures.
+- **`BridgeProtocol`** (new library target, no UI): message types, framing, the TLS identity and fingerprints, the pairing store, and `BridgeServer`. Unit-tested with the fixtures, and end to end with a test TLS client.
 - **`BridgeServer`:** `NWListener` with TLS. It accepts one connection per paired phone, publishes the connection state and routes messages to the features.
 - **UI:** the same menu and settings as today. Setup changes from "turn on Wireless debugging" to "install Galaxy Bridge on the Galaxy and scan this code". The APK link is shown as a QR code too.
 - **Calls:** an incoming call shows a `UNUserNotificationCenter` notification with **Answer** and **Decline** actions (time-sensitive category). The existing dialer and `tel:` handler send `call.place` instead of running adb.
