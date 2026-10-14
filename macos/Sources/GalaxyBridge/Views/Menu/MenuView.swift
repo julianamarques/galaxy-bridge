@@ -10,7 +10,7 @@ struct MenuView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if app.pairedDevice == nil {
+            if !app.isConfigured {
                 notConfigured
             } else {
                 header
@@ -52,7 +52,7 @@ struct MenuView: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            DeviceBadge(isConnected: app.connection.serial != nil)
+            DeviceBadge(isConnected: app.isConnected)
             VStack(alignment: .leading, spacing: 2) {
                 Text(app.deviceName).font(.headline)
                 status
@@ -69,6 +69,19 @@ struct MenuView: View {
 
     @ViewBuilder
     private var status: some View {
+        if app.appPhone != nil {
+            if app.isAppConnected {
+                Label("Wi-Fi", systemImage: "wifi")
+            } else {
+                Text("Desconectado")
+            }
+        } else {
+            adbStatus
+        }
+    }
+
+    @ViewBuilder
+    private var adbStatus: some View {
         switch app.connection {
         case .idle, .failed:
             Text("Desconectado")
@@ -116,7 +129,7 @@ struct MenuView: View {
                 CircleButton(systemImage: "phone.fill", tint: .green, help: "Ligar", action: call)
                     .disabled(PhoneNumber(number) == nil)
                 CircleButton(systemImage: "phone.down.fill", tint: .red, help: "Encerrar a ligação") { app.endCall() }
-                    .disabled(app.connection.serial == nil)
+                    .disabled(!app.canEndCall)
             }
             if let error = app.callError {
                 Text(error)

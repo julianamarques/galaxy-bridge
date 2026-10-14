@@ -12,10 +12,11 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Galaxy") {
-                if app.pairedDevice != nil {
+                if app.isConfigured {
                     LabeledContent("Celular", value: app.deviceName)
+                    LabeledContent("Conexão", value: app.appPhone != nil ? "App Galaxy Bridge" : "Depuração do Android")
                     HStack {
-                        if app.pairedDevice?.supportsWiFi == false {
+                        if app.appPhone == nil, app.pairedDevice?.supportsWiFi == false {
                             Button("Configurar Wi-Fi…") { app.setUpWiFi() }
                         }
                         Spacer()

@@ -1,3 +1,4 @@
+import BridgeProtocol
 import Foundation
 import GalaxyKit
 
@@ -5,6 +6,8 @@ import GalaxyKit
 final class SetupModel: ObservableObject {
     enum Step: Equatable {
         case welcome
+        /// O Mac mostra o QR code para o app Galaxy Bridge no celular.
+        case appPair
         case missingTools
         case found(serial: String, name: String)
         case prepare
@@ -40,6 +43,14 @@ final class SetupModel: ObservableObject {
     @Published private(set) var codeError: String?
     @Published private(set) var usbStatus: USBStatus = .waiting
     @Published private(set) var isLocalNetworkDenied = false
+
+    /// O conteúdo do QR code lido pelo app do Galaxy, ou `nil` enquanto o servidor não está pronto.
+    @Published private(set) var appLink: String?
+    @Published private(set) var appCode = ""
+    @Published private(set) var macFingerprint = ""
+    @Published private(set) var appPairingProblem: String?
+    private var appToken: String?
+    private var expiryTask: Task<Void, Never>?
 
     private(set) var qrName = ""
     private(set) var qrPassword = ""
@@ -110,11 +121,13 @@ final class SetupModel: ObservableObject {
 
     /// A janela de configuração foi fechada: para de procurar o Galaxy e recomeça do início na próxima vez.
     func windowClosed() {
+        stopAppPairing()
         stopTask()
-        if step != .done || app.pairedDevice == nil { step = .welcome }
+        if step != .done || !app.isConfigured { step = .welcome }
     }
 
     func reset() {
+        stopAppPairing()
         stopTask()
         step = .welcome
         mode = .qr
@@ -244,5 +257,78 @@ final class SetupModel: ObservableObject {
         app.didPair(device, serial: serial)
         pending = nil
         step = .done
+    }
+}
+
+// MARK: - App do Galaxy
+
+extension SetupModel {
+    /// Mostra um QR code novo (e um código de seis dígitos), válido por 2 minutos e renovado sozinho ao vencer.
+    func beginAppPairing() {
+        stopTask()
+        step = .appPair
+        guard let bridge = app.startBridge() else {
+            appLink = nil
+            appPairingProblem = String(localized: "Não foi possível preparar a conexão segura deste Mac.")
+            return
+        }
+        let session = bridge.beginPairing()
+        appToken = session.token
+        appCode = "\(session.code.prefix(3)) \(session.code.suffix(3))"
+        macFingerprint = Fingerprint.display(bridge.identity.fingerprint)
+        updateAppLink()
+        expiryTask?.cancel()
+        expiryTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(max(session.expiresAt.timeIntervalSinceNow, 1)))
+            guard !Task.isCancelled, let self, self.step == .appPair else { return }
+            self.beginAppPairing()
+        }
+    }
+
+    /// O servidor começou a escutar (já se sabe a porta) ou falhou.
+    func bridgeChanged(failure: String? = nil) {
+        guard step == .appPair else { return }
+        if let failure {
+            appLink = nil
+            appPairingProblem = failure
+        } else {
+            updateAppLink()
+        }
+    }
+
+    func pairingExpired() {
+        if step == .appPair { beginAppPairing() }
+    }
+
+    func appPaired() {
+        stopAppPairing()
+        step = .done
+    }
+
+    /// O caminho antigo, pela depuração sem fio ou USB do Android, para quem não quer instalar o app.
+    func useAndroidDebugging() {
+        stopAppPairing()
+        continueFromWelcome()
+    }
+
+    private func updateAppLink() {
+        guard let bridge = app.bridge, let token = appToken, let port = bridge.port else {
+            appLink = nil
+            return
+        }
+        guard let host = LocalNetwork.interfaces().first?.address else {
+            appLink = nil
+            appPairingProblem = String(localized: "Conecte este Mac a uma rede Wi-Fi.")
+            return
+        }
+        appPairingProblem = nil
+        appLink = PairingLink(host: host, port: port, fingerprint: bridge.identity.fingerprint, token: token).url.absoluteString
+    }
+
+    private func stopAppPairing() {
+        expiryTask?.cancel()
+        expiryTask = nil
+        appToken = nil
+        app.bridge?.cancelPairing()
     }
 }

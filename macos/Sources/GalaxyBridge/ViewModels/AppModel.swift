@@ -1,4 +1,5 @@
 import AppKit
+import BridgeProtocol
 import GalaxyKit
 
 @MainActor
@@ -15,7 +16,11 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// O Galaxy conectado pelo adb (depuração por Wi-Fi ou USB), o jeito antigo.
     @Published private(set) var pairedDevice: PairedDevice?
+    /// O Galaxy com o app Galaxy Bridge instalado. Quando existe, tem prioridade sobre o adb.
+    @Published private(set) var appPhone: PairedPhone?
+    @Published private(set) var isAppConnected = false
     @Published private(set) var connection: Connection = .idle {
         didSet {
             guard connection.serial != oldValue.serial else { return }
@@ -31,8 +36,10 @@ final class AppModel: ObservableObject {
 
     lazy var setup = SetupModel(app: self)
 
+    private(set) var bridge: BridgeServer?
     private let deviceMonitor = DeviceMonitor()
     private var trackedDevices: [ADBDevice] = []
+    private var isMonitoringDevices = false
     private var keepAliveTask: Task<Void, Never>?
     private var statusTask: Task<Void, Never>?
     private static let deviceKey = "pairedDevice"
@@ -44,11 +51,21 @@ final class AppModel: ObservableObject {
             .flatMap { try? JSONDecoder().decode(PairedDevice.self, from: $0) }
     }
 
-    var deviceName: String { pairedDevice?.name ?? "Galaxy" }
+    var deviceName: String { appPhone?.name ?? pairedDevice?.name ?? "Galaxy" }
+
+    var isConfigured: Bool { appPhone != nil || pairedDevice != nil }
+
+    var isConnected: Bool { appPhone != nil ? isAppConnected : connection.serial != nil }
 
     func launched() {
         // Carrega os dados de números de telefone agora, para a primeira tecla no discador não travar o menu.
         _ = PhoneNumbers.shared
+        let store = PairingStore(file: Self.supportDirectory.appendingPathComponent("paired-phones.json"))
+        appPhone = store.phones.last
+        if appPhone != nil {
+            startBridge(store: store)
+            return
+        }
         Task {
             await ADB.startServer()
             startMonitoring()
@@ -61,6 +78,7 @@ final class AppModel: ObservableObject {
     }
 
     func terminate() {
+        bridge?.stop()
         deviceMonitor.stop()
         keepAliveTask?.cancel()
         statusTask?.cancel()
@@ -69,6 +87,8 @@ final class AppModel: ObservableObject {
     // MARK: Conexão
 
     private func startMonitoring() {
+        guard !isMonitoringDevices else { return }
+        isMonitoringDevices = true
         deviceMonitor.start { [weak self] devices in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated { self?.devicesChanged(devices) }
@@ -161,6 +181,7 @@ final class AppModel: ObservableObject {
         }
         save(device)
         connection = .connected(serial: serial)
+        startMonitoring()
         startKeepAlive()
     }
 
@@ -170,6 +191,15 @@ final class AppModel: ObservableObject {
     }
 
     func forget() {
+        if let phone = appPhone {
+            bridge?.forget(phone)
+            appPhone = nil
+            isAppConnected = false
+            battery = nil
+            setup.reset()
+            setupRequested = true
+            return
+        }
         keepAliveTask?.cancel()
         if let serial = connection.serial, !ADBOutputParser.isUSBSerial(serial) {
             Task { await ADB.disconnect(serial) }
@@ -221,8 +251,11 @@ final class AppModel: ObservableObject {
         Task { callError = await placeCall(number) }
     }
 
+    /// Encerrar pelo app chega na fase 2 (`call.end`); por enquanto só pelo adb.
+    var canEndCall: Bool { appPhone == nil && connection.serial != nil }
+
     func endCall() {
-        guard let serial = connection.serial else { return }
+        guard canEndCall, let serial = connection.serial else { return }
         Task { await ADB.endCall(serial: serial) }
     }
 
@@ -241,6 +274,14 @@ final class AppModel: ObservableObject {
 
     /// Devolve a mensagem de erro, ou `nil` se a ligação começou.
     private func placeCall(_ number: PhoneNumber) async -> String? {
+        if appPhone != nil {
+            let dialable = PhoneNumbers.shared.dialable(number, country: dialCountry)
+            guard bridge?.send(.callPlace(CallPlace(number: dialable.digits))) != nil else {
+                return String(localized: "O \(deviceName) não está conectado. Confira se ele está na mesma rede Wi-Fi que este Mac e se o app Galaxy Bridge está instalado nele.")
+            }
+            Log.phone.info("Ligação pedida ao app do Galaxy")
+            return nil
+        }
         guard pairedDevice != nil else {
             setupRequested = true
             return String(localized: "Nenhum Galaxy está configurado neste Mac. Configure-o e tente ligar de novo.")
@@ -256,5 +297,91 @@ final class AppModel: ObservableObject {
         } catch {
             return error.localizedDescription
         }
+    }
+}
+
+// MARK: - App do Galaxy
+
+extension AppModel {
+    static var supportDirectory: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(Bundle.appName, isDirectory: true)
+    }
+
+    /// Começa a escutar os celulares. Só é chamado com um celular pareado ou durante um pareamento,
+    /// para quem usa só o adb não ter um servidor aberto à toa.
+    @discardableResult
+    func startBridge(store: PairingStore? = nil) -> BridgeServer? {
+        if let bridge { return bridge }
+        do {
+            let identity = try Identity.loadOrCreate(in: Self.supportDirectory.appendingPathComponent("identity", isDirectory: true))
+            let store = store ?? PairingStore(file: Self.supportDirectory.appendingPathComponent("paired-phones.json"))
+            let hello = Hello(
+                appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0",
+                name: Host.current().localizedName ?? "Mac",
+                model: Self.hardwareModel
+            )
+            let bridge = BridgeServer(identity: identity, store: store, hello: hello)
+            bridge.onEvent = { [weak self] in self?.handle($0) }
+            bridge.start()
+            self.bridge = bridge
+            return bridge
+        } catch {
+            Log.connection.error("Não foi possível criar a identidade do Mac: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
+    private func handle(_ event: BridgeServer.Event) {
+        switch event {
+        case .ready:
+            setup.bridgeChanged()
+        case .failed(let message):
+            Log.connection.error("Servidor do Galaxy Bridge parou: \(message, privacy: .public)")
+            setup.bridgeChanged(failure: message)
+        case .connected(let phone):
+            appPhone = phone
+            isAppConnected = true
+            callError = nil
+        case .disconnected:
+            isAppConnected = false
+            battery = nil
+        case .paired(let phone):
+            didPairApp(phone)
+        case .pairingExpired:
+            setup.pairingExpired()
+        case .unpaired:
+            appPhone = nil
+            isAppConnected = false
+            battery = nil
+        case .status(let status):
+            let battery = Battery(level: status.battery.level, isCharging: status.battery.charging)
+            if battery != self.battery { self.battery = battery }
+            if let country = (status.networkCountry ?? status.simCountry)?.lowercased(), country != phoneCountry {
+                phoneCountry = country
+            }
+        case .error(let error, _):
+            callError = error.message
+        }
+    }
+
+    /// O app do Galaxy substitui a conexão pelo adb, que deixa de ser usada.
+    private func didPairApp(_ phone: PairedPhone) {
+        keepAliveTask?.cancel()
+        deviceMonitor.stop()
+        isMonitoringDevices = false
+        connection = .idle
+        UserDefaults.standard.removeObject(forKey: Self.deviceKey)
+        pairedDevice = nil
+        appPhone = phone
+        setup.appPaired()
+    }
+
+    private static var hardwareModel: String {
+        var size = 0
+        sysctlbyname("hw.model", nil, &size, nil, 0)
+        var model = [CChar](repeating: 0, count: max(size, 1))
+        sysctlbyname("hw.model", &model, &size, nil, 0)
+        return String(decoding: model.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
     }
 }

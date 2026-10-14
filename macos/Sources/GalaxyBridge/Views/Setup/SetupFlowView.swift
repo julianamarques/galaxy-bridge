@@ -16,6 +16,7 @@ struct SetupFlowView: View {
         Group {
             switch setup.step {
             case .welcome: welcome
+            case .appPair: AppPairingView(setup: setup)
             case .missingTools: missingTools
             case .found(let serial, let name): found(serial: serial, name: name)
             case .prepare: prepare
@@ -38,13 +39,12 @@ struct SetupFlowView: View {
         SetupPage(title: Text(Bundle.appName)) {
             DevicesIllustration()
         } content: {
-            Text("Use seu Galaxy junto com o Mac: veja a bateria na barra de menus e faça ligações a partir dos números que aparecem no Safari, no Contatos ou em qualquer outro app — pela rede Wi-Fi ou com um cabo USB.")
+            Text("Use seu Galaxy junto com o Mac: veja a bateria na barra de menus e faça ligações a partir dos números que aparecem no Safari, no Contatos ou em qualquer outro app, pela rede Wi-Fi.")
         } buttons: {
             PillButton("Saiba Mais…") { openURL(Links.learnMore) }
             Spacer()
             PillButton("Agora Não") { close() }
-            PillButton("Continuar", prominent: true) { setup.continueFromWelcome() }
-                .disabled(setup.isLookingForDevices)
+            PillButton("Continuar", prominent: true) { setup.beginAppPairing() }
         }
     }
 
