@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:label="GB Spike: TLS"
+        android:allowBackup="false">
+
+        <!-- Comandos vindos do adb. Só o shell e o sistema têm a permissão DUMP. -->
+        <receiver
+            android:name=".CommandReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="com.julianamarques.galaxybridge.spike.tls.INIT" />
+                <action android:name="com.julianamarques.galaxybridge.spike.tls.CONNECT" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

@@ -8,3 +8,4 @@ Resources/adb-NOTICE.txt
 Resources/adb.version
 .gradle/
 local.properties
+spikes/phase0-tls/mac/identity/

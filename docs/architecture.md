@@ -70,7 +70,7 @@ galaxy-bridge/
 
 TLS 1.3 with **mutual authentication and pinned self-signed certificates** — the same model as KDE Connect, with no certificate authority involved.
 
-- **Mac identity:** a P-256 key and a self-signed certificate, generated on first launch with [swift-certificates](https://github.com/apple/swift-certificates). They are stored in `~/Library/Application Support/Galaxy Bridge/identity` with `0600` permissions. The Keychain is avoided on purpose: with local (ad-hoc) signing, every new build has a different signature and macOS would ask for keychain access after each update. It can move to the Keychain once the app has a Developer ID.
+- **Mac identity:** a P-256 key and a self-signed certificate, generated on first launch with [swift-certificates](https://github.com/apple/swift-certificates). They are stored in `~/Library/Application Support/Galaxy Bridge/identity` with `0600` permissions and turned into a `SecIdentity` in memory with `SecIdentityCreate` (confirmed in Phase 0). The Keychain is avoided on purpose: with local (ad-hoc) signing, every new build has a different signature and macOS would ask for keychain access after each update. It can move to the Keychain once the app has a Developer ID.
 - **Phone identity:** a P-256 key in the Android Keystore (it never leaves the secure hardware), which generates its own self-signed certificate.
 - **Mac side:** `sec_protocol_options` requires a client certificate and checks it in the verify block against the pinned fingerprints, instead of the system trust store.
 - **Phone side:** a custom `X509TrustManager` accepts only the pinned fingerprint of the paired Mac. The Keystore key is the client certificate.
@@ -101,7 +101,7 @@ Each message is a 4-byte big-endian length followed by UTF-8 JSON:
 - Messages are capped at 1 MB. Files, in a later phase, will use a separate TLS connection per transfer, so they never block calls or notifications.
 - Swift uses `Codable` and Kotlin uses `kotlinx.serialization`. Each message has a fixture in `protocol/fixtures/` that both test suites decode and re-encode.
 
-Keep-alive: the phone sends `ping` every 30 seconds and the Mac answers `pong`. With no traffic for 75 seconds, either side drops the connection and the phone reconnects.
+Keep-alive: the **Mac** sends `ping` every 30 seconds and the phone answers `pong`. Phase 0 showed that the phone's own timers are delayed by up to 14 minutes while the CPU sleeps, but an incoming packet wakes it. If the Mac gets no answer for 75 seconds, it drops the connection. The phone reconnects when it notices the drop, or when `ConnectivityManager` reports a network change.
 
 ## Messages
 
@@ -126,11 +126,11 @@ Keep-alive: the phone sends `ping` every 30 seconds and the Mac answers `pong`. 
 ## Android app
 
 - **Language and UI:** Kotlin, Jetpack Compose with Material 3. Minimum Android 11 (API 30), like Galaxy Mirror. Package ID `com.julianamarques.galaxybridge`.
-- **`BridgeService`:** a foreground service of type `connectedDevice`, with a silent ongoing notification ("Connected to MacBook Air"). It declares `FOREGROUND_SERVICE_CONNECTED_DEVICE`, plus one of the permissions the [service type requires](https://developer.android.com/guide/components/fg-service-types) (the network ones, such as `CHANGE_WIFI_MULTICAST_STATE`, which discovery needs anyway; confirm against the list in Phase 0). It starts on boot (`RECEIVE_BOOT_COMPLETED`) and when the app is opened.
+- **`BridgeService`:** a foreground service of type `connectedDevice`, with a silent ongoing notification ("Connected to MacBook Air"). It declares `FOREGROUND_SERVICE_CONNECTED_DEVICE`, plus one of the permissions the [service type requires](https://developer.android.com/guide/components/fg-service-types) (the network ones, such as `CHANGE_WIFI_MULTICAST_STATE`, which discovery needs anyway; confirm against the list in Phase 0). It starts on boot (`RECEIVE_BOOT_COMPLETED`; Android 15 forbids starting some service types from that broadcast, but not `connectedDevice`) and when the app is opened. It holds no wakelock.
 - **`StatusMonitor`:** battery from `ACTION_BATTERY_CHANGED`, countries from `TelephonyManager` (`networkCountryIso`, `simCountryIso`).
 - **`CallMonitor`:** (approach confirmed in Phase 0, see below)
   - Call state through `TelephonyCallback` (`READ_PHONE_STATE`).
-  - Caller name from the dialer's call notification (`com.samsung.android.incallui`, `Notification.CallStyle`): its title is the contact name and its `callPerson` carries the number as a `tel:` URI. The number is also available from `PhoneStateListener` with `READ_CALL_LOG`, in national format (`086…`), so the Mac normalizes it with PhoneNumberKit.
+  - Caller name and number from the dialer's call notification (`com.samsung.android.incallui`, `Notification.CallStyle`): its title is the contact name and its `callPerson` carries the number as a `tel:` URI, in national format (`086…`), so the Mac normalizes it with PhoneNumberKit. `PhoneStateListener` with `READ_CALL_LOG` also has the number, but that permission is restricted on Google Play, so the app doesn't ask for it.
   - Answer and decline with `TelecomManager.acceptRingingCall()` and `endCall()` (`ANSWER_PHONE_CALLS`). Both are deprecated since Android 10 but work on One UI 9; `endCall()` also hangs up an active call.
   - Outgoing calls with `TelecomManager.placeCall()` (`CALL_PHONE`). It does not start an activity, so Android's limits on starting activities from the background don't apply.
 - **`NotificationRelay`:** a `NotificationListenerService`. It skips ongoing, silent and group-summary notifications and Galaxy Bridge's own. Replies fill the action's `RemoteInput`.
@@ -146,9 +146,23 @@ Keep-alive: the phone sends `ping` every 30 seconds and the Mac answers `pong`. 
 
 ## Distribution
 
-- **Android:** a signed APK on GitHub Releases, like Galaxy Mirror's DMG. The signing keystore must be backed up: an APK signed with a different key cannot update the installed app.
-- **Restricted settings:** Android blocks notification access for apps installed outside an app store until the user taps **⋮ › Allow restricted settings** on the app's info page. Since Android 15 this is enforced more strictly (Enhanced Confirmation Mode). Onboarding has to walk the user through it, and it needs testing on the S25 with One UI 8.
-- **Google Play, later:** reading call logs, notification access and battery exemptions all go through Play policy review. That is a separate decision, not needed for the first versions.
+**A store is required.** Phase 0 showed that a plain APK can't be the way users install the Android app in Brazil (see [results](#phase-0-results)):
+
+- **Play Protect's enhanced fraud protection** (in Brazil since 2024) blocks apps installed from a file manager, browser or messaging app when they declare sensitive permissions, including **notification access**. The dialog has no "install anyway" option.
+- **Android developer verification** (enforced in Brazil, Indonesia, Singapore and Thailand since 2026-09-30, worldwide from 2027) only lets apps from unregistered developers install through an "advanced flow": a Developer options toggle, a restart and a 24-hour wait. Google's [limited distribution](https://developer.android.com/developer-verification/guides) option allows up to 20 devices.
+- **Restricted settings** (Android 13+, stricter since Android 15) would then still block notification access until the user allows it on the app's info page.
+
+Installs from a store skip all three. Installs through `adb` are exempt too, which is fine for development but not for users.
+
+Options, to decide before Phase 1 ships to anyone else:
+
+| Store | Cost | Notes |
+|---|---|---|
+| Google Play | US$ 25, once | Reaches every Android phone. New personal accounts must run a closed test (12 testers for 14 days) before publishing. Policy review for notification access, `ANSWER_PHONE_CALLS` and the battery exemption. `READ_CALL_LOG` falls under the SMS and Call Log policy, so the app gets the caller's number from the dialer's notification instead. |
+| Galaxy Store | Free seller account | Fits a Galaxy-focused app and is preinstalled on every Galaxy. Samsung reviews each release. |
+
+Whatever the store, keep the signing key backed up: an app signed with a different key cannot update the installed one.
+
 - **Android 17 local network permission:** apps targeting API 37 must request `ACCESS_LOCAL_NETWORK` at runtime ([docs](https://developer.android.com/privacy-and-security/local-network-permission)). The app targets API 36 at first and adds the request when it moves to 37.
 
 ## Phases
@@ -158,9 +172,9 @@ Keep-alive: the phone sends `ping` every 30 seconds and the Mac answers `pong`. 
 Throwaway code to answer the riskiest questions before committing to the design:
 
 1. ~~Does `acceptRingingCall()` / `endCall()` work on One UI, and do the dialer's call-notification actions work as a fallback?~~ Answered, see [Phase 0 results](#phase-0-results).
-2. Does the foreground service survive a night with the screen off and the battery set to Unrestricted?
-3. Can an Android Keystore key be the client certificate in a TLS 1.3 connection to `NWListener`, with both sides pinning?
-4. How hard is "Allow restricted settings" for a sideloaded APK on One UI 8?
+2. ~~Does the foreground service survive a night with the screen off and the battery set to Unrestricted?~~ Yes, with the network working during Doze, see [Phase 0 results](#phase-0-results).
+3. ~~Can an Android Keystore key be the client certificate in a TLS 1.3 connection to `NWListener`, with both sides pinning?~~ Yes, see [Phase 0 results](#phase-0-results).
+4. ~~How hard is "Allow restricted settings" for a sideloaded APK on One UI 8?~~ Moot: Play Protect blocks the install itself in Brazil, see [Phase 0 results](#phase-0-results) and [Distribution](#distribution).
 
 ### Phase 0 results
 
@@ -179,7 +193,32 @@ Galaxy S25 (SM-S931B), Android 17, One UI 9, 2026-10-12. Spike: `spikes/phase0-c
 - The notification arrives 0.3–0.5 s after the ringing state. Its title is the contact name ("Maria"). Its `callPerson` has the name immediately and the `tel:` number in the second update, about 0.2 s later.
 - `PhoneStateListener` (deprecated) reports the number with the ringing state when `READ_CALL_LOG` is granted. `TelephonyCallback` never does.
 - **Outgoing call from the background:** `TelecomManager.placeCall()` with an E.164 number (`+55…`), triggered by a broadcast while the app's process had just been started in the background, dialed right away (off-hook in 0.1 s): the other phone rang, and the S25 showed the dialer's in-call screen, as expected. `endCall()` 15 s later ended it.
-- The app's process stayed alive for more than two hours in the background with only the notification listener bound and no foreground service, which is encouraging for question 2 but is not the night-long test.
+- The app's process stayed alive for more than two hours in the background with only the notification listener bound and no foreground service.
+
+**Background survival** — spike `spikes/phase0-background`: a `connectedDevice` foreground service without a wakelock, logging a row every 60 seconds, battery set to Unrestricted, 2026-10-12 21:46 to 2026-10-13 ~19:00:
+
+- **One UI never killed it.** It ran for over 20 hours, through a night and a day of normal use, until the battery ran out. After the phone was recharged and turned on, the service only came back when it was started again, as expected without a boot receiver.
+- **Timers stop while the CPU sleeps.** During the day, with the screen off, the 60-second timer fired 5 to 14 minutes late. So the phone can't keep the connection alive with its own timer: the **Mac sends the keep-alive pings** and the phone answers. An incoming packet over Wi-Fi wakes the phone, and system events (an incoming call, a new notification) wake the app on their own.
+- The first night doesn't say much about Doze or battery: the phone wasn't on Wi-Fi and was sharing its connection with the Mac, which keeps the CPU awake and drains the battery on its own. During the day it was on mobile data under normal use, so the drain there can't be told apart from the user's own.
+
+**Second night** — same service, still running from 2026-10-13 20:33 (11 hours by morning, never restarted), on home Wi-Fi, no hotspot, unplugged at 22:53 with 100%. Screen off from 00:52 to 07:35:
+
+- **The network works during deep Doze.** Doze from 01:54 to 05:45, with maintenance windows at 02:54 and 04:56. All 228 checks inside Doze (a TCP connection to the router) succeeded in under 70 ms, and the timer fired every 60 s on time. The app is on the Doze allowlist because the battery is set to Unrestricted (`dumpsys deviceidle whitelist` lists it as `user`), which is what lets it use the network; without that, Doze cuts it off. So the onboarding step for Unrestricted is required, not optional.
+- **After Doze, light idle is the bumpy part.** From 05:45 until the screen came on, the 60-second timer fired every 2.5 to 3.5 minutes, and once the phone went quiet for 15 minutes (06:40 to 06:54, after a check that took 48 s). The Mac must not drop the phone after one missed `pong`: allow several minutes of silence, then let the phone reconnect.
+- **Battery:** 91% to 73% over 6.7 hours with the screen off, about **2.7% per hour** (2.6%/h inside Doze). That is well above what an idle phone usually loses, and the likely cause is the spike itself, waking the CPU and the Wi-Fi radio every minute. There was no baseline night without the spike, so the exact share isn't known. The real app has no timer of its own: the cost depends on how often the Mac pings, which Phase 1 should set to a few minutes and measure again.
+- One network failure (a 3-second timeout) and one minute without Wi-Fi in the whole run, both before unplugging, with the screen on.
+
+**Sideloading** — the calls spike's APK, copied to Downloads and opened with My Files (the way a user installs an APK downloaded from GitHub), was blocked by Google Play Protect: "O app foi bloqueado para proteger seu dispositivo — Esse app pode pedir acesso a dados sensíveis", with only an "Entendi" button. That is the enhanced fraud protection, triggered by the app's notification listener. The same APK installs fine through `adb`.
+
+**Mutual TLS** — spike `spikes/phase0-tls`, the phone connecting to the Mac through `adb reverse`:
+
+- The Mac's identity is a P-256 key and a self-signed certificate made with swift-certificates 1.21, kept in files, and turned into a `SecIdentity` **in memory** with `SecIdentityCreate(_:_:_:)` (public since macOS 10.12). No Keychain and no PKCS#12, so the macOS 14 minimum stays.
+- The phone's key lives in the Android Keystore (P-256, digests `NONE` and SHA-2), which also generates its self-signed certificate. A custom `X509ExtendedKeyManager` offers it as the client certificate, and a custom `X509ExtendedTrustManager` accepts only the pinned Mac.
+- Result: TLS 1.3 with `TLS_AES_128_GCM_SHA256`, each side seeing the other's expected fingerprint, and length-prefixed JSON going both ways.
+- A wrong Mac fingerprint on the phone fails the handshake before any data is sent. A Mac pinned to another phone rejects it with a `certificate_unknown` alert.
+- **Design note:** in TLS 1.3 the client finishes its handshake before the server has checked the client certificate, so on the phone `startHandshake()` succeeds even when the Mac is about to reject it. The phone must treat the connection as established only after the Mac's `hello` arrives.
+
+**Foreground service type** — `startForeground()` with `FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE` works with `CHANGE_WIFI_MULTICAST_STATE` as the declared prerequisite (spike `spikes/phase0-background`).
 
 ### Phase 1 — Connection and status
 
