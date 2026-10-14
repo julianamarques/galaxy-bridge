@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// O pareamento com o app Galaxy Bridge no celular: o Mac mostra o QR code, e o celular o escaneia
-/// (ou digita o código de seis dígitos e confere a impressão digital do Mac).
 struct AppPairingView: View {
     @ObservedObject var setup: SetupModel
     @Environment(\.dismissWindow) private var dismissWindow

@@ -5,11 +5,9 @@ import android.content.Context
 import android.content.Intent
 import kotlin.concurrent.thread
 
-/** Comandos do adb: `INIT` cria a chave e mostra a impressão digital; `CONNECT` conecta ao Mac. */
 class CommandReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val pending = goAsync()
-        // Rede não pode rodar na thread principal.
         thread {
             try {
                 when (intent.action) {

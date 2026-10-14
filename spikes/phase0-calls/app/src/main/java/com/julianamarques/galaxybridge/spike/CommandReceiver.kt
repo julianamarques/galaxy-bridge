@@ -7,7 +7,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.telecom.TelecomManager
 
-/** Comandos do adb: escolher o método da próxima chamada e fazer uma ligação com o app em segundo plano. */
 class CommandReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {

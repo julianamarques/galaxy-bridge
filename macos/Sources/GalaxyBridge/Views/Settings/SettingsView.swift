@@ -73,7 +73,6 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        // O formulário agrupado rola e não informa uma altura ideal; sem altura fixa a janela fica baixa demais.
         .frame(width: 460, height: 410)
         .onAppear { isCallHandler = CallLinks.isDefault }
         .confirmationDialog("Esquecer o \(app.deviceName)?", isPresented: $confirmingForget) {
@@ -88,7 +87,6 @@ struct SettingsView: View {
             do {
                 try await CallLinks.makeDefault()
             } catch {
-                // O usuário pode recusar a troca na janela de confirmação do macOS.
                 Log.phone.info("App padrão para tel: não alterado: \(error.localizedDescription, privacy: .public)")
             }
             isCallHandler = CallLinks.isDefault

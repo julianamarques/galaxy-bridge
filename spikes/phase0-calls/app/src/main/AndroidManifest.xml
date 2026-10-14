@@ -20,8 +20,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Vê a notificação de chamada do discador (nome de quem liga e botões Atender/Recusar)
-             e mantém o app vivo para acompanhar o estado das chamadas. -->
         <service
             android:name=".CallListenerService"
             android:exported="true"
@@ -31,7 +29,6 @@
             </intent-filter>
         </service>
 
-        <!-- Comandos vindos do adb. Só o shell e o sistema têm a permissão DUMP. -->
         <receiver
             android:name=".CommandReceiver"
             android:exported="true"

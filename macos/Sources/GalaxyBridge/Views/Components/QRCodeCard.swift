@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// O QR code num cartão branco, coberto por um véu com `overlay` enquanto não pode ser usado.
 struct QRCodeCard<Overlay: View>: View {
     let payload: String
     let isCovered: Bool

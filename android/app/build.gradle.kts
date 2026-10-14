@@ -11,7 +11,6 @@ android {
     defaultConfig {
         applicationId = "com.julianamarques.galaxybridge"
         minSdk = 30
-        // A 37 exige pedir ACCESS_LOCAL_NETWORK em tempo de execução; fica para quando o app passar a ela.
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"

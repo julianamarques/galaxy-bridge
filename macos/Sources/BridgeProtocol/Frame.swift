@@ -1,6 +1,5 @@
 import Foundation
 
-/// Cada mensagem vai como 4 bytes de tamanho (big-endian) seguidos do JSON em UTF-8.
 public enum Frame {
     public static let maxLength = 1 << 20
     private static let encoder = JSONEncoder()
@@ -18,14 +17,11 @@ public enum Frame {
     }
 }
 
-/// Junta os pedaços que chegam da rede e devolve as mensagens completas.
 public struct FrameDecoder {
     private var buffer = Data()
 
     public init() {}
 
-    /// Devolve o JSON de cada mensagem completa. Lança `Frame.Failure.tooLong` se um tamanho passar do limite,
-    /// e então a conexão deve ser fechada.
     public mutating func append(_ data: Data) throws -> [Data] {
         buffer.append(data)
         var bodies: [Data] = []

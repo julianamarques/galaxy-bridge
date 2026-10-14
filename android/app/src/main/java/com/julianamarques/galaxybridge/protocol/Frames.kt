@@ -4,7 +4,6 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.IOException
 
-/** Cada mensagem vai como 4 bytes de tamanho (big-endian) seguidos do JSON em UTF-8. */
 object Frames {
     const val MAX_LENGTH = 1 shl 20
 
@@ -16,7 +15,6 @@ object Frames {
         output.flush()
     }
 
-    /** Lê a próxima mensagem. Bloqueia até ela chegar; lança [IOException] se a conexão cair. */
     fun read(input: DataInputStream): Envelope {
         val length = input.readInt()
         if (length < 0 || length > MAX_LENGTH) throw IOException("Tamanho de mensagem inválido: $length")

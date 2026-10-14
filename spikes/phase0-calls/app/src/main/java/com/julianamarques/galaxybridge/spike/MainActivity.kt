@@ -11,7 +11,6 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 
-/** Só mostra o que já foi concedido. As permissões são dadas pelo `grant.sh`, via adb. */
 class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
@@ -34,7 +33,6 @@ class MainActivity : Activity() {
                 "${if (enabled) "✓" else "✗"} Acesso às notificações\n\n" +
                 "Modo: ${Spike.mode(this@MainActivity)}"
         }
-        // Abre a tela do sistema só para este app, como o app real vai fazer na configuração.
         val button = Button(this).apply {
             text = "Ativar acesso às notificações"
             isEnabled = !enabled

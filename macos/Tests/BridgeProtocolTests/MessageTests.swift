@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import BridgeProtocol
 
-/// Os exemplos de `protocol/fixtures` também são lidos pelos testes do app Android: decodificar e codificar de novo
-/// cada um garante que os dois lados falam o mesmo JSON.
 struct FixtureTests {
     static let directory = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()

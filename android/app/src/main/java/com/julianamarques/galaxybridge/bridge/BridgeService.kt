@@ -31,11 +31,6 @@ import java.io.IOException
 import javax.net.ssl.SSLException
 import kotlin.concurrent.thread
 
-/**
- * Mantém a conexão com o Mac pareado: encontra o Mac, conecta, envia o status e atende os pedidos.
- * É um serviço em primeiro plano do tipo `connectedDevice`, sem wakelock: a fase 0 mostrou que ele sobrevive
- * à noite com a bateria em "Sem restrições", e que um pacote vindo do Mac acorda o celular.
- */
 class BridgeService : Service() {
     private val lock = Object()
     private var wakeRequested = false
@@ -52,7 +47,6 @@ class BridgeService : Service() {
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) = wake()
-        // A conexão com o Mac morreu junto com a rede; fechar já evita esperar o tempo limite.
         override fun onLost(network: Network) {
             connection?.close()
         }
@@ -85,14 +79,11 @@ class BridgeService : Service() {
         super.onDestroy()
     }
 
-    // MARK: Conexão
-
     private fun run() {
         var delay = 0L
         while (running) {
             val mac = PairingStore.current(this) ?: break
             if (BridgeState.connection.value != BridgeState.Connection.Refused) setState(BridgeState.Connection.Searching)
-            // Fora do Wi-Fi o Mac não está ao alcance: em vez de tentar a cada poucos minutos, espera a rede mudar.
             if (!isOnWiFi()) {
                 sleep(0)
                 continue
@@ -105,7 +96,6 @@ class BridgeService : Service() {
         if (PairingStore.current(this) == null) stopSelf()
     }
 
-    /** Uma conexão, do início ao fim. Devolve `true` se chegou a trocar o `hello` com o Mac. */
     private fun session(mac: PairedMac): Boolean {
         val connection = open(mac) ?: return false
         this.connection = connection
@@ -131,7 +121,6 @@ class BridgeService : Service() {
             established = true
             lastStatus = null
             lastBattery = null
-            // Só escuta a bateria enquanto há conexão; o registro já entrega o estado atual.
             registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             connection.receiveTimeoutMs = RECEIVE_TIMEOUT_MS
             while (running) {
@@ -139,7 +128,6 @@ class BridgeService : Service() {
                 handle(envelope, connection)
             }
         } catch (e: SSLException) {
-            // Antes do `hello`, um erro de certificado quer dizer que o Mac não reconhece mais este celular.
             if (!greeted && e.message.orEmpty().contains("certificate", ignoreCase = true)) {
                 setState(BridgeState.Connection.Refused)
             }
@@ -180,7 +168,6 @@ class BridgeService : Service() {
         }
     }
 
-    /** Espera [millis] ms, ou até [wake] (com 0, só até [wake]). */
     private fun sleep(millis: Long) {
         synchronized(lock) {
             if (!wakeRequested) lock.wait(millis)
@@ -188,7 +175,6 @@ class BridgeService : Service() {
         }
     }
 
-    /** Interrompe a espera entre tentativas: a rede voltou ou o app foi aberto. */
     private fun wake() {
         synchronized(lock) {
             wakeRequested = true
@@ -196,12 +182,9 @@ class BridgeService : Service() {
         }
     }
 
-    // MARK: Pedidos do Mac
-
     private fun sendStatus(battery: Intent) {
         val connection = connection ?: return
         if (!established) return
-        // A transmissão chega a cada mudança de tensão ou temperatura; só o nível e o carregamento interessam.
         val key = battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) to battery.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
         if (key == lastBattery) return
         lastBattery = key
@@ -211,7 +194,6 @@ class BridgeService : Service() {
         connection.send(Envelope(Message.StatusMessage(status)))
     }
 
-    /** Devolve o erro para o Mac, ou `null` se a ligação começou. */
     private fun placeCall(number: String): BridgeError? {
         if (!Permission.Calls.isGranted(this)) {
             return BridgeError("permission", "O Galaxy Bridge não tem permissão para fazer ligações. Abra o app no Galaxy para permitir.")
@@ -226,8 +208,6 @@ class BridgeService : Service() {
             BridgeError("failed", "Não foi possível ligar: ${e.message}")
         }
     }
-
-    // MARK: Notificação
 
     private fun setState(state: BridgeState.Connection) {
         if (state == BridgeState.connection.value) return
@@ -268,12 +248,10 @@ class BridgeService : Service() {
             context.startForegroundService(Intent(context, BridgeService::class.java))
         }
 
-        /** Esquece o Mac dos dois lados: avisa-o se estiver conectado e para o serviço. */
         fun forget(context: Context) {
             val app = context.applicationContext
             val connection = instance?.connection
             PairingStore.clear(app)
-            // Avisa antes de parar o serviço, que fecha a conexão ao terminar.
             thread {
                 connection?.let { runCatching { it.sendNow(Envelope(Message.Unpair)) } }
                 app.stopService(Intent(app, BridgeService::class.java))

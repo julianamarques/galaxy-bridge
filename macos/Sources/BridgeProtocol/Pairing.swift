@@ -1,7 +1,6 @@
 import Foundation
 import Security
 
-/// Um celular pareado com este Mac, reconhecido pela impressão digital do certificado dele.
 public struct PairedPhone: Codable, Equatable, Identifiable, Sendable {
     public var fingerprint: String
     public var name: String
@@ -18,13 +17,11 @@ public struct PairedPhone: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
-/// Os celulares pareados, num arquivo JSON. Por enquanto o app usa um só, mas o formato aceita vários.
 @MainActor
 public final class PairingStore {
     public private(set) var phones: [PairedPhone]
     private let file: URL?
 
-    /// Sem arquivo, guarda só em memória (para os testes).
     public init(file: URL?) {
         self.file = file
         phones = file
@@ -54,7 +51,6 @@ public final class PairingStore {
     }
 }
 
-/// Um pareamento em andamento: o token do QR code e o código de seis dígitos, válidos uma vez por 2 minutos.
 public struct PairingSession: Sendable {
     public static let lifetime: TimeInterval = 120
     public static let maxCodeAttempts = 5
@@ -67,7 +63,6 @@ public struct PairingSession: Sendable {
     public enum Check: Equatable {
         case accepted
         case invalid
-        /// O tempo acabou, ou houve tentativas erradas demais: o pareamento precisa recomeçar.
         case expired
     }
 
@@ -88,7 +83,6 @@ public struct PairingSession: Sendable {
         return isExpired(now: now) ? .expired : .invalid
     }
 
-    /// 128 bits aleatórios em base64url, sem `=`.
     private static func randomToken() -> String {
         var bytes = [UInt8](repeating: 0, count: 16)
         _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
@@ -105,7 +99,6 @@ public struct PairingSession: Sendable {
     }
 }
 
-/// O conteúdo do QR code: `galaxybridge://pair?v=1&host=…&port=…&fp=…&token=…`.
 public struct PairingLink: Equatable, Sendable {
     public var host: String
     public var port: UInt16

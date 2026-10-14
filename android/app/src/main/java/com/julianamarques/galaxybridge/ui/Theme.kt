@@ -13,7 +13,6 @@ import androidx.compose.ui.platform.LocalContext
 
 private val Teal = Color(0xFF0B7A83)
 
-/** As cores do papel de parede (Material You), como os apps da Samsung; sem elas, o verde-azulado do ícone. */
 @Composable
 fun GalaxyBridgeTheme(content: @Composable () -> Unit) {
     val dark = isSystemInDarkTheme()

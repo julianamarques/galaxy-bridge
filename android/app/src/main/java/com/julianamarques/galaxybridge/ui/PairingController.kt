@@ -19,13 +19,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** As etapas do pareamento na tela. */
 sealed interface PairingStep {
     data object Idle : PairingStep
     data object Working : PairingStep
     data class Failed(val message: String) : PairingStep
 
-    /** Pareamento por código: escolher o Mac (se houver mais de um) e digitar o código. */
     data class CodeEntry(
         val macs: List<MacFinder.Found> = emptyList(),
         val searching: Boolean = true,
@@ -35,7 +33,6 @@ sealed interface PairingStep {
         val error: String? = null,
     ) : PairingStep
 
-    /** Conectado sem conhecer o Mac: o usuário confere a impressão digital antes de enviar o código. */
     data class Confirm(val connection: BridgeConnection, val fingerprint: String, val code: String) : PairingStep
 }
 

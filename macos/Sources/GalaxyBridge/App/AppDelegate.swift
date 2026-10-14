@@ -13,7 +13,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     #if DEBUG
-    /// Mostra o conteúdo do menu numa janela comum, para conferir o visual sem clicar na barra de menus.
     private var previewWindow: NSWindow?
 
     private func showMenuPreview() {

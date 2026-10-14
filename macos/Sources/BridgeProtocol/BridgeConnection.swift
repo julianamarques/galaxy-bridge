@@ -1,11 +1,9 @@
 import Foundation
 import Network
 
-/// Uma conexão TLS com um celular: lê e escreve mensagens e avisa o `BridgeServer`.
 @MainActor
 final class BridgeConnection {
     let connection: NWConnection
-    /// A impressão digital do certificado do celular, conhecida depois do handshake.
     private(set) var fingerprint: String?
     var hello: Hello?
     var phone: PairedPhone?
@@ -63,7 +61,6 @@ final class BridgeConnection {
                     self.lastReceived = Date()
                     do {
                         for body in try self.decoder.append(data) {
-                            // Uma mensagem que não decodifica (um campo obrigatório faltando) é ignorada, como um tipo desconhecido.
                             guard let envelope = try? Frame.decoder.decode(Envelope.self, from: body) else { continue }
                             self.onMessage?(envelope)
                             if self.isClosed { return }
@@ -78,12 +75,10 @@ final class BridgeConnection {
         }
     }
 
-    /// Lê o certificado do celular depois do handshake. O bloco de verificação do TLS já o conferiu.
     nonisolated static func peerFingerprint(of connection: NWConnection) -> String? {
         guard let metadata = connection.metadata(definition: NWProtocolTLS.definition) as? NWProtocolTLS.Metadata else {
             return nil
         }
-        // O bloco é chamado na hora, uma vez por certificado da cadeia; o primeiro é o do celular.
         let chain = CertificateChain()
         _ = sec_protocol_metadata_access_peer_certificate_chain(metadata.securityProtocolMetadata) { certificate in
             chain.append(SecCertificateCopyData(sec_certificate_copy_ref(certificate).takeRetainedValue()) as Data)

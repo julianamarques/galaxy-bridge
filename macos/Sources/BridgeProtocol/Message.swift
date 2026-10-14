@@ -1,9 +1,7 @@
 import Foundation
 
-/// A versão do protocolo (`protocol/protocol.md`). Uma versão diferente no `hello` recusa a conexão.
 public let protocolVersion = 1
 
-/// Uma mensagem do protocolo com o envelope: `type`, `id` opcional, `replyTo` opcional e `body`.
 public struct Envelope: Equatable, Sendable {
     public var message: Message
     public var id: String?
@@ -27,7 +25,6 @@ public enum Message: Equatable, Sendable {
     case error(BridgeError)
     case ping
     case pong
-    /// Um tipo que esta versão não conhece; é ignorado, para que qualquer um dos apps possa ser atualizado primeiro.
     case unknown(type: String)
 
     public var type: String {
@@ -62,7 +59,6 @@ public struct Hello: Codable, Equatable, Sendable {
 }
 
 public struct PairRequest: Codable, Equatable, Sendable {
-    /// O token do QR code ou o código de seis dígitos digitado no celular.
     public var secret: String
     public var name: String
     public var model: String
@@ -107,9 +103,7 @@ public struct PhoneStatus: Codable, Equatable, Sendable {
     }
 
     public var battery: Battery
-    /// País da rede em que o celular está (ISO 3166-1, maiúsculas), ou `nil` sem sinal.
     public var networkCountry: String?
-    /// País do chip, ou `nil` sem chip.
     public var simCountry: String?
 
     public init(battery: Battery, networkCountry: String? = nil, simCountry: String? = nil) {
@@ -120,7 +114,6 @@ public struct PhoneStatus: Codable, Equatable, Sendable {
 }
 
 public struct CallPlace: Codable, Equatable, Sendable {
-    /// Em E.164, já normalizado no Mac.
     public var number: String
 
     public init(number: String) {
@@ -143,8 +136,6 @@ public struct BridgeError: Codable, Equatable, Sendable, Error {
         self.message = message
     }
 }
-
-// MARK: - JSON
 
 extension Envelope: Codable {
     private enum Keys: String, CodingKey {

@@ -24,10 +24,6 @@ import javax.net.ssl.X509ExtendedKeyManager
 import javax.net.ssl.X509ExtendedTrustManager
 import javax.security.auth.x500.X500Principal
 
-/**
- * Cliente TLS 1.3 de teste: a chave do celular fica no Android Keystore (nunca sai do hardware) e é o
- * certificado de cliente; o Mac só é aceito se a impressão digital do certificado dele for a pareada.
- */
 object TlsSpike {
     private const val TAG = "GBSpike"
     private const val ALIAS = "galaxybridge-identity"
@@ -38,7 +34,6 @@ object TlsSpike {
         Log.i(TAG, message)
     }
 
-    /** Cria a chave (se ainda não existir) e devolve a impressão digital do certificado autoassinado. */
     fun ensureIdentity(): String {
         if (!keyStore.containsAlias(ALIAS)) {
             val now = System.currentTimeMillis()
@@ -85,7 +80,6 @@ object TlsSpike {
     fun fingerprint(der: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(der).joinToString("") { "%02x".format(it) }
 
-    /** Entrega a chave do Keystore como certificado de cliente. */
     private object KeyManager : X509ExtendedKeyManager() {
         override fun chooseClientAlias(keyType: Array<out String>?, issuers: Array<out Principal>?, socket: Socket?) = ALIAS
         override fun chooseEngineClientAlias(keyType: Array<out String>?, issuers: Array<out Principal>?, engine: SSLEngine?) = ALIAS
@@ -96,7 +90,6 @@ object TlsSpike {
         override fun chooseServerAlias(keyType: String?, issuers: Array<out Principal>?, socket: Socket?): String? = null
     }
 
-    /** Aceita só o certificado com a impressão digital pareada; ignora autoridades certificadoras. */
     private class PinningTrustManager(private val pinned: String) : X509ExtendedTrustManager() {
         override fun checkServerTrusted(chain: Array<out X509Certificate>, authType: String?) {
             val actual = fingerprint(chain.first().encoded)

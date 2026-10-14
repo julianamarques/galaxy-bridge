@@ -10,7 +10,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
-/** A versão do protocolo (`protocol/protocol.md`). Uma versão diferente no `hello` recusa a conexão. */
 const val PROTOCOL_VERSION = 1
 
 @Serializable
@@ -21,34 +20,28 @@ data class Hello(
     val model: String,
 )
 
-/** [secret] é o token do QR code ou o código de seis dígitos digitado. */
 @Serializable
 data class PairRequest(val secret: String, val name: String, val model: String)
 
 @Serializable
 data class PairAccepted(val name: String)
 
-/** [reason]: `expired` ou `invalid`. */
 @Serializable
 data class PairRejected(val reason: String)
 
 @Serializable
 data class PhoneStatus(
     val battery: Battery,
-    /** País da rede (ISO 3166-1, maiúsculas), ou `null` sem sinal. */
     val networkCountry: String? = null,
-    /** País do chip, ou `null` sem chip. */
     val simCountry: String? = null,
 ) {
     @Serializable
     data class Battery(val level: Int, val charging: Boolean)
 }
 
-/** [number] já vem em E.164, normalizado no Mac. */
 @Serializable
 data class CallPlace(val number: String)
 
-/** [code]: `version`, `permission` ou `failed`. */
 @Serializable
 data class BridgeError(val code: String, val message: String)
 
@@ -66,13 +59,11 @@ sealed interface Message {
     data object Ping : Message { override val type get() = "ping" }
     data object Pong : Message { override val type get() = "pong" }
 
-    /** Um tipo que esta versão não conhece; é ignorado, para que qualquer um dos apps possa ser atualizado primeiro. */
     data class Unknown(override val type: String) : Message
 }
 
 data class Envelope(val message: Message, val id: String? = null, val replyTo: String? = null)
 
-/** Converte as mensagens de e para o JSON do protocolo. */
 object Codec {
     private val json = Json {
         ignoreUnknownKeys = true

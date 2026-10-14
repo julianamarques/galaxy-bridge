@@ -24,12 +24,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/**
- * Simula o `BridgeService`: um serviço em primeiro plano do tipo connectedDevice que fica rodando
- * a noite toda. A cada minuto grava uma linha em `files/heartbeat.csv` com o estado do aparelho e
- * se a rede local respondeu. Não segura o processador acordado (sem wakelock), como o app real,
- * então o intervalo entre as linhas mostra quanto o Android adiou o timer com a tela apagada.
- */
 class HeartbeatService : Service() {
     private val thread = HandlerThread("heartbeat").apply { start() }
     private val handler = Handler(thread.looper)
@@ -66,7 +60,6 @@ class HeartbeatService : Service() {
         }
         handler.removeCallbacksAndMessages(null)
         handler.post(::beat)
-        // Se o sistema matar o processo, ele recria o serviço; a linha "início" registra isso.
         return START_STICKY
     }
 
@@ -103,10 +96,6 @@ class HeartbeatService : Service() {
         handler.postDelayed(::beat, 60_000)
     }
 
-    /**
-     * Abre uma conexão TCP com o roteador (o gateway da rede Wi-Fi), na porta 53. Recusada também conta
-     * como rede funcionando: o pacote chegou e voltou. Só o tempo esgotado indica rede bloqueada.
-     */
     private fun localNetwork(): Pair<String, String> {
         val connectivity = getSystemService(ConnectivityManager::class.java)
         val active = connectivity.activeNetwork ?: return "sem rede" to "-"

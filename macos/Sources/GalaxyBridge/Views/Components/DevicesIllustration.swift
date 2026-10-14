@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// O Mac e o Galaxy lado a lado, ligados por uma linha que pulsa enquanto o app procura o celular.
 struct DevicesIllustration: View {
     enum Status { case idle, searching, connected }
 

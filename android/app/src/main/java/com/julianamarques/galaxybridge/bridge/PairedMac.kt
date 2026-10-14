@@ -4,7 +4,6 @@ import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-/** O Mac pareado: a impressão digital fixada, o nome e o último endereço em que ele respondeu. */
 data class PairedMac(
     val fingerprint: String,
     val name: String,
@@ -12,7 +11,6 @@ data class PairedMac(
     val port: Int?,
 )
 
-/** Guarda o Mac pareado (por enquanto um só) e avisa a interface quando ele muda. */
 object PairingStore {
     private const val PREFS = "pairing"
     private val state = MutableStateFlow<PairedMac?>(null)
@@ -36,7 +34,6 @@ object PairingStore {
         state.value = mac
     }
 
-    /** Guarda o endereço em que o Mac respondeu, para tentar primeiro da próxima vez. */
     fun updateAddress(context: Context, host: String, port: Int, name: String) {
         val mac = current(context) ?: return
         if (mac.host == host && mac.port == port && mac.name == name) return

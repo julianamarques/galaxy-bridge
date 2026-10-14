@@ -13,12 +13,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * Os exemplos de `protocol/fixtures` também são lidos pelos testes do Mac: decodificar e codificar de novo
- * cada um garante que os dois lados falam o mesmo JSON.
- */
 class ProtocolTest {
-    // Os testes rodam na pasta do módulo (android/app).
     private val fixtures = File("../../protocol/fixtures").listFiles { file -> file.extension == "json" }.orEmpty().sorted()
 
     @Test

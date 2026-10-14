@@ -9,7 +9,6 @@ public struct Battery: Equatable, Sendable {
         self.isCharging = isCharging
     }
 
-    /// Lê a saída de `dumpsys battery`. O status 2 é "carregando" e o 5 é "carga completa".
     public init?(dumpsys output: String) {
         var values: [String: String] = [:]
         for line in output.split(separator: "\n") {

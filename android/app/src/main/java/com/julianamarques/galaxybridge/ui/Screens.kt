@@ -91,8 +91,6 @@ private fun Header(title: String, subtitle: String) {
     }
 }
 
-// MARK: Configuração
-
 @Composable
 fun SetupScreen(pairing: PairingController, refresh: Int) {
     val activity = LocalContext.current as Activity
@@ -200,8 +198,6 @@ private fun CodeDialog(step: PairingStep.CodeEntry, pairing: PairingController) 
     )
 }
 
-// MARK: Conectado
-
 @Composable
 fun HomeScreen(mac: PairedMac, connection: BridgeState.Connection, refresh: Int) {
     val context = LocalContext.current
@@ -241,12 +237,9 @@ fun HomeScreen(mac: PairedMac, connection: BridgeState.Connection, refresh: Int)
     }
 }
 
-// MARK: Permissões
-
 @Composable
 private fun PermissionCard(refresh: Int) {
     val context = LocalContext.current
-    // `refresh` muda quando o app volta ao primeiro plano, para reler o que o usuário mudou nos Ajustes.
     fun read() = Permission.needed().associateWith { it.isGranted(context) }
     val granted = remember(refresh) { mutableStateOf(read()) }
     val request = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted.value = read() }

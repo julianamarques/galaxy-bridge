@@ -1,8 +1,6 @@
 import GalaxyKit
 import SwiftUI
 
-/// O menu da barra de menus, no desenho dos menus do sistema (Wi-Fi, Bluetooth, Bateria):
-/// cabeçalho com o aparelho, seções com títulos discretos e linhas de menu no rodapé.
 struct MenuView: View {
     @EnvironmentObject private var app: AppModel
     @Environment(\.openWindow) private var openWindow
@@ -27,8 +25,6 @@ struct MenuView: View {
         .padding(.vertical, 10)
         .frame(width: 310)
     }
-
-    // MARK: Aparelho
 
     private var notConfigured: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -114,8 +110,6 @@ struct MenuView: View {
         }
     }
 
-    // MARK: Ligações
-
     private var dialer: some View {
         VStack(alignment: .leading, spacing: 8) {
             MenuSectionTitle("Ligar pelo Galaxy")
@@ -141,8 +135,6 @@ struct MenuView: View {
         .padding(.horizontal, 8)
     }
 
-    // MARK: Rodapé
-
     private var footer: some View {
         VStack(spacing: 0) {
             SettingsLink { Text("Ajustes do \(Bundle.appName)…") }
@@ -164,10 +156,6 @@ struct MenuView: View {
     }
 }
 
-// MARK: - Componentes
-
-/// O ícone do aparelho num círculo, preenchido com a cor de destaque quando ele está conectado,
-/// como os aparelhos no menu Bluetooth.
 private struct DeviceBadge: View {
     let isConnected: Bool
 
@@ -202,7 +190,6 @@ private struct MenuDivider: View {
     }
 }
 
-/// Botão redondo de ligação, sempre verde ou vermelho como os do FaceTime (a cor não depende da janela estar ativa).
 private struct CircleButton: View {
     let systemImage: String
     let tint: Color
@@ -255,7 +242,6 @@ private extension View {
     }
 }
 
-/// Uma linha de menu: ocupa a largura toda e ganha um destaque arredondado com o ponteiro em cima.
 struct MenuRowStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         MenuRow(configuration: configuration)

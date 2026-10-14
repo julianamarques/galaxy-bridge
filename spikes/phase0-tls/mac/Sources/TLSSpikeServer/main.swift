@@ -4,12 +4,6 @@ import Network
 import Security
 import X509
 
-// Servidor TLS 1.3 de teste: identidade autoassinada só em memória (sem Keychain), certificado do
-// cliente obrigatório e conferido pela impressão digital (SHA-256), como o BridgeServer vai fazer.
-//
-//   swift run TLSSpikeServer                 aceita qualquer certificado do celular e mostra a impressão digital
-//   swift run TLSSpikeServer --pin <sha256>  só aceita o celular com essa impressão digital
-
 let port: UInt16 = 52800
 let directory = URL(fileURLWithPath: "identity", isDirectory: true)
 let arguments = CommandLine.arguments
@@ -25,7 +19,6 @@ func fingerprint(_ der: Data) -> String {
     SHA256.hash(data: der).map { String(format: "%02x", $0) }.joined()
 }
 
-/// Gera (na primeira vez) e carrega a chave P-256 e o certificado autoassinado, guardados em arquivos 0600.
 func loadIdentity() throws -> (SecIdentity, Data) {
     let keyFile = directory.appendingPathComponent("key.raw")
     let certFile = directory.appendingPathComponent("cert.der")
@@ -93,12 +86,10 @@ func makeParameters(identity: SecIdentity) -> NWParameters {
     }, queue)
 
     let parameters = NWParameters(tls: tls, tcp: NWProtocolTCP.Options())
-    // Só no localhost: o celular chega pelo cabo com `adb reverse`.
     parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: port)!)
     return parameters
 }
 
-/// Mensagens com 4 bytes de tamanho (big-endian) seguidos de JSON em UTF-8, como no protocolo planejado.
 func receive(on connection: NWConnection) {
     connection.receive(minimumIncompleteLength: 4, maximumLength: 4) { header, _, done, error in
         guard let header, header.count == 4, error == nil else {

@@ -10,16 +10,13 @@ import com.julianamarques.galaxybridge.BuildConfig
 import com.julianamarques.galaxybridge.protocol.Hello
 import com.julianamarques.galaxybridge.protocol.PhoneStatus
 
-/** O que o celular conta sobre si ao Mac. */
 object PhoneInfo {
-    /** O nome que o usuário deu ao aparelho ("Galaxy S25 da Maria"), ou o modelo. */
     fun name(context: Context): String =
         Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)?.takeIf { it.isNotBlank() }
             ?: Build.MODEL
 
     fun hello(context: Context) = Hello(appVersion = BuildConfig.VERSION_NAME, name = name(context), model = Build.MODEL)
 
-    /** Lê a bateria de um `ACTION_BATTERY_CHANGED` e os países do `TelephonyManager` (sem permissão). */
     fun status(context: Context, battery: Intent): PhoneStatus {
         val level = battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = battery.getIntExtra(BatteryManager.EXTRA_SCALE, 100).takeIf { it > 0 } ?: 100

@@ -1,7 +1,6 @@
 import Foundation
 
 public struct PhoneNumber: Equatable, Sendable {
-    /// Só dígitos e os símbolos aceitos pelo discador (`+`, `*`, `#`, `,`, `;`).
     public let digits: String
 
     private static let allowed = Set("0123456789+*#,;")
@@ -12,7 +11,6 @@ public struct PhoneNumber: Equatable, Sendable {
         self.digits = digits
     }
 
-    /// Aceita `tel:+5511999990000`, `tel://...` e números com espaços ou traços codificados na URL.
     public init?(url: URL) {
         guard url.scheme?.lowercased() == "tel" else { return nil }
         let text = url.absoluteString.dropFirst("tel:".count)
@@ -21,7 +19,6 @@ public struct PhoneNumber: Equatable, Sendable {
         self.init(number)
     }
 
-    /// URI para a intent do Android. `#` precisa ser codificado, senão vira o fragmento da URI.
     public var telURI: String {
         "tel:" + digits.replacingOccurrences(of: "#", with: "%23")
     }

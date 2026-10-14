@@ -16,13 +16,8 @@ import java.util.concurrent.Executors
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 
-/**
- * Uma conexão TLS 1.3 com o Mac, com a chave do Keystore como certificado de cliente.
- * [receive] bloqueia; [send] pode ser chamado de qualquer thread (inclusive a principal) e escreve em segundo plano.
- */
 class BridgeConnection private constructor(
     private val socket: SSLSocket,
-    /** A impressão digital do certificado que o Mac apresentou. */
     val macFingerprint: String,
 ) : Closeable {
     private val input = DataInputStream(BufferedInputStream(socket.inputStream))
@@ -32,7 +27,6 @@ class BridgeConnection private constructor(
     val host: String get() = socket.inetAddress.hostAddress ?: ""
     val port: Int get() = socket.port
 
-    /** Tempo máximo esperando a próxima mensagem; passado esse tempo, [receive] lança `SocketTimeoutException`. */
     var receiveTimeoutMs: Int
         get() = socket.soTimeout
         set(value) { socket.soTimeout = value }
@@ -52,7 +46,6 @@ class BridgeConnection private constructor(
         }
     }
 
-    /** Envia e espera a escrita terminar; só fora da thread principal. */
     fun sendNow(envelope: Envelope) {
         synchronized(output) { Frames.write(output, envelope) }
     }
@@ -65,10 +58,6 @@ class BridgeConnection private constructor(
     companion object {
         private const val CONNECT_TIMEOUT_MS = 5_000
 
-        /**
-         * Conecta ao Mac com esta impressão digital: primeiro no endereço conhecido, depois onde o Bonjour o encontrar
-         * (o endereço muda com o DHCP, e o Mac pode ter mais de um). Devolve `null` se não conseguir.
-         */
         fun openPinned(context: Context, host: String?, port: Int?, fingerprint: String, discoveryMs: Long): BridgeConnection? {
             if (host != null && port != null) {
                 runCatching { return open(host, port, fingerprint) }
@@ -82,7 +71,6 @@ class BridgeConnection private constructor(
             }
         }
 
-        /** Conecta e faz o handshake. Com [pinnedMac] nulo aceita qualquer Mac (pareamento por código). */
         fun open(host: String, port: Int, pinnedMac: String?): BridgeConnection {
             val trust = MacTrustManager(pinnedMac)
             val context = SSLContext.getInstance("TLSv1.3")

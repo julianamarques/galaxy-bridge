@@ -3,8 +3,6 @@ import Foundation
 import Security
 import X509
 
-/// A chave P-256 e o certificado autoassinado deste Mac. Ficam em arquivos com permissão 0600 e viram uma
-/// `SecIdentity` só em memória: sem Keychain, que pediria acesso de novo a cada build com assinatura local.
 public struct Identity: @unchecked Sendable {
     public let secIdentity: SecIdentity
     public let certificate: Data
@@ -38,7 +36,6 @@ public struct Identity: @unchecked Sendable {
         )
     }
 
-    /// Uma identidade só em memória, para os testes.
     public static func ephemeral(name: String = "Galaxy Bridge") throws -> Identity {
         let key = P256.Signing.PrivateKey()
         return try load(key: key, certificate: makeCertificate(key: key, name: name))
@@ -84,17 +81,14 @@ public struct Identity: @unchecked Sendable {
 }
 
 public enum Fingerprint {
-    /// SHA-256 do certificado DER, em 64 dígitos hexadecimais minúsculos.
     public static func of(_ certificate: Data) -> String {
         SHA256.hash(data: certificate).map { String(format: "%02x", $0) }.joined()
     }
 
-    /// O identificador do Mac no Bonjour: os primeiros 16 dígitos da impressão digital.
     public static func shortID(_ fingerprint: String) -> String {
         String(fingerprint.prefix(16))
     }
 
-    /// Os primeiros 12 dígitos em grupos de 4, para conferir a olho no Mac e no celular: `"3F2A 9C01 B7E4"`.
     public static func display(_ fingerprint: String) -> String {
         let digits = Array(fingerprint.prefix(12).uppercased())
         return stride(from: 0, to: digits.count, by: 4).map { String(digits[$0..<min($0 + 4, digits.count)]) }.joined(separator: " ")

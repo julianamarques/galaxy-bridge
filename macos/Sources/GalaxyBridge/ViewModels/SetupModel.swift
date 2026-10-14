@@ -6,7 +6,6 @@ import GalaxyKit
 final class SetupModel: ObservableObject {
     enum Step: Equatable {
         case welcome
-        /// O Mac mostra o QR code para o app Galaxy Bridge no celular.
         case appPair
         case missingTools
         case found(serial: String, name: String)
@@ -43,7 +42,6 @@ final class SetupModel: ObservableObject {
     @Published private(set) var usbStatus: USBStatus = .waiting
     @Published private(set) var isLocalNetworkDenied = false
 
-    /// O conteúdo do QR code lido pelo app do Galaxy, ou `nil` enquanto o servidor não está pronto.
     @Published private(set) var appLink: String?
     @Published private(set) var appCode = ""
     @Published private(set) var macFingerprint = ""
@@ -63,8 +61,6 @@ final class SetupModel: ObservableObject {
         makeCredentials()
     }
 
-    /// Antes de pedir um novo pareamento, procura um Galaxy que o adb já conheça
-    /// (por exemplo, um que foi configurado no Galaxy Mirror, que usa o mesmo servidor adb).
     func continueFromWelcome() {
         guard Tools.isInstalled else {
             step = .missingTools
@@ -115,7 +111,6 @@ final class SetupModel: ObservableObject {
         }
     }
 
-    /// A janela de configuração foi fechada: para de procurar o Galaxy e recomeça do início na próxima vez.
     func windowClosed() {
         stopAppPairing()
         stopTask()
@@ -256,11 +251,7 @@ final class SetupModel: ObservableObject {
     }
 }
 
-// MARK: - App do Galaxy
-
 extension SetupModel {
-    /// Mostra um QR code novo (e um código de seis dígitos), válido por 2 minutos; o servidor avisa quando vence
-    /// (`pairingExpired`) e um novo aparece.
     func beginAppPairing() {
         stopTask()
         step = .appPair
@@ -276,7 +267,6 @@ extension SetupModel {
         updateAppLink()
     }
 
-    /// O servidor começou a escutar (já se sabe a porta) ou falhou.
     func bridgeChanged(failure: String? = nil) {
         guard step == .appPair else { return }
         if let failure {
@@ -296,7 +286,6 @@ extension SetupModel {
         step = .done
     }
 
-    /// O caminho antigo, pela depuração sem fio ou USB do Android, para quem não quer instalar o app.
     func useAndroidDebugging() {
         stopAppPairing()
         continueFromWelcome()

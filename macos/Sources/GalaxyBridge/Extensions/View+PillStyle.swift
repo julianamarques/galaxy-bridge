@@ -18,7 +18,6 @@ extension View {
 }
 
 extension View {
-    /// Botão de vidro com a cor de destaque (ou a de `.tint`) no macOS 26 e posteriores.
     @ViewBuilder
     func prominentGlassButtonStyle() -> some View {
         if #available(macOS 26, *) {

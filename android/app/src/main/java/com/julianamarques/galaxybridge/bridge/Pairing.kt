@@ -6,24 +6,20 @@ import com.julianamarques.galaxybridge.protocol.Message
 import com.julianamarques.galaxybridge.protocol.PairRequest
 import com.julianamarques.galaxybridge.protocol.PairingLink
 
-/** O pareamento com o Mac. Todas as funções bloqueiam; chame fora da thread principal. */
 object Pairing {
     sealed interface Result {
         data object Paired : Result
         data class Failed(val message: String) : Result
     }
 
-    /** Pelo QR code: o celular já sabe o endereço e a impressão digital do Mac. */
     fun pair(context: Context, link: PairingLink): Result {
         val connection = BridgeConnection.openPinned(context, link.host, link.port, link.fingerprint, discoveryMs = 8_000)
             ?: return Result.Failed("Não foi possível conectar ao Mac. Confira se os dois estão na mesma rede Wi-Fi.")
         return connection.use { request(context, it, link.token) }
     }
 
-    /** Pelo código de seis dígitos, primeiro passo: conecta sem conhecer o Mac. O usuário confere a impressão digital. */
     fun connect(found: MacFinder.Found): BridgeConnection = BridgeConnection.open(found.host, found.port, pinnedMac = null)
 
-    /** Segundo passo, depois de o usuário confirmar a impressão digital. */
     fun pair(context: Context, connection: BridgeConnection, code: String): Result =
         connection.use { request(context, it, code) }
 

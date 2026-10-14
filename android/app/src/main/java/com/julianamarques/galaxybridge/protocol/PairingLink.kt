@@ -3,7 +3,6 @@ package com.julianamarques.galaxybridge.protocol
 import java.net.URI
 import java.net.URLDecoder
 
-/** O conteúdo do QR code mostrado no Mac: `galaxybridge://pair?v=1&host=…&port=…&fp=…&token=…`. */
 data class PairingLink(val host: String, val port: Int, val fingerprint: String, val token: String) {
     companion object {
         fun parse(text: String): PairingLink? {

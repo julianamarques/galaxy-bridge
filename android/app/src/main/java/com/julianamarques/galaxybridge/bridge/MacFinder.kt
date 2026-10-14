@@ -12,23 +12,19 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
-/** Procura Macs com o Galaxy Bridge na rede local pelo Bonjour (`_galaxybridge._tcp`). */
 class MacFinder(context: Context) {
     data class Found(val name: String, val host: String, val port: Int, val id: String?)
 
     private val context = context.applicationContext
     private val nsd = context.getSystemService(NsdManager::class.java)
 
-    /** Procura por até [timeoutMs] e devolve o primeiro Mac que satisfaz [matches], ou `null`. Bloqueia. */
     fun find(timeoutMs: Long, matches: (Found) -> Boolean): Found? =
         search(timeoutMs, matches).firstOrNull()
 
-    /** Todos os Macs encontrados em [timeoutMs]. Bloqueia. */
     fun findAll(timeoutMs: Long): List<Found> = search(timeoutMs) { false }
 
     private fun search(timeoutMs: Long, stopAt: (Found) -> Boolean): List<Found> {
         val wifi = context.getSystemService(WifiManager::class.java)
-        // O Wi-Fi descarta multicast para economizar bateria; a trava fica só enquanto procura.
         val lock = wifi.createMulticastLock("galaxybridge-discovery").apply {
             setReferenceCounted(false)
             acquire()
@@ -65,7 +61,6 @@ class MacFinder(context: Context) {
         return results
     }
 
-    /** O `NsdManager` resolve um serviço por vez; esta função espera cada um terminar. */
     @Suppress("DEPRECATION")
     private fun resolve(info: NsdServiceInfo): Found? {
         val latch = CountDownLatch(1)

@@ -2,20 +2,15 @@ import Foundation
 import Network
 import OSLog
 
-/// Recebe as conexões dos celulares (TLS 1.3 com certificados fixados dos dois lados), anuncia o Mac no Bonjour,
-/// faz o pareamento e mantém a conexão do celular pareado. Ver `protocol/protocol.md`.
 @MainActor
 public final class BridgeServer {
     public enum Event: Sendable {
-        /// Escutando; a porta está em `port`.
         case ready
         case failed(String)
         case connected(PairedPhone)
         case disconnected
         case paired(PairedPhone)
-        /// O pareamento em andamento acabou sem sucesso (tempo esgotado ou códigos errados demais).
         case pairingExpired
-        /// O celular esqueceu este Mac.
         case unpaired
         case status(PhoneStatus)
         case error(BridgeError)
@@ -24,8 +19,6 @@ public final class BridgeServer {
     public static let serviceType = "_galaxybridge._tcp"
     public static let preferredPort: UInt16 = 52800
     public static let pingInterval: TimeInterval = 120
-    /// Sem nenhuma mensagem por esse tempo, a conexão é dada como perdida. Um celular dormindo pode ficar
-    /// minutos sem responder (fase 0), então o limite é folgado.
     public static let idleTimeout: TimeInterval = 330
     static let setupTimeout: TimeInterval = 30
 
@@ -34,7 +27,6 @@ public final class BridgeServer {
     public var onEvent: ((Event) -> Void)?
     public private(set) var port: UInt16?
     public private(set) var pairing: PairingSession?
-    /// O celular conectado, depois do `hello`.
     public var phone: PairedPhone? { active?.phone }
 
     private let hello: Hello
@@ -51,8 +43,6 @@ public final class BridgeServer {
         self.store = store
         self.hello = hello
     }
-
-    // MARK: Escuta
 
     public func start(port requested: UInt16? = preferredPort) {
         guard listener == nil else { return }
@@ -138,7 +128,6 @@ public final class BridgeServer {
         return NWParameters(tls: tls, tcp: tcp)
     }
 
-    /// Um certificado é aceito se for de um celular pareado, ou de qualquer um enquanto há um pareamento em andamento.
     private func accepts(_ fingerprint: String) -> Bool {
         if store.phone(withFingerprint: fingerprint) != nil { return true }
         if let pairing, !pairing.isExpired() { return true }
@@ -146,9 +135,6 @@ public final class BridgeServer {
         return false
     }
 
-    // MARK: Pareamento
-
-    /// Começa um pareamento. Ao vencer (2 minutos, ou códigos errados demais) ele avisa com `.pairingExpired`.
     @discardableResult
     public func beginPairing() -> PairingSession {
         let session = PairingSession()
@@ -172,15 +158,12 @@ public final class BridgeServer {
         if expired { onEvent?(.pairingExpired) }
     }
 
-    /// Esquece o celular dos dois lados: avisa-o se estiver conectado e apaga a impressão digital dele.
     public func forget(_ phone: PairedPhone) {
         store.remove(fingerprint: phone.fingerprint)
         for connection in connections.values where connection.fingerprint == phone.fingerprint {
             connection.send(Envelope(.unpair)) { connection.close() }
         }
     }
-
-    // MARK: Conexões
 
     private func accept(_ connection: NWConnection) {
         let bridge = BridgeConnection(connection)
@@ -195,7 +178,6 @@ public final class BridgeServer {
             self.closed(bridge)
         }
         bridge.start()
-        // Quem não terminar o handshake e o `hello` (ou o pareamento) a tempo é desconectado.
         Timer.scheduledTimer(withTimeInterval: Self.setupTimeout, repeats: false) { [weak bridge] _ in
             MainActor.assumeIsolated {
                 guard let bridge, bridge.phone == nil else { return }
@@ -254,7 +236,6 @@ public final class BridgeServer {
         } else if pairing == nil || pairing?.isExpired() == true {
             reject(connection, .expired)
         }
-        // Senão, espera o `pair.request`.
     }
 
     private func received(_ request: PairRequest, from connection: BridgeConnection) {
@@ -286,7 +267,6 @@ public final class BridgeServer {
     private func activate(_ connection: BridgeConnection, as phone: PairedPhone) {
         connection.phone = phone
         connection.send(Envelope(.hello(hello)))
-        // Uma conexão nova do mesmo celular substitui a antiga, que provavelmente caiu sem avisar.
         let previous = active
         active = connection
         if let previous, previous !== connection {
@@ -298,9 +278,6 @@ public final class BridgeServer {
         onEvent?(.connected(phone))
     }
 
-    // MARK: Mensagens
-
-    /// Envia ao celular conectado. Devolve o `id` da mensagem, ou `nil` se não há celular conectado.
     @discardableResult
     public func send(_ message: Message) -> String? {
         guard let active else { return nil }
@@ -317,7 +294,6 @@ public final class BridgeServer {
             log.info("Celular sem responder há mais de \(Int(Self.idleTimeout), privacy: .public) s")
             active.close()
         } else if silence >= Self.pingInterval {
-            // Só pergunta se o celular ficou quieto: cada ping acorda o rádio dele.
             active.send(Envelope(.ping))
         }
     }

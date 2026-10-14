@@ -11,12 +11,6 @@ import android.telephony.PhoneStateListener
 import android.telephony.TelephonyCallback
 import android.telephony.TelephonyManager
 
-/**
- * Acompanha as chamadas por três caminhos ao mesmo tempo, para comparar o que cada um revela:
- * `TelephonyCallback` (API atual, sem número), `PhoneStateListener` (obsoleto, com número se houver
- * READ_CALL_LOG) e a notificação de chamada do discador (`Notification.CallStyle`).
- * Quando o celular toca, executa o método escolhido com `mode.sh`.
- */
 class CallListenerService : NotificationListenerService() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var telephony: TelephonyManager
@@ -132,7 +126,6 @@ class CallListenerService : NotificationListenerService() {
         }
     }
 
-    /** Depois de atender, encerra a chamada em 5 s pelo mesmo caminho, para testar também o "desligar". */
     @Suppress("DEPRECATION")
     private fun scheduleHangUp() {
         val mode = answeredBy ?: return

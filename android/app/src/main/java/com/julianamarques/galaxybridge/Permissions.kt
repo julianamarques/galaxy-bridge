@@ -10,13 +10,11 @@ import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 
-/** As permissões que o app pede, na ordem em que aparecem na tela. */
 enum class Permission(val title: String, val reason: String) {
     Notifications("Notificações", "Mostra quando o Galaxy está conectado ao Mac."),
     Calls("Ligações", "Para fazer as ligações que você pede no Mac."),
     Battery("Bateria sem restrições", "Para a conexão continuar com a tela apagada.");
 
-    /** A permissão do Android a pedir, ou `null` para a bateria, que abre uma tela do sistema. */
     val manifestPermission: String?
         get() = when (this) {
             Notifications -> Manifest.permission.POST_NOTIFICATIONS
@@ -35,7 +33,6 @@ enum class Permission(val title: String, val reason: String) {
 
         fun missing(context: Context): List<Permission> = needed().filter { !it.isGranted(context) }
 
-        /** O pedido do sistema para deixar a bateria do app sem restrições (ele vai para a lista de exceções do Doze). */
         @SuppressLint("BatteryLife")
         fun batteryIntent(context: Context) =
             Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}"))

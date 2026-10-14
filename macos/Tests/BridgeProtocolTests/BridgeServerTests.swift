@@ -3,7 +3,6 @@ import Network
 import Testing
 @testable import BridgeProtocol
 
-/// Conecta um celular de mentira (um cliente TLS com a própria identidade) ao servidor de verdade, pela rede local do Mac.
 @MainActor
 @Suite(.serialized)
 struct BridgeServerTests {
@@ -58,7 +57,6 @@ struct BridgeServerTests {
         try await phone.connect(port: port, pinning: server.identity.fingerprint)
         phone.send(Envelope(.hello(phone.hello)))
         guard case .hello = try await phone.next() else { Issue.record("sem hello"); return }
-        // O nome novo do `hello` substitui o guardado.
         #expect(server.store.phones.first?.name == "Galaxy S25")
 
         phone.send(Envelope(.ping, id: "p"))
@@ -70,7 +68,6 @@ struct BridgeServerTests {
     @Test func refusesUnknownPhoneWhenNotPairing() async throws {
         let port = try await start()
         let phone = try TestPhone()
-        // Em TLS 1.3 o handshake do cliente termina antes de o servidor recusar o certificado dele.
         try? await phone.connect(port: port, pinning: server.identity.fingerprint)
         phone.send(Envelope(.hello(phone.hello)))
         await #expect(throws: (any Error).self) { try await phone.next() }
@@ -126,8 +123,6 @@ struct BridgeServerTests {
     }
 }
 
-// MARK: - Apoio
-
 @MainActor
 final class EventLog {
     private(set) var events: [BridgeServer.Event] = []
@@ -146,7 +141,6 @@ func until(_ condition: () -> Bool, timeout: Duration = .seconds(5)) async throw
     }
 }
 
-/// Um cliente TLS 1.3 com certificado próprio, que fixa a impressão digital do Mac como o app Android.
 final class TestPhone: @unchecked Sendable {
     let identity: Identity
     let hello = Hello(appVersion: "test", name: "Galaxy S25", model: "SM-S931B")
@@ -196,7 +190,6 @@ final class TestPhone: @unchecked Sendable {
         connection?.send(content: try! Frame.encode(envelope), completion: .idempotent)
     }
 
-    /// A próxima mensagem recebida; lança erro se a conexão caiu antes.
     func next(timeout: Duration = .seconds(5)) async throws -> Message {
         let deadline = ContinuousClock.now + timeout
         while true {

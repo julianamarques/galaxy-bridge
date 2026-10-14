@@ -25,15 +25,12 @@ import com.julianamarques.galaxybridge.ui.SetupScreen
 import kotlin.concurrent.thread
 
 class MainActivity : ComponentActivity() {
-    /** Muda a cada volta ao primeiro plano, para a tela reler as permissões. */
     private var resumes by mutableIntStateOf(0)
-    /** Um link de pareamento recebido pela câmera, à espera da tela. */
     private var pendingLink by mutableStateOf<PairingLink?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        // Gera a chave no Keystore antes de precisar dela (leva um instante na primeira vez).
         thread { Identity.ensure() }
         setContent {
             GalaxyBridgeTheme {
@@ -63,7 +60,6 @@ class MainActivity : ComponentActivity() {
         BridgeService.start(this)
     }
 
-    /** O QR code do Mac também abre o app pela câmera do Galaxy (link `galaxybridge://pair`). */
     private fun handle(intent: Intent?) {
         val link = intent?.dataString?.let(PairingLink::parse) ?: return
         if (PairingStore.current(this) != null) return

@@ -1,8 +1,6 @@
 import Foundation
 import PhoneNumberKit
 
-/// Máscara e formato de discagem para qualquer país, com as regras do libphonenumber (via PhoneNumberKit).
-/// Os países são códigos ISO, como `br` ou `us`.
 @MainActor
 public final class PhoneNumbers {
     public static let shared = PhoneNumbers()
@@ -12,29 +10,22 @@ public final class PhoneNumbers {
 
     public init() {}
 
-    /// Máscara para o texto que está sendo digitado: `(86) 99999-0001` no Brasil, `(415) 555-0100` nos EUA.
-    /// Números completos usam o formato do país; o formatador parcial do libphonenumber, usado durante
-    /// a digitação, omite os parênteses do DDD no Brasil.
     public func formatPartial(_ text: String, country: String?) -> String {
         guard let region = Self.region(country), !text.isEmpty else { return text }
         let isInternational = text.hasPrefix("+")
         if let parsed = try? utility.parse(text, withRegion: region) {
             return utility.format(parsed, toType: isInternational ? .international : .national)
         }
-        // O formatador parcial se perde com a pontuação que a própria máscara pôs; ele recebe só os dígitos.
         guard !text.contains(where: { "*#,;".contains($0) }) else { return text }
         let digits = (isInternational ? "+" : "") + text.filter(\.isNumber)
         let partial = partialFormatter(for: region).formatPartial(digits)
         return region == "BR" && !isInternational ? Self.parenthesizeAreaCode(partial) : partial
     }
 
-    /// `86 9946` → `(86) 9946`, para a máscara não mudar de forma quando o número fica completo.
     private static func parenthesizeAreaCode(_ text: String) -> String {
         text.replacingOccurrences(of: #"^(\d{2}) (\d)"#, with: "($1) $2", options: .regularExpression)
     }
 
-    /// O número no formato internacional (`+5586999990001`) quando ele é válido no país;
-    /// senão, como foi digitado (números locais sem DDD, de serviço, códigos como `*144#`).
     public func dialable(_ number: PhoneNumber, country: String?) -> PhoneNumber {
         guard let region = Self.region(country),
               let parsed = try? utility.parse(number.digits, withRegion: region),

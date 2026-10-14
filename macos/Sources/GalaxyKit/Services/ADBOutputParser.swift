@@ -10,7 +10,6 @@ public enum ADBOutputParser {
         serial.contains(":") ? serial : nil
     }
 
-    /// O identificador do pareamento em serials descobertos por mDNS (`adb-R5CX123-AbCdEf._adb-tls-connect._tcp`).
     public static func mdnsGUID(_ serial: String) -> String? {
         guard let range = serial.range(of: "._adb-tls-connect._tcp") else { return nil }
         return String(serial[..<range.lowerBound])

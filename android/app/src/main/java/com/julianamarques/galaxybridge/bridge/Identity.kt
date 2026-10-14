@@ -18,10 +18,6 @@ import javax.net.ssl.X509ExtendedKeyManager
 import javax.net.ssl.X509ExtendedTrustManager
 import javax.security.auth.x500.X500Principal
 
-/**
- * A identidade do celular: uma chave P-256 no Android Keystore (nunca sai do hardware seguro) com um certificado
- * autoassinado, apresentado ao Mac como certificado de cliente.
- */
 object Identity {
     private const val ALIAS = "galaxybridge-identity"
     private val keyStore: KeyStore by lazy { KeyStore.getInstance("AndroidKeyStore").apply { load(null) } }
@@ -32,7 +28,6 @@ object Identity {
         val now = System.currentTimeMillis()
         val spec = KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_SIGN)
             .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
-            // O TLS assina o resumo já calculado (NONE); os outros servem para o certificado.
             .setDigests(KeyProperties.DIGEST_NONE, KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA384, KeyProperties.DIGEST_SHA512)
             .setCertificateSubject(X500Principal("CN=Galaxy Bridge"))
             .setCertificateSerialNumber(BigInteger.valueOf(now))
@@ -55,13 +50,10 @@ object Identity {
     fun fingerprint(der: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(der).joinToString("") { "%02x".format(it) }
 
-    /** Os primeiros 12 dígitos em grupos de 4, como o Mac mostra: `"3F2A 9C01 B7E4"`. */
     fun display(fingerprint: String): String = fingerprint.take(12).uppercase().chunked(4).joinToString(" ")
 
-    /** O identificador do Mac no Bonjour: os primeiros 16 dígitos da impressão digital. */
     fun shortId(fingerprint: String): String = fingerprint.take(16)
 
-    /** Entrega a chave do Keystore como certificado de cliente. */
     object KeyManager : X509ExtendedKeyManager() {
         override fun chooseClientAlias(keyType: Array<out String>?, issuers: Array<out Principal>?, socket: Socket?) = ALIAS
         override fun chooseEngineClientAlias(keyType: Array<out String>?, issuers: Array<out Principal>?, engine: SSLEngine?) = ALIAS
@@ -73,11 +65,6 @@ object Identity {
     }
 }
 
-/**
- * Confere o certificado do Mac pela impressão digital, sem autoridades certificadoras. Com [pinned] nulo aceita
- * qualquer um (pareamento por código: o usuário confere a impressão digital na tela antes de continuar).
- * Guarda a impressão digital vista em [seen].
- */
 class MacTrustManager(private val pinned: String?) : X509ExtendedTrustManager() {
     @Volatile var seen: String? = null
         private set

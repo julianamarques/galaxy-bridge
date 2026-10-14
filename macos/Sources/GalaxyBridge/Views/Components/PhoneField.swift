@@ -2,8 +2,6 @@ import AppKit
 import GalaxyKit
 import SwiftUI
 
-/// Campo de telefone com máscara. O `TextField` do SwiftUI no macOS não mostra mudanças feitas no texto
-/// enquanto ele está sendo editado, então a máscara é aplicada direto no `NSTextField`.
 struct PhoneField: NSViewRepresentable {
     let placeholder: String
     @Binding var text: String
@@ -14,7 +12,6 @@ struct PhoneField: NSViewRepresentable {
         let field = NSTextField()
         field.placeholderString = placeholder
         field.bezelStyle = .roundedBezel
-        // Mesma altura dos botões redondos ao lado, que usam o tamanho grande.
         field.controlSize = .large
         field.font = .systemFont(ofSize: NSFont.systemFontSize(for: .large))
         field.delegate = context.coordinator

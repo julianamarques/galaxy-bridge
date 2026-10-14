@@ -3,7 +3,6 @@ package com.julianamarques.galaxybridge.spike
 import android.content.Context
 import android.util.Log
 
-/** Log e o método escolhido para a próxima chamada. */
 object Spike {
     private const val TAG = "GBSpike"
     private const val PREFS = "spike"
@@ -24,7 +23,6 @@ object Spike {
         return Mode.entries.firstOrNull { it.name == name } ?: Mode.OBSERVE
     }
 
-    /** Ordem do modo `sequence`: cada ligação testa um método, e o app avança quando ela termina. */
     private val sequence = listOf(Mode.ANSWER_TELECOM, Mode.DECLINE_TELECOM, Mode.ANSWER_NOTIFICATION, Mode.DECLINE_NOTIFICATION)
     private const val KEY_SEQUENCE = "sequence"
 
@@ -33,7 +31,6 @@ object Spike {
         setMode(context, sequence.first())
     }
 
-    /** Depois de uma ligação, passa para o próximo método da sequência (ou para OBSERVE no fim). */
     fun advance(context: Context) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_SEQUENCE, false)) return

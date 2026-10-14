@@ -7,7 +7,6 @@
         android:label="GB Spike: TLS"
         android:allowBackup="false">
 
-        <!-- Comandos vindos do adb. Só o shell e o sistema têm a permissão DUMP. -->
         <receiver
             android:name=".CommandReceiver"
             android:exported="true"
