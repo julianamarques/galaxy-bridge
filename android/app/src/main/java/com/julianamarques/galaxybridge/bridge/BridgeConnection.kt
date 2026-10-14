@@ -1,5 +1,8 @@
 package com.julianamarques.galaxybridge.bridge
 
+import android.content.Context
+import android.util.Log
+import com.julianamarques.galaxybridge.TAG
 import com.julianamarques.galaxybridge.protocol.Envelope
 import com.julianamarques.galaxybridge.protocol.Frames
 import java.io.BufferedInputStream
@@ -61,6 +64,23 @@ class BridgeConnection private constructor(
 
     companion object {
         private const val CONNECT_TIMEOUT_MS = 5_000
+
+        /**
+         * Conecta ao Mac com esta impressão digital: primeiro no endereço conhecido, depois onde o Bonjour o encontrar
+         * (o endereço muda com o DHCP, e o Mac pode ter mais de um). Devolve `null` se não conseguir.
+         */
+        fun openPinned(context: Context, host: String?, port: Int?, fingerprint: String, discoveryMs: Long): BridgeConnection? {
+            if (host != null && port != null) {
+                runCatching { return open(host, port, fingerprint) }
+            }
+            val found = MacFinder(context).find(discoveryMs) { it.id == Identity.shortId(fingerprint) } ?: return null
+            return try {
+                open(found.host, found.port, fingerprint)
+            } catch (e: Exception) {
+                Log.i(TAG, "Mac encontrado, mas a conexão falhou: ${e.message}")
+                null
+            }
+        }
 
         /** Conecta e faz o handshake. Com [pinnedMac] nulo aceita qualquer Mac (pareamento por código). */
         fun open(host: String, port: Int, pinnedMac: String?): BridgeConnection {

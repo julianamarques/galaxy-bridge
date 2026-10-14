@@ -8,7 +8,13 @@ import X509
 public struct Identity: @unchecked Sendable {
     public let secIdentity: SecIdentity
     public let certificate: Data
-    public var fingerprint: String { Fingerprint.of(certificate) }
+    public let fingerprint: String
+
+    private init(secIdentity: SecIdentity, certificate: Data) {
+        self.secIdentity = secIdentity
+        self.certificate = certificate
+        fingerprint = Fingerprint.of(certificate)
+    }
 
     public enum Failure: Error {
         case invalidKey(String)

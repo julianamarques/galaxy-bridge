@@ -7,8 +7,8 @@ import OSLog
 @MainActor
 public final class BridgeServer {
     public enum Event: Sendable {
-        /// Escutando nesta porta.
-        case ready(port: UInt16)
+        /// Escutando; a porta está em `port`.
+        case ready
         case failed(String)
         case connected(PairedPhone)
         case disconnected
@@ -16,9 +16,9 @@ public final class BridgeServer {
         /// O pareamento em andamento acabou sem sucesso (tempo esgotado ou códigos errados demais).
         case pairingExpired
         /// O celular esqueceu este Mac.
-        case unpaired(PairedPhone)
+        case unpaired
         case status(PhoneStatus)
-        case error(BridgeError, replyTo: String?)
+        case error(BridgeError)
     }
 
     public static let serviceType = "_galaxybridge._tcp"
@@ -39,10 +39,10 @@ public final class BridgeServer {
 
     private let hello: Hello
     private var listener: NWListener?
-    private var pending: Set<ObjectIdentifier> = []
     private var connections: [ObjectIdentifier: BridgeConnection] = [:]
     private var active: BridgeConnection?
     private var timer: Timer?
+    private var pairingTimer: Timer?
     private var nextID = 0
     private let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.julianamarques.BridgeProtocol", category: "bridge")
 
@@ -89,6 +89,8 @@ public final class BridgeServer {
     public func stop() {
         timer?.invalidate()
         timer = nil
+        pairingTimer?.invalidate()
+        pairingTimer = nil
         listener?.cancel()
         listener = nil
         port = nil
@@ -100,7 +102,7 @@ public final class BridgeServer {
         case .ready:
             port = listener?.port?.rawValue
             log.info("Escutando na porta \(self.port ?? 0, privacy: .public)")
-            if let port { onEvent?(.ready(port: port)) }
+            onEvent?(.ready)
         case .failed(let error):
             listener?.cancel()
             listener = nil
@@ -146,15 +148,28 @@ public final class BridgeServer {
 
     // MARK: Pareamento
 
+    /// Começa um pareamento. Ao vencer (2 minutos, ou códigos errados demais) ele avisa com `.pairingExpired`.
     @discardableResult
     public func beginPairing() -> PairingSession {
         let session = PairingSession()
         pairing = session
+        pairingTimer?.invalidate()
+        pairingTimer = Timer.scheduledTimer(withTimeInterval: max(session.expiresAt.timeIntervalSinceNow, 0), repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.pairingEnded(expired: true) }
+        }
         return session
     }
 
     public func cancelPairing() {
+        pairingEnded(expired: false)
+    }
+
+    private func pairingEnded(expired: Bool) {
+        pairingTimer?.invalidate()
+        pairingTimer = nil
+        guard pairing != nil else { return }
         pairing = nil
+        if expired { onEvent?(.pairingExpired) }
     }
 
     /// Esquece o celular dos dois lados: avisa-o se estiver conectado e apaga a impressão digital dele.
@@ -208,12 +223,12 @@ public final class BridgeServer {
         case .status(let status) where connection === active:
             onEvent?(.status(status))
         case .error(let error) where connection === active:
-            onEvent?(.error(error, replyTo: envelope.replyTo))
+            onEvent?(.error(error))
         case .unpair where connection === active:
             if let phone = connection.phone {
                 store.remove(fingerprint: phone.fingerprint)
                 log.info("O celular esqueceu este Mac")
-                onEvent?(.unpaired(phone))
+                onEvent?(.unpaired)
             }
             connection.close()
         default:
@@ -249,7 +264,7 @@ public final class BridgeServer {
         pairing = session
         switch result {
         case .accepted:
-            pairing = nil
+            pairingEnded(expired: false)
             let phone = PairedPhone(fingerprint: fingerprint, name: request.name, model: request.model)
             store.save(phone)
             log.info("Pareado com \(request.name, privacy: .public)")
@@ -259,9 +274,8 @@ public final class BridgeServer {
         case .invalid:
             reject(connection, .invalid)
         case .expired:
-            pairing = nil
             reject(connection, .expired)
-            onEvent?(.pairingExpired)
+            pairingEnded(expired: true)
         }
     }
 
@@ -297,15 +311,13 @@ public final class BridgeServer {
     }
 
     private func keepAlive() {
-        if let pairing, pairing.isExpired() {
-            self.pairing = nil
-            onEvent?(.pairingExpired)
-        }
         guard let active else { return }
-        if Date().timeIntervalSince(active.lastReceived) > Self.idleTimeout {
+        let silence = Date().timeIntervalSince(active.lastReceived)
+        if silence > Self.idleTimeout {
             log.info("Celular sem responder há mais de \(Int(Self.idleTimeout), privacy: .public) s")
             active.close()
-        } else {
+        } else if silence >= Self.pingInterval {
+            // Só pergunta se o celular ficou quieto: cada ping acorda o rádio dele.
             active.send(Envelope(.ping))
         }
     }

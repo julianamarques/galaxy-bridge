@@ -1,6 +1,5 @@
 package com.julianamarques.galaxybridge.bridge
 
-import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -10,17 +9,20 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
 import android.net.Network
+import android.net.NetworkCapabilities
 import android.net.Uri
+import android.os.BatteryManager
 import android.os.Bundle
 import android.os.IBinder
 import android.telecom.TelecomManager
 import android.util.Log
 import com.julianamarques.galaxybridge.MainActivity
+import com.julianamarques.galaxybridge.Permission
 import com.julianamarques.galaxybridge.R
+import com.julianamarques.galaxybridge.TAG
 import com.julianamarques.galaxybridge.protocol.BridgeError
 import com.julianamarques.galaxybridge.protocol.Envelope
 import com.julianamarques.galaxybridge.protocol.Message
@@ -41,6 +43,7 @@ class BridgeService : Service() {
     @Volatile private var connection: BridgeConnection? = null
     @Volatile private var established = false
     @Volatile private var lastStatus: PhoneStatus? = null
+    @Volatile private var lastBattery: Pair<Int, Int>? = null
     private var worker: Thread? = null
 
     private val batteryReceiver = object : BroadcastReceiver() {
@@ -63,7 +66,6 @@ class BridgeService : Service() {
         createChannel(this)
         startForeground(NOTIFICATION_ID, notification(BridgeState.Connection.Searching), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         running = true
-        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback)
         worker = thread(name = "bridge") { run() }
     }
@@ -78,7 +80,6 @@ class BridgeService : Service() {
         instance = null
         connection?.close()
         wake()
-        unregisterReceiver(batteryReceiver)
         runCatching { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(networkCallback) }
         BridgeState.set(BridgeState.Connection.Stopped)
         super.onDestroy()
@@ -91,6 +92,11 @@ class BridgeService : Service() {
         while (running) {
             val mac = PairingStore.current(this) ?: break
             if (BridgeState.connection.value != BridgeState.Connection.Refused) setState(BridgeState.Connection.Searching)
+            // Fora do Wi-Fi o Mac não está ao alcance: em vez de tentar a cada poucos minutos, espera a rede mudar.
+            if (!isOnWiFi()) {
+                sleep(0)
+                continue
+            }
             val wasEstablished = session(mac)
             if (!running) break
             delay = if (wasEstablished) RETRY_DELAYS.first() else RETRY_DELAYS.firstOrNull { it > delay } ?: RETRY_DELAYS.last()
@@ -124,7 +130,9 @@ class BridgeService : Service() {
             }
             established = true
             lastStatus = null
-            registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))?.let(::sendStatus)
+            lastBattery = null
+            // Só escuta a bateria enquanto há conexão; o registro já entrega o estado atual.
+            registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             connection.receiveTimeoutMs = RECEIVE_TIMEOUT_MS
             while (running) {
                 val envelope = connection.receive()
@@ -139,6 +147,7 @@ class BridgeService : Service() {
         } catch (e: IOException) {
             Log.i(TAG, "Conexão encerrada: ${e.javaClass.simpleName} ${e.message}")
         } finally {
+            if (established) runCatching { unregisterReceiver(batteryReceiver) }
             established = false
             this.connection = null
             connection.close()
@@ -146,18 +155,13 @@ class BridgeService : Service() {
         return greeted
     }
 
-    /** Tenta o último endereço que funcionou; depois procura o Mac pelo Bonjour. */
-    private fun open(mac: PairedMac): BridgeConnection? {
-        if (mac.host != null && mac.port != null) {
-            runCatching { return BridgeConnection.open(mac.host, mac.port, mac.fingerprint) }
-        }
-        val found = MacFinder(this).find(DISCOVERY_TIMEOUT_MS) { it.id == Identity.shortId(mac.fingerprint) } ?: return null
-        return try {
-            BridgeConnection.open(found.host, found.port, mac.fingerprint)
-        } catch (e: Exception) {
-            Log.i(TAG, "Mac encontrado, mas a conexão falhou: ${e.message}")
-            null
-        }
+    private fun open(mac: PairedMac): BridgeConnection? =
+        BridgeConnection.openPinned(this, mac.host, mac.port, mac.fingerprint, DISCOVERY_TIMEOUT_MS)
+
+    private fun isOnWiFi(): Boolean {
+        val connectivity = getSystemService(ConnectivityManager::class.java)
+        return connectivity.getNetworkCapabilities(connectivity.activeNetwork)
+            ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
     }
 
     private fun handle(envelope: Envelope, connection: BridgeConnection) {
@@ -176,6 +180,7 @@ class BridgeService : Service() {
         }
     }
 
+    /** Espera [millis] ms, ou até [wake] (com 0, só até [wake]). */
     private fun sleep(millis: Long) {
         synchronized(lock) {
             if (!wakeRequested) lock.wait(millis)
@@ -196,6 +201,10 @@ class BridgeService : Service() {
     private fun sendStatus(battery: Intent) {
         val connection = connection ?: return
         if (!established) return
+        // A transmissão chega a cada mudança de tensão ou temperatura; só o nível e o carregamento interessam.
+        val key = battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) to battery.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+        if (key == lastBattery) return
+        lastBattery = key
         val status = PhoneInfo.status(this, battery)
         if (status == lastStatus) return
         lastStatus = status
@@ -204,7 +213,7 @@ class BridgeService : Service() {
 
     /** Devolve o erro para o Mac, ou `null` se a ligação começou. */
     private fun placeCall(number: String): BridgeError? {
-        if (checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
+        if (!Permission.Calls.isGranted(this)) {
             return BridgeError("permission", "O Galaxy Bridge não tem permissão para fazer ligações. Abra o app no Galaxy para permitir.")
         }
         return try {
@@ -221,6 +230,7 @@ class BridgeService : Service() {
     // MARK: Notificação
 
     private fun setState(state: BridgeState.Connection) {
+        if (state == BridgeState.connection.value) return
         BridgeState.set(state)
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(state))
     }
@@ -245,7 +255,6 @@ class BridgeService : Service() {
     }
 
     companion object {
-        private const val TAG = "GalaxyBridge"
         private const val CHANNEL_ID = "connection"
         private const val NOTIFICATION_ID = 1
         private const val RECEIVE_TIMEOUT_MS = 6 * 60_000

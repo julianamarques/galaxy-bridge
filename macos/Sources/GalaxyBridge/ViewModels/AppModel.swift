@@ -1,6 +1,7 @@
 import AppKit
 import BridgeProtocol
 import GalaxyKit
+import SystemConfiguration
 
 @MainActor
 final class AppModel: ObservableObject {
@@ -20,7 +21,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var pairedDevice: PairedDevice?
     /// O Galaxy com o app Galaxy Bridge instalado. Quando existe, tem prioridade sobre o adb.
     @Published private(set) var appPhone: PairedPhone?
-    @Published private(set) var isAppConnected = false
+    @Published private(set) var isAppConnected = false {
+        didSet { if !isAppConnected { battery = nil } }
+    }
     @Published private(set) var connection: Connection = .idle {
         didSet {
             guard connection.serial != oldValue.serial else { return }
@@ -60,7 +63,7 @@ final class AppModel: ObservableObject {
     func launched() {
         // Carrega os dados de números de telefone agora, para a primeira tecla no discador não travar o menu.
         _ = PhoneNumbers.shared
-        let store = PairingStore(file: Self.supportDirectory.appendingPathComponent("paired-phones.json"))
+        let store = PairingStore(file: Self.pairingStoreFile)
         appPhone = store.phones.last
         if appPhone != nil {
             startBridge(store: store)
@@ -190,25 +193,32 @@ final class AppModel: ObservableObject {
         setupRequested = true
     }
 
+    /// Troca a depuração do Android pelo app Galaxy Bridge no celular.
+    func setUpApp() {
+        setup.beginAppPairing()
+        setupRequested = true
+    }
+
     func forget() {
         if let phone = appPhone {
             bridge?.forget(phone)
-            appPhone = nil
-            isAppConnected = false
-            battery = nil
-            setup.reset()
-            setupRequested = true
-            return
+            clearAppPhone()
+        } else {
+            if let serial = connection.serial, !ADBOutputParser.isUSBSerial(serial) {
+                Task { await ADB.disconnect(serial) }
+            }
+            dropADBDevice()
         }
+        setup.reset()
+        setupRequested = true
+    }
+
+    /// Deixa de usar o Galaxy pelo adb (esquecido, ou trocado pelo app).
+    private func dropADBDevice() {
         keepAliveTask?.cancel()
-        if let serial = connection.serial, !ADBOutputParser.isUSBSerial(serial) {
-            Task { await ADB.disconnect(serial) }
-        }
         UserDefaults.standard.removeObject(forKey: Self.deviceKey)
         pairedDevice = nil
         connection = .idle
-        setup.reset()
-        setupRequested = true
     }
 
     private func save(_ device: PairedDevice) {
@@ -308,6 +318,8 @@ extension AppModel {
             .appendingPathComponent(Bundle.appName, isDirectory: true)
     }
 
+    static var pairingStoreFile: URL { supportDirectory.appendingPathComponent("paired-phones.json") }
+
     /// Começa a escutar os celulares. Só é chamado com um celular pareado ou durante um pareamento,
     /// para quem usa só o adb não ter um servidor aberto à toa.
     @discardableResult
@@ -315,10 +327,11 @@ extension AppModel {
         if let bridge { return bridge }
         do {
             let identity = try Identity.loadOrCreate(in: Self.supportDirectory.appendingPathComponent("identity", isDirectory: true))
-            let store = store ?? PairingStore(file: Self.supportDirectory.appendingPathComponent("paired-phones.json"))
+            let store = store ?? PairingStore(file: Self.pairingStoreFile)
             let hello = Hello(
                 appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0",
-                name: Host.current().localizedName ?? "Mac",
+                // `Host.current()` resolveria todos os endereços do Mac e travaria a abertura do app.
+                name: SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "Mac",
                 model: Self.hardwareModel
             )
             let bridge = BridgeServer(identity: identity, store: store, hello: hello)
@@ -345,36 +358,35 @@ extension AppModel {
             callError = nil
         case .disconnected:
             isAppConnected = false
-            battery = nil
         case .paired(let phone):
             didPairApp(phone)
         case .pairingExpired:
             setup.pairingExpired()
         case .unpaired:
-            appPhone = nil
-            isAppConnected = false
-            battery = nil
+            clearAppPhone()
         case .status(let status):
             let battery = Battery(level: status.battery.level, isCharging: status.battery.charging)
             if battery != self.battery { self.battery = battery }
             if let country = (status.networkCountry ?? status.simCountry)?.lowercased(), country != phoneCountry {
                 phoneCountry = country
             }
-        case .error(let error, _):
+        case .error(let error):
             callError = error.message
         }
     }
 
     /// O app do Galaxy substitui a conexão pelo adb, que deixa de ser usada.
     private func didPairApp(_ phone: PairedPhone) {
-        keepAliveTask?.cancel()
         deviceMonitor.stop()
         isMonitoringDevices = false
-        connection = .idle
-        UserDefaults.standard.removeObject(forKey: Self.deviceKey)
-        pairedDevice = nil
+        dropADBDevice()
         appPhone = phone
         setup.appPaired()
+    }
+
+    private func clearAppPhone() {
+        appPhone = nil
+        isAppConnected = false
     }
 
     private static var hardwareModel: String {

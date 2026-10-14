@@ -16,6 +16,9 @@ struct SettingsView: View {
                     LabeledContent("Celular", value: app.deviceName)
                     LabeledContent("Conexão", value: app.appPhone != nil ? "App Galaxy Bridge" : "Depuração do Android")
                     HStack {
+                        if app.appPhone == nil {
+                            Button("Usar o App no Galaxy…") { app.setUpApp() }
+                        }
                         if app.appPhone == nil, app.pairedDevice?.supportsWiFi == false {
                             Button("Configurar Wi-Fi…") { app.setUpWiFi() }
                         }

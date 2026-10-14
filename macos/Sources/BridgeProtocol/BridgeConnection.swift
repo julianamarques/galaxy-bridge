@@ -13,7 +13,6 @@ final class BridgeConnection {
     private var decoder = FrameDecoder()
     private var isClosed = false
 
-    var onReady: (() -> Void)?
     var onMessage: ((Envelope) -> Void)?
     var onClose: (() -> Void)?
 
@@ -48,7 +47,6 @@ final class BridgeConnection {
         case .ready:
             fingerprint = Self.peerFingerprint(of: connection)
             guard fingerprint != nil else { return close() }
-            onReady?()
             receive()
         case .failed, .cancelled, .waiting:
             close()
@@ -66,7 +64,7 @@ final class BridgeConnection {
                     do {
                         for body in try self.decoder.append(data) {
                             // Uma mensagem que não decodifica (um campo obrigatório faltando) é ignorada, como um tipo desconhecido.
-                            guard let envelope = try? JSONDecoder().decode(Envelope.self, from: body) else { continue }
+                            guard let envelope = try? Frame.decoder.decode(Envelope.self, from: body) else { continue }
                             self.onMessage?(envelope)
                             if self.isClosed { return }
                         }

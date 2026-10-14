@@ -39,7 +39,6 @@ final class SetupModel: ObservableObject {
         }
     }
     @Published private(set) var isPairing = false
-    @Published private(set) var isLookingForDevices = false
     @Published private(set) var codeError: String?
     @Published private(set) var usbStatus: USBStatus = .waiting
     @Published private(set) var isLocalNetworkDenied = false
@@ -50,7 +49,6 @@ final class SetupModel: ObservableObject {
     @Published private(set) var macFingerprint = ""
     @Published private(set) var appPairingProblem: String?
     private var appToken: String?
-    private var expiryTask: Task<Void, Never>?
 
     private(set) var qrName = ""
     private(set) var qrPassword = ""
@@ -74,8 +72,6 @@ final class SetupModel: ObservableObject {
         }
         task?.cancel()
         task = Task {
-            isLookingForDevices = true
-            defer { isLookingForDevices = false }
             await ADB.startServer()
             guard let ready = await ADB.devices().first(where: \.isReady) else {
                 step = .prepare
@@ -263,7 +259,8 @@ final class SetupModel: ObservableObject {
 // MARK: - App do Galaxy
 
 extension SetupModel {
-    /// Mostra um QR code novo (e um código de seis dígitos), válido por 2 minutos e renovado sozinho ao vencer.
+    /// Mostra um QR code novo (e um código de seis dígitos), válido por 2 minutos; o servidor avisa quando vence
+    /// (`pairingExpired`) e um novo aparece.
     func beginAppPairing() {
         stopTask()
         step = .appPair
@@ -277,12 +274,6 @@ extension SetupModel {
         appCode = "\(session.code.prefix(3)) \(session.code.suffix(3))"
         macFingerprint = Fingerprint.display(bridge.identity.fingerprint)
         updateAppLink()
-        expiryTask?.cancel()
-        expiryTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(max(session.expiresAt.timeIntervalSinceNow, 1)))
-            guard !Task.isCancelled, let self, self.step == .appPair else { return }
-            self.beginAppPairing()
-        }
     }
 
     /// O servidor começou a escutar (já se sabe a porta) ou falhou.
@@ -326,8 +317,6 @@ extension SetupModel {
     }
 
     private func stopAppPairing() {
-        expiryTask?.cancel()
-        expiryTask = nil
         appToken = nil
         app.bridge?.cancelPairing()
     }

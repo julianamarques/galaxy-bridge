@@ -35,19 +35,8 @@ struct AppPairingView: View {
     }
 
     private var qrCode: some View {
-        QRCodeView(payload: setup.appLink ?? "")
-            .frame(width: 210, height: 210)
-            .padding(14)
-            .background(.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay {
-                if setup.appLink == nil {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(.regularMaterial)
-                        .overlay {
-                            if setup.appPairingProblem == nil { ProgressView() }
-                        }
-                }
-            }
-            .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+        QRCodeCard(payload: setup.appLink ?? "", isCovered: setup.appLink == nil) {
+            if setup.appPairingProblem == nil { ProgressView() }
+        }
     }
 }

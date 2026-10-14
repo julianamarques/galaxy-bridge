@@ -6,6 +6,7 @@ import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.util.Log
+import com.julianamarques.galaxybridge.TAG
 import java.net.Inet4Address
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
@@ -20,7 +21,7 @@ class MacFinder(context: Context) {
 
     /** Procura por até [timeoutMs] e devolve o primeiro Mac que satisfaz [matches], ou `null`. Bloqueia. */
     fun find(timeoutMs: Long, matches: (Found) -> Boolean): Found? =
-        search(timeoutMs) { found -> matches(found) }.firstOrNull()
+        search(timeoutMs, matches).firstOrNull()
 
     /** Todos os Macs encontrados em [timeoutMs]. Bloqueia. */
     fun findAll(timeoutMs: Long): List<Found> = search(timeoutMs) { false }
@@ -89,6 +90,5 @@ class MacFinder(context: Context) {
 
     companion object {
         const val SERVICE_TYPE = "_galaxybridge._tcp"
-        private const val TAG = "GalaxyBridge"
     }
 }

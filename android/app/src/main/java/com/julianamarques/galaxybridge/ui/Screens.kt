@@ -214,7 +214,8 @@ fun HomeScreen(mac: PairedMac, connection: BridgeState.Connection, refresh: Int)
     }
     Page {
         Header(mac.name, status)
-        if (Permission.missing(context).isNotEmpty()) PermissionCard(refresh)
+        val missing = remember(refresh) { Permission.missing(context).isNotEmpty() }
+        if (missing) PermissionCard(refresh)
         Text(
             "Pode fechar este app: a conexão continua em segundo plano e volta sozinha quando o celular reinicia.",
             style = MaterialTheme.typography.bodyMedium,
@@ -246,10 +247,9 @@ fun HomeScreen(mac: PairedMac, connection: BridgeState.Connection, refresh: Int)
 private fun PermissionCard(refresh: Int) {
     val context = LocalContext.current
     // `refresh` muda quando o app volta ao primeiro plano, para reler o que o usuário mudou nos Ajustes.
-    val granted = remember(refresh) { mutableStateOf(Permission.needed().associateWith { it.isGranted(context) }) }
-    val request = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        granted.value = Permission.needed().associateWith { it.isGranted(context) }
-    }
+    fun read() = Permission.needed().associateWith { it.isGranted(context) }
+    val granted = remember(refresh) { mutableStateOf(read()) }
+    val request = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted.value = read() }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(vertical = 8.dp)) {
             Permission.needed().forEach { permission ->

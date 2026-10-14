@@ -3,13 +3,15 @@ import Foundation
 /// Cada mensagem vai como 4 bytes de tamanho (big-endian) seguidos do JSON em UTF-8.
 public enum Frame {
     public static let maxLength = 1 << 20
+    private static let encoder = JSONEncoder()
+    static let decoder = JSONDecoder()
 
     public enum Failure: Error, Equatable {
         case tooLong(Int)
     }
 
     public static func encode(_ envelope: Envelope) throws -> Data {
-        let body = try JSONEncoder().encode(envelope)
+        let body = try encoder.encode(envelope)
         guard body.count <= maxLength else { throw Failure.tooLong(body.count) }
         var length = UInt32(body.count).bigEndian
         return Data(bytes: &length, count: 4) + body
@@ -31,8 +33,9 @@ public struct FrameDecoder {
             let length = buffer.prefix(4).reduce(0) { $0 << 8 | Int($1) }
             guard length <= Frame.maxLength else { throw Frame.Failure.tooLong(length) }
             guard buffer.count >= 4 + length else { break }
-            bodies.append(Data(buffer.dropFirst(4).prefix(length)))
-            buffer = Data(buffer.dropFirst(4 + length))
+            let start = buffer.startIndex
+            bodies.append(buffer.subdata(in: start + 4 ..< start + 4 + length))
+            buffer.removeSubrange(start ..< start + 4 + length)
         }
         return bodies
     }

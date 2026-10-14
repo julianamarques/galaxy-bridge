@@ -29,18 +29,9 @@ struct PairingView: View {
     }
 
     private var qrHeader: some View {
-        QRCodeView(payload: setup.qrPayload)
-            .frame(width: 210, height: 210)
-            .padding(14)
-            .background(.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay {
-                if setup.isPairing {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(.regularMaterial)
-                        .overlay(ProgressView("Pareando…"))
-                }
-            }
-            .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+        QRCodeCard(payload: setup.qrPayload, isCovered: setup.isPairing) {
+            ProgressView("Pareando…")
+        }
     }
 
     private var qrSteps: some View {

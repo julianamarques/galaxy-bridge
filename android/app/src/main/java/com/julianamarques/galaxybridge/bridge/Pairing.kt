@@ -9,24 +9,14 @@ import com.julianamarques.galaxybridge.protocol.PairingLink
 /** O pareamento com o Mac. Todas as funções bloqueiam; chame fora da thread principal. */
 object Pairing {
     sealed interface Result {
-        data class Paired(val macName: String) : Result
+        data object Paired : Result
         data class Failed(val message: String) : Result
     }
 
     /** Pelo QR code: o celular já sabe o endereço e a impressão digital do Mac. */
     fun pair(context: Context, link: PairingLink): Result {
-        val connection = try {
-            BridgeConnection.open(link.host, link.port, link.fingerprint)
-        } catch (e: Exception) {
-            // O Mac pode ter mais de um endereço; procura pelo Bonjour antes de desistir.
-            val found = MacFinder(context).find(8_000) { it.id == Identity.shortId(link.fingerprint) }
-                ?: return Result.Failed("Não foi possível conectar ao Mac. Confira se os dois estão na mesma rede Wi-Fi.")
-            try {
-                BridgeConnection.open(found.host, found.port, link.fingerprint)
-            } catch (e: Exception) {
-                return Result.Failed("Não foi possível conectar ao Mac: ${e.message}")
-            }
-        }
+        val connection = BridgeConnection.openPinned(context, link.host, link.port, link.fingerprint, discoveryMs = 8_000)
+            ?: return Result.Failed("Não foi possível conectar ao Mac. Confira se os dois estão na mesma rede Wi-Fi.")
         return connection.use { request(context, it, link.token) }
     }
 
@@ -50,7 +40,7 @@ object Pairing {
                     is Message.HelloMessage -> {
                         val name = macName ?: message.body.name
                         PairingStore.save(context, PairedMac(connection.macFingerprint, name, connection.host, connection.port))
-                        return Result.Paired(name)
+                        return Result.Paired
                     }
                     is Message.PairRejectedMessage -> return Result.Failed(
                         if (message.body.reason == "invalid") "Código incorreto. Confira o código no Mac."

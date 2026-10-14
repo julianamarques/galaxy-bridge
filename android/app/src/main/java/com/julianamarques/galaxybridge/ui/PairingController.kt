@@ -117,7 +117,7 @@ class PairingController(context: Context, private val scope: CoroutineScope) {
 
     private fun finish(result: Pairing.Result) {
         step = when (result) {
-            is Pairing.Result.Paired -> {
+            Pairing.Result.Paired -> {
                 BridgeService.start(context)
                 PairingStep.Idle
             }
