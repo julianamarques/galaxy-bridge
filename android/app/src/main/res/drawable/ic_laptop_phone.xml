@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- O Mac e o Galaxy lado a lado, como no ícone do app no Mac. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:fillType="evenOdd"
+        android:pathData="M3,5h11a1,1 0,0 1,1 1v8H2V6a1,1 0,0 1,1 -1zM4,7v5h9V7zM1,15h15v1a1,1 0,0 1,-1 1H2a1,1 0,0 1,-1 -1zM18,8h4a1,1 0,0 1,1 1v11a1,1 0,0 1,-1 1h-4a1,1 0,0 1,-1 -1V9a1,1 0,0 1,1 -1zM18.5,10v8.5h3V10z" />
+</vector>

@@ -1,0 +1,67 @@
+package com.julianamarques.galaxybridge.bridge
+
+import android.content.Context
+import com.julianamarques.galaxybridge.protocol.Envelope
+import com.julianamarques.galaxybridge.protocol.Message
+import com.julianamarques.galaxybridge.protocol.PairRequest
+import com.julianamarques.galaxybridge.protocol.PairingLink
+
+/** O pareamento com o Mac. Todas as funções bloqueiam; chame fora da thread principal. */
+object Pairing {
+    sealed interface Result {
+        data class Paired(val macName: String) : Result
+        data class Failed(val message: String) : Result
+    }
+
+    /** Pelo QR code: o celular já sabe o endereço e a impressão digital do Mac. */
+    fun pair(context: Context, link: PairingLink): Result {
+        val connection = try {
+            BridgeConnection.open(link.host, link.port, link.fingerprint)
+        } catch (e: Exception) {
+            // O Mac pode ter mais de um endereço; procura pelo Bonjour antes de desistir.
+            val found = MacFinder(context).find(8_000) { it.id == Identity.shortId(link.fingerprint) }
+                ?: return Result.Failed("Não foi possível conectar ao Mac. Confira se os dois estão na mesma rede Wi-Fi.")
+            try {
+                BridgeConnection.open(found.host, found.port, link.fingerprint)
+            } catch (e: Exception) {
+                return Result.Failed("Não foi possível conectar ao Mac: ${e.message}")
+            }
+        }
+        return connection.use { request(context, it, link.token) }
+    }
+
+    /** Pelo código de seis dígitos, primeiro passo: conecta sem conhecer o Mac. O usuário confere a impressão digital. */
+    fun connect(found: MacFinder.Found): BridgeConnection = BridgeConnection.open(found.host, found.port, pinnedMac = null)
+
+    /** Segundo passo, depois de o usuário confirmar a impressão digital. */
+    fun pair(context: Context, connection: BridgeConnection, code: String): Result =
+        connection.use { request(context, it, code) }
+
+    private fun request(context: Context, connection: BridgeConnection, secret: String): Result {
+        val hello = PhoneInfo.hello(context)
+        try {
+            connection.sendNow(Envelope(Message.HelloMessage(hello)))
+            connection.sendNow(Envelope(Message.PairRequestMessage(PairRequest(secret, hello.name, hello.model))))
+            connection.receiveTimeoutMs = 15_000
+            var macName: String? = null
+            while (true) {
+                when (val message = connection.receive().message) {
+                    is Message.PairAcceptedMessage -> macName = message.body.name
+                    is Message.HelloMessage -> {
+                        val name = macName ?: message.body.name
+                        PairingStore.save(context, PairedMac(connection.macFingerprint, name, connection.host, connection.port))
+                        return Result.Paired(name)
+                    }
+                    is Message.PairRejectedMessage -> return Result.Failed(
+                        if (message.body.reason == "invalid") "Código incorreto. Confira o código no Mac."
+                        else "O código venceu. Use o código novo que o Mac está mostrando."
+                    )
+                    is Message.ErrorMessage -> return Result.Failed(message.body.message)
+                    else -> Unit
+                }
+            }
+        } catch (e: Exception) {
+            return Result.Failed("O Mac recusou o pareamento. Abra a tela de configuração no Mac e tente de novo.")
+        }
+    }
+}

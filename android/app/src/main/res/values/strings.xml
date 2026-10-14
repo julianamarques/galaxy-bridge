@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Galaxy Bridge</string>
+    <string name="channel_connection">Conexão com o Mac</string>
+    <string name="notification_connected">Conectado ao %1$s</string>
+    <string name="notification_searching">Procurando o %1$s…</string>
+    <string name="notification_refused">O %1$s não reconhece mais este celular</string>
+</resources>
