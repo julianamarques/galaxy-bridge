@@ -77,7 +77,7 @@ public final class BridgeServer {
         }
     }
 
-    public func stop() {
+    public func stop(then completion: @escaping @MainActor () -> Void = {}) {
         timer?.invalidate()
         timer = nil
         pairingTimer?.invalidate()
@@ -85,7 +85,15 @@ public final class BridgeServer {
         listener?.cancel()
         listener = nil
         port = nil
-        for connection in connections.values { connection.close() }
+        let open = Array(connections.values)
+        guard !open.isEmpty else { return completion() }
+        var remaining = open.count
+        for connection in open {
+            connection.finish {
+                remaining -= 1
+                if remaining == 0 { completion() }
+            }
+        }
     }
 
     private func listenerChanged(_ state: NWListener.State, requested: UInt16?) {
@@ -290,13 +298,12 @@ public final class BridgeServer {
 
     func keepAlive(now: Date = Date()) {
         guard let active else { return }
-        if let sent = active.pingSentAt, sent > active.lastReceived {
-            guard now.timeIntervalSince(sent) > Self.pongTimeout else { return }
+        if active.awaitingPong {
+            guard now.timeIntervalSince(active.lastPing) > Self.pongTimeout else { return }
             log.info("Celular não respondeu ao ping em \(Int(Self.pongTimeout), privacy: .public) s")
             active.close()
-        } else if now.timeIntervalSince(active.lastReceived) >= Self.pingInterval {
-            active.pingSentAt = now
-            active.send(Envelope(.ping))
+        } else if now.timeIntervalSince(active.lastPing) >= Self.pingInterval {
+            active.ping(at: now)
         }
     }
 }

@@ -7,8 +7,8 @@ final class BridgeConnection {
     private(set) var fingerprint: String?
     var hello: Hello?
     var phone: PairedPhone?
-    private(set) var lastReceived = Date()
-    var pingSentAt: Date?
+    private(set) var lastPing = Date()
+    private(set) var awaitingPong = false
     private var decoder = FrameDecoder()
     private var isClosed = false
 
@@ -31,6 +31,22 @@ final class BridgeConnection {
         connection.send(content: data, completion: .contentProcessed { _ in
             guard let completion else { return }
             MainActor.assumeIsolated { completion() }
+        })
+    }
+
+    func ping(at date: Date) {
+        lastPing = date
+        awaitingPong = true
+        send(Envelope(.ping))
+    }
+
+    func finish(then completion: @escaping @MainActor () -> Void) {
+        guard !isClosed else { return completion() }
+        connection.send(content: nil, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.close()
+                completion()
+            }
         })
     }
 
@@ -59,7 +75,7 @@ final class BridgeConnection {
             MainActor.assumeIsolated {
                 guard let self, !self.isClosed else { return }
                 if let data, !data.isEmpty {
-                    self.lastReceived = Date()
+                    self.awaitingPong = false
                     do {
                         for body in try self.decoder.append(data) {
                             guard let envelope = try? Frame.decoder.decode(Envelope.self, from: body) else { continue }

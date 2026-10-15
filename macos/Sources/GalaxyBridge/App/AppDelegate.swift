@@ -36,7 +36,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         app.open(urls)
     }
 
-    func applicationWillTerminate(_ notification: Notification) {
-        app.terminate()
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        app.terminate { sender.reply(toApplicationShouldTerminate: true) }
+        return .terminateLater
     }
 }

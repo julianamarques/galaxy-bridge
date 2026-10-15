@@ -40,10 +40,12 @@ final class AppModel: ObservableObject {
     private var trackedDevices: [ADBDevice] = []
     private var isMonitoringDevices = false
     private var keepAliveTask: Task<Void, Never>?
+    private var quitCompletion: (@MainActor () -> Void)?
     private var statusTask: Task<Void, Never>?
     private static let deviceKey = "pairedDevice"
     private static let reconnectInterval: Duration = .seconds(30)
     private static let statusInterval: Duration = .seconds(60)
+    private static let quitTimeout: Duration = .seconds(1)
 
     init() {
         pairedDevice = UserDefaults.standard.data(forKey: Self.deviceKey)
@@ -75,11 +77,23 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func terminate() {
-        bridge?.stop()
+    func terminate(then completion: @escaping @MainActor () -> Void) {
         deviceMonitor.stop()
         keepAliveTask?.cancel()
         statusTask?.cancel()
+        guard let bridge else { return completion() }
+        quitCompletion = completion
+        bridge.stop { [weak self] in self?.finishQuitting() }
+        Task { [weak self] in
+            try? await Task.sleep(for: Self.quitTimeout)
+            self?.finishQuitting()
+        }
+    }
+
+    private func finishQuitting() {
+        let completion = quitCompletion
+        quitCompletion = nil
+        completion?()
     }
 
     private func startMonitoring() {
