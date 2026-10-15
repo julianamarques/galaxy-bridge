@@ -45,6 +45,15 @@ class BridgeService : Service() {
         override fun onReceive(context: Context, intent: Intent) = sendStatus(intent)
     }
 
+    private val shutdownReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            running = false
+            val connection = connection ?: return
+            Log.i(TAG, "Celular desligando; encerrando a conexão")
+            thread { connection.close() }.join(SHUTDOWN_CLOSE_MS)
+        }
+    }
+
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) = wake()
         override fun onLost(network: Network) {
@@ -60,6 +69,7 @@ class BridgeService : Service() {
         createChannel(this)
         startForeground(NOTIFICATION_ID, notification(BridgeState.Connection.Searching), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         running = true
+        registerReceiver(shutdownReceiver, IntentFilter(Intent.ACTION_SHUTDOWN))
         getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback)
         worker = thread(name = "bridge") { run() }
     }
@@ -74,6 +84,7 @@ class BridgeService : Service() {
         instance = null
         connection?.close()
         wake()
+        runCatching { unregisterReceiver(shutdownReceiver) }
         runCatching { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(networkCallback) }
         BridgeState.set(BridgeState.Connection.Stopped)
         super.onDestroy()
@@ -239,6 +250,7 @@ class BridgeService : Service() {
         private const val NOTIFICATION_ID = 1
         private const val RECEIVE_TIMEOUT_MS = 6 * 60_000
         private const val DISCOVERY_TIMEOUT_MS = 10_000L
+        private const val SHUTDOWN_CLOSE_MS = 1_000L
         private val RETRY_DELAYS = listOf(2_000L, 5_000L, 15_000L, 30_000L, 60_000L, 120_000L, 300_000L)
 
         @Volatile private var instance: BridgeService? = null

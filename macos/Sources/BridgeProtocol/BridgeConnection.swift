@@ -8,6 +8,7 @@ final class BridgeConnection {
     var hello: Hello?
     var phone: PairedPhone?
     private(set) var lastReceived = Date()
+    var pingSentAt: Date?
     private var decoder = FrameDecoder()
     private var isClosed = false
 

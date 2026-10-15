@@ -34,7 +34,7 @@ Each message is a 4-byte big-endian length, then that many bytes of UTF-8 JSON. 
 
 If the major version in `hello` differs, the Mac sends `error` with code `version` and closes.
 
-**Keep-alive:** the Mac sends `ping` every 2 minutes and the phone answers `pong`. The Mac closes the connection after 5½ minutes without any message. The phone closes it after 6 minutes without any message and reconnects. Phase 0 showed that a sleeping phone can go quiet for several minutes, so both limits are generous.
+**Keep-alive:** after 2 minutes without any message from the phone, the Mac sends `ping`, and the phone answers `pong`. If nothing arrives within 60 seconds of the `ping`, the Mac closes the connection. The phone closes it after 6 minutes without any message and reconnects. When the phone shuts down or restarts, it closes the connection first, so the Mac notices at once.
 
 ## Messages
 

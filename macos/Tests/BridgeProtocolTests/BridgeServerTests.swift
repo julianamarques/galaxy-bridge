@@ -107,6 +107,39 @@ struct BridgeServerTests {
         #expect(error.code == .version)
     }
 
+    @Test func dropsPhoneThatMissesThePong() async throws {
+        let phone = try await connectPairedPhone()
+        let start = Date()
+        server.keepAlive(now: start.addingTimeInterval(BridgeServer.pingInterval + 1))
+        #expect(try await phone.next() == .ping)
+        server.keepAlive(now: start.addingTimeInterval(BridgeServer.pingInterval + 1 + BridgeServer.pongTimeout / 2))
+        #expect(server.phone != nil)
+        server.keepAlive(now: start.addingTimeInterval(BridgeServer.pingInterval + 2 + BridgeServer.pongTimeout))
+        #expect(server.phone == nil)
+        try await until { events.contains { if case .disconnected = $0 { true } else { false } } }
+    }
+
+    @Test func keepsPhoneThatAnswersThePong() async throws {
+        let phone = try await connectPairedPhone()
+        server.keepAlive(now: Date().addingTimeInterval(BridgeServer.pingInterval + 1))
+        #expect(try await phone.next() == .ping)
+        phone.send(Envelope(.pong))
+        try await Task.sleep(for: .milliseconds(200))
+        server.keepAlive(now: Date().addingTimeInterval(BridgeServer.pongTimeout + 1))
+        #expect(server.phone != nil)
+        phone.close()
+    }
+
+    private func connectPairedPhone() async throws -> TestPhone {
+        let port = try await start()
+        let phone = try TestPhone()
+        server.store.save(PairedPhone(fingerprint: phone.identity.fingerprint, name: "Galaxy", model: "X"))
+        try await phone.connect(port: port, pinning: server.identity.fingerprint)
+        phone.send(Envelope(.hello(phone.hello)))
+        guard case .hello = try await phone.next() else { throw Timeout() }
+        return phone
+    }
+
     @Test func forgetTellsThePhone() async throws {
         let port = try await start()
         let phone = try TestPhone()

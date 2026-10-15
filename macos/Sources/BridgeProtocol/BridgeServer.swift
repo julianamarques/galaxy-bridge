@@ -19,7 +19,8 @@ public final class BridgeServer {
     public static let serviceType = "_galaxybridge._tcp"
     public static let preferredPort: UInt16 = 52800
     public static let pingInterval: TimeInterval = 120
-    public static let idleTimeout: TimeInterval = 330
+    public static let pongTimeout: TimeInterval = 60
+    static let keepAliveCheckInterval: TimeInterval = 15
     static let setupTimeout: TimeInterval = 30
 
     public let identity: Identity
@@ -71,7 +72,7 @@ public final class BridgeServer {
         }
         self.listener = listener
         listener.start(queue: .main)
-        timer = Timer.scheduledTimer(withTimeInterval: Self.pingInterval, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: Self.keepAliveCheckInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.keepAlive() }
         }
     }
@@ -287,13 +288,14 @@ public final class BridgeServer {
         return id
     }
 
-    private func keepAlive() {
+    func keepAlive(now: Date = Date()) {
         guard let active else { return }
-        let silence = Date().timeIntervalSince(active.lastReceived)
-        if silence > Self.idleTimeout {
-            log.info("Celular sem responder há mais de \(Int(Self.idleTimeout), privacy: .public) s")
+        if let sent = active.pingSentAt, sent > active.lastReceived {
+            guard now.timeIntervalSince(sent) > Self.pongTimeout else { return }
+            log.info("Celular não respondeu ao ping em \(Int(Self.pongTimeout), privacy: .public) s")
             active.close()
-        } else if silence >= Self.pingInterval {
+        } else if now.timeIntervalSince(active.lastReceived) >= Self.pingInterval {
+            active.pingSentAt = now
             active.send(Envelope(.ping))
         }
     }
