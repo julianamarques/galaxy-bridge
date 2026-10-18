@@ -1,6 +1,6 @@
 # Galaxy Bridge architecture
 
-Status: **proposal** — nothing here is built yet. Today Galaxy Bridge talks to the phone through `adb` (Wireless debugging or USB debugging). This document describes the move to a companion Android app, so that the phone no longer needs Developer options.
+Status: **Phase 1 done** (2026-10-17). The Mac and the Android app connect, pair and stay connected, with status and calls from the Mac; the `adb` connection remains as an alternative. Phase 2 onwards is still a proposal. This document describes the move to a companion Android app, so that the phone no longer needs Developer options.
 
 ## Goals
 
@@ -43,7 +43,7 @@ One repository for both apps, so a protocol change and both of its implementatio
 
 ```
 galaxy-bridge/
-├── macos/                Swift package (what is at the root today)
+├── macos/                Swift package
 │   ├── Sources/GalaxyBridge/
 │   ├── Sources/BridgeProtocol/   messages, framing, TLS identity — no UI
 │   └── Tests/
@@ -225,6 +225,33 @@ Galaxy S25 (SM-S931B), Android 17, One UI 9, 2026-10-12. Spike: `spikes/phase0-c
 Repository restructure, `BridgeProtocol`, QR pairing, `BridgeServer` / `BridgeService`, reconnection, `status` (battery and countries). Calls from the Mac move from adb to `call.place`.
 
 Done when: after a phone restart and a Wi-Fi change, the menu shows the battery again within 30 seconds, without opening the Android app.
+
+### Phase 1 results
+
+Galaxy S25, 2026-10-14 to 2026-10-17, MacBook on the power adapter, both on home Wi-Fi. Every case without opening the Android app:
+
+| Case | Result |
+|---|---|
+| Pairing with the QR code | Paired and connected on the first try. |
+| Battery and calls | Battery in the menu; two `call.place` dialed on the phone. |
+| Mac app quits and reopens (3 times) | The phone noticed at once each time and reconnected 2 to 5 s after the app reopened. |
+| Phone Wi-Fi off for 10 s | Reconnected 2 s after Wi-Fi came back. |
+| Phone restarts from the power menu | The Mac noticed in 1.5 s. The phone reconnected about 31 s after the first unlock. |
+| Phone Wi-Fi off for 3+ minutes | The Mac dropped the phone after 3 min 17 s; reconnected 3 s after Wi-Fi came back. |
+| Mac sleeps for 1 minute | The connection survived; no reconnection needed. |
+| Mac sleeps for 16 minutes | Already connected when the Mac woke. |
+
+- **After a restart the app only starts after the first unlock.** Android delivers `BOOT_COMPLETED` once the user unlocks; before that the app's storage is encrypted. The 31 s after unlocking are the system's queue of boot broadcasts: the app connected half a second after it was started. Starting before the first unlock would mean keeping the pairing in device-protected storage; not worth it for now.
+- **Bugs found and fixed during the tests:** the Mac took up to 7.5 minutes to notice a phone that had restarted (now: the phone closes the connection on `ACTION_SHUTDOWN`, and the Mac waits 60 s for a `pong`); the phone dropped the connection every 6 minutes while charging, because the Mac only pinged after 2 minutes of silence and the phone kept sending status; and the Mac app's quit could beat its own close message (now it waits up to 1 s).
+- **The Mac reaches the phone while asleep only because "Wake for network access" is on** (`pmset` `womp 1`, usually only on the power adapter). Packets from the phone wake the Mac for a few seconds (`DarkWake … wifibt` in `pmset -g log`) and the connection comes back without lighting the screen.
+
+Still open, to look at in Phase 2:
+
+- **Mac on battery.** Without wake for network access the sleeping Mac can't be reached, the phone's retry delay grows to 5 minutes, and the battery may take that long to show after the Mac wakes. Not measured yet.
+- **The Mac woke every minute during the 16-minute sleep** (`wifibt`), against about once an hour on earlier nights. Likely the Wireless debugging connection that was on during the test; measure a night without it.
+- **"Software caused connection abort" on the phone.** Twice during the long sleep, and possibly behind the hourly reconnections of earlier nights. On Android it usually means the system destroyed the app's sockets; find out when and why.
+- **A crashed Mac app** still leaves the phone waiting its own 6 minutes, since nothing closes the connection.
+- **Phone battery with the real app** overnight, now that the Mac pings every 2 minutes.
 
 ### Phase 2 — Incoming calls
 
