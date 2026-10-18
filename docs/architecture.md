@@ -12,7 +12,7 @@ Status: **Phase 1 done** (2026-10-17). The Mac and the Android app connect, pair
 
 ### Non-goals
 
-- **Call audio on the Mac.** Android only lets system apps capture or inject the audio of a phone call, and macOS cannot connect to a phone as a Bluetooth hands-free device. Calls are answered from the Mac and the conversation stays on the phone or the earbuds connected to it.
+- **Call audio on the Mac.** Android only lets system apps capture or inject the audio of a phone call, and macOS refuses the call's audio over Bluetooth (see [Phase 2 results](#phase-2-results)). Calls are answered from the Mac and the conversation stays on the phone or the earbuds connected to it.
 - **Screen mirroring.** That stays in Galaxy Mirror, which needs `adb` to inject touches.
 - **Internet relay** (using the phone when it is away from the Mac). Possible later, out of scope now.
 
@@ -274,6 +274,8 @@ Galaxy S25, 2026-10-18, a dozen calls from another phone:
 - **Declining sends the caller to the carrier's voicemail**, from the Mac and from the phone alike: that is how rejecting works.
 - **A call declined on the phone shows on the Mac as missed.** The phone can't tell a decline from the caller giving up without reading the call log (`READ_CALL_LOG`, restricted on Google Play).
 - **Direct voicemail:** after about 20 seconds unanswered, One UI picks up and the call goes off-hook as if answered. A second before that, the dialer's notification changes: its text becomes "Correio de voz direto" and the Samsung extra `android.ongoingActivityNoti.nowbarCallChronometerWithText` turns `true` (it stays `false` when the user answers). The phone uses that extra, with the text as a fallback, only while the call goes from ringing to off-hook (or within 3 s after), so a call put on hold later isn't mistaken for voicemail. It then reports `voicemail` instead of `active`: the Mac hides the panel and, when the call ends, posts "Ligação perdida · … · correio de voz".
+
+**Call audio over Bluetooth** — spike `spikes/phase2-handsfree`, 2026-10-18. macOS still has a public API for the Mac to act as a Bluetooth hands-free device, the role a headset or a car kit plays (`IOBluetoothHandsFreeDevice`, since macOS 10.7, not deprecated). With the S25 paired over Bluetooth, the control side works: the Mac connects as hands-free, and the phone reports the call state, signal, battery and the caller's number (`+CLCC`), and advertises codec negotiation. The audio doesn't: every `connectSCO` and `transferAudioToComputer` fails with `kIOReturnUnsupported` (`-536870201`), and no audio device appears in Core Audio. So the call's audio can't reach the Mac, and the Mac and the phone shouldn't stay paired over Bluetooth, or the phone may send a call's audio to a Mac that can't play it.
 
 ### Phase 3 — Notifications
 
