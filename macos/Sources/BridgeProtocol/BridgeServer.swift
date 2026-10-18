@@ -13,6 +13,7 @@ public final class BridgeServer {
         case pairingExpired
         case unpaired
         case status(PhoneStatus)
+        case call(CallState)
         case error(BridgeError)
     }
 
@@ -235,6 +236,8 @@ public final class BridgeServer {
             connection.send(Envelope(.pong, replyTo: envelope.id))
         case .status(let status) where connection === active:
             onEvent?(.status(status))
+        case .callState(let call) where connection === active:
+            onEvent?(.call(call))
         case .error(let error) where connection === active:
             onEvent?(.error(error))
         case .unpair where connection === active:

@@ -6,7 +6,7 @@ import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.util.Log
-import com.julianamarques.galaxybridge.TAG
+import com.julianamarques.galaxybridge.Diagnostics.TAG
 import java.net.Inet4Address
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue

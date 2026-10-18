@@ -43,6 +43,27 @@ data class PhoneStatus(
 data class CallPlace(val number: String)
 
 @Serializable
+data class CallState(
+    val call: String,
+    val state: String,
+    val direction: String,
+    val number: String? = null,
+    val name: String? = null,
+) {
+    companion object {
+        const val RINGING = "ringing"
+        const val ACTIVE = "active"
+        const val VOICEMAIL = "voicemail"
+        const val ENDED = "ended"
+        const val INCOMING = "incoming"
+        const val OUTGOING = "outgoing"
+    }
+}
+
+@Serializable
+data class CallID(val call: String)
+
+@Serializable
 data class BridgeError(val code: String, val message: String)
 
 sealed interface Message {
@@ -55,6 +76,10 @@ sealed interface Message {
     data object Unpair : Message { override val type get() = "unpair" }
     data class StatusMessage(val body: PhoneStatus) : Message { override val type get() = "status" }
     data class CallPlaceMessage(val body: CallPlace) : Message { override val type get() = "call.place" }
+    data class CallStateMessage(val body: CallState) : Message { override val type get() = "call.state" }
+    data class CallAnswerMessage(val body: CallID) : Message { override val type get() = "call.answer" }
+    data class CallDeclineMessage(val body: CallID) : Message { override val type get() = "call.decline" }
+    data class CallEndMessage(val body: CallID) : Message { override val type get() = "call.end" }
     data class ErrorMessage(val body: BridgeError) : Message { override val type get() = "error" }
     data object Ping : Message { override val type get() = "ping" }
     data object Pong : Message { override val type get() = "pong" }
@@ -91,6 +116,10 @@ object Codec {
             "unpair" -> Message.Unpair
             "status" -> Message.StatusMessage(body(PhoneStatus.serializer()))
             "call.place" -> Message.CallPlaceMessage(body(CallPlace.serializer()))
+            "call.state" -> Message.CallStateMessage(body(CallState.serializer()))
+            "call.answer" -> Message.CallAnswerMessage(body(CallID.serializer()))
+            "call.decline" -> Message.CallDeclineMessage(body(CallID.serializer()))
+            "call.end" -> Message.CallEndMessage(body(CallID.serializer()))
             "error" -> Message.ErrorMessage(body(BridgeError.serializer()))
             "ping" -> Message.Ping
             "pong" -> Message.Pong
@@ -110,6 +139,10 @@ object Codec {
         is Message.PairRejectedMessage -> json.encodeToJsonElement(PairRejected.serializer(), message.body)
         is Message.StatusMessage -> json.encodeToJsonElement(PhoneStatus.serializer(), message.body)
         is Message.CallPlaceMessage -> json.encodeToJsonElement(CallPlace.serializer(), message.body)
+        is Message.CallStateMessage -> json.encodeToJsonElement(CallState.serializer(), message.body)
+        is Message.CallAnswerMessage -> json.encodeToJsonElement(CallID.serializer(), message.body)
+        is Message.CallDeclineMessage -> json.encodeToJsonElement(CallID.serializer(), message.body)
+        is Message.CallEndMessage -> json.encodeToJsonElement(CallID.serializer(), message.body)
         is Message.ErrorMessage -> json.encodeToJsonElement(BridgeError.serializer(), message.body)
         Message.Unpair, Message.Ping, Message.Pong, is Message.Unknown -> null
     }

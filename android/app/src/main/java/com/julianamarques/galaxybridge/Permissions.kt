@@ -2,6 +2,8 @@ package com.julianamarques.galaxybridge
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.NotificationManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -9,22 +11,36 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import com.julianamarques.galaxybridge.bridge.NotificationListener
 
 enum class Permission(val title: String, val reason: String) {
     Notifications("Notificações", "Mostra quando o Galaxy está conectado ao Mac."),
-    Calls("Ligações", "Para fazer as ligações que você pede no Mac."),
+    Calls("Ligações", "Para fazer, atender e recusar ligações pelo Mac."),
+    CallerName("Nome de quem liga", "Lê o aviso de ligação do Galaxy para mostrar no Mac quem está ligando."),
     Battery("Bateria sem restrições", "Para a conexão continuar com a tela apagada.");
 
-    val manifestPermission: String?
+    val manifestPermissions: List<String>
         get() = when (this) {
-            Notifications -> Manifest.permission.POST_NOTIFICATIONS
-            Calls -> Manifest.permission.CALL_PHONE
-            Battery -> null
+            Notifications -> listOf(Manifest.permission.POST_NOTIFICATIONS)
+            Calls -> listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE, Manifest.permission.ANSWER_PHONE_CALLS)
+            CallerName, Battery -> emptyList()
         }
 
     fun isGranted(context: Context): Boolean = when (this) {
         Battery -> context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
-        else -> context.checkSelfPermission(manifestPermission!!) == PackageManager.PERMISSION_GRANTED
+        CallerName -> context.getSystemService(NotificationManager::class.java)
+            .isNotificationListenerAccessGranted(ComponentName(context, NotificationListener::class.java))
+        else -> manifestPermissions.all { has(context, it) }
+    }
+
+    @SuppressLint("BatteryLife")
+    fun settingsIntent(context: Context): Intent? = when (this) {
+        Battery -> Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}"))
+        CallerName -> Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS).putExtra(
+            Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
+            ComponentName(context, NotificationListener::class.java).flattenToString(),
+        )
+        else -> null
     }
 
     companion object {
@@ -33,8 +49,7 @@ enum class Permission(val title: String, val reason: String) {
 
         fun missing(context: Context): List<Permission> = needed().filter { !it.isGranted(context) }
 
-        @SuppressLint("BatteryLife")
-        fun batteryIntent(context: Context) =
-            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}"))
+        fun has(context: Context, permission: String): Boolean =
+            context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
     }
 }

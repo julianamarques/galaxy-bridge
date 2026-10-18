@@ -22,6 +22,10 @@ public enum Message: Equatable, Sendable {
     case unpair
     case status(PhoneStatus)
     case callPlace(CallPlace)
+    case callState(CallState)
+    case callAnswer(CallID)
+    case callDecline(CallID)
+    case callEnd(CallID)
     case error(BridgeError)
     case ping
     case pong
@@ -36,6 +40,10 @@ public enum Message: Equatable, Sendable {
         case .unpair: "unpair"
         case .status: "status"
         case .callPlace: "call.place"
+        case .callState: "call.state"
+        case .callAnswer: "call.answer"
+        case .callDecline: "call.decline"
+        case .callEnd: "call.end"
         case .error: "error"
         case .ping: "ping"
         case .pong: "pong"
@@ -121,6 +129,42 @@ public struct CallPlace: Codable, Equatable, Sendable {
     }
 }
 
+public struct CallState: Codable, Equatable, Sendable {
+    public enum State: String, Codable, Sendable {
+        case ringing
+        case active
+        case voicemail
+        case ended
+    }
+
+    public enum Direction: String, Codable, Sendable {
+        case incoming
+        case outgoing
+    }
+
+    public var call: String
+    public var state: State
+    public var direction: Direction
+    public var number: String?
+    public var name: String?
+
+    public init(call: String, state: State, direction: Direction, number: String? = nil, name: String? = nil) {
+        self.call = call
+        self.state = state
+        self.direction = direction
+        self.number = number
+        self.name = name
+    }
+}
+
+public struct CallID: Codable, Equatable, Sendable {
+    public var call: String
+
+    public init(call: String) {
+        self.call = call
+    }
+}
+
 public struct BridgeError: Codable, Equatable, Sendable, Error {
     public enum Code: String, Codable, Sendable {
         case version
@@ -155,6 +199,10 @@ extension Envelope: Codable {
         case "unpair": .unpair
         case "status": .status(try container.decode(PhoneStatus.self, forKey: .body))
         case "call.place": .callPlace(try container.decode(CallPlace.self, forKey: .body))
+        case "call.state": .callState(try container.decode(CallState.self, forKey: .body))
+        case "call.answer": .callAnswer(try container.decode(CallID.self, forKey: .body))
+        case "call.decline": .callDecline(try container.decode(CallID.self, forKey: .body))
+        case "call.end": .callEnd(try container.decode(CallID.self, forKey: .body))
         case "error": .error(try container.decode(BridgeError.self, forKey: .body))
         case "ping": .ping
         case "pong": .pong
@@ -174,6 +222,8 @@ extension Envelope: Codable {
         case .pairRejected(let body): try container.encode(body, forKey: .body)
         case .status(let body): try container.encode(body, forKey: .body)
         case .callPlace(let body): try container.encode(body, forKey: .body)
+        case .callState(let body): try container.encode(body, forKey: .body)
+        case .callAnswer(let body), .callDecline(let body), .callEnd(let body): try container.encode(body, forKey: .body)
         case .error(let body): try container.encode(body, forKey: .body)
         case .unpair, .ping, .pong, .unknown: break
         }

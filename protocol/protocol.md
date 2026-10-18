@@ -92,6 +92,31 @@ Countries are ISO 3166-1 alpha-2 codes in uppercase, left out when unknown (no s
 
 `number` is already in E.164. The phone places the call and answers only if it fails, with `error`.
 
+### `call.state` — phone → Mac
+
+```json
+{ "type": "call.state", "body": { "call": "7", "state": "ringing", "direction": "incoming", "number": "+5586999990001", "name": "Maria" } }
+```
+
+Sent on every change of the phone's call, and once after `hello` if a call is already under way. `call` identifies the call; the phone picks it, and it stays the same until the call ends.
+
+| `state` | |
+|---|---|
+| `ringing` | An incoming call is ringing. |
+| `active` | The call was answered, or an outgoing call was placed. Android doesn't tell dialing from connected. |
+| `voicemail` | One UI's direct voicemail picked up an unanswered call. The Mac treats it as unanswered. |
+| `ended` | The call is over. The phone forgets it. |
+
+`direction` is `incoming` or `outgoing`. `name` is the contact name and `number` the number, both as the dialer shows them (the number is often national, like `086…`), left out until known. They usually arrive in a second `call.state` a moment after the first.
+
+### `call.answer` / `call.decline` / `call.end` — Mac → phone
+
+```json
+{ "type": "call.answer", "id": "a1", "body": { "call": "7" } }
+```
+
+Answer or decline the ringing call, or hang up the call. Ignored when `call` is not the phone's current call. The new state arrives as `call.state`; the phone answers with `error` only if it can't (`permission` when it lacks the phone permissions).
+
 ### `error` — both directions
 
 ```json

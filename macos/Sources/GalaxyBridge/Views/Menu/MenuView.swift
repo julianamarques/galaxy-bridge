@@ -1,3 +1,4 @@
+import BridgeProtocol
 import GalaxyKit
 import SwiftUI
 
@@ -65,7 +66,10 @@ struct MenuView: View {
 
     @ViewBuilder
     private var status: some View {
-        if app.appPhone != nil {
+        if let call = app.call {
+            Label(callStatus(call), systemImage: "phone.fill")
+                .foregroundStyle(.green)
+        } else if app.appPhone != nil {
             if app.isAppConnected {
                 Label("Wi-Fi", systemImage: "wifi")
             } else {
@@ -73,6 +77,15 @@ struct MenuView: View {
             }
         } else {
             adbStatus
+        }
+    }
+
+    private func callStatus(_ call: CallState) -> String {
+        switch call.state {
+        case .ringing: String(localized: "\(app.callerName) está ligando")
+        case .active: String(localized: "Em ligação com \(app.callerName)")
+        case .voicemail: String(localized: "\(app.callerName) no correio de voz")
+        case .ended: ""
         }
     }
 
@@ -187,58 +200,6 @@ private struct MenuSectionTitle: View {
 private struct MenuDivider: View {
     var body: some View {
         Divider().padding(.horizontal, 8)
-    }
-}
-
-private struct CircleButton: View {
-    let systemImage: String
-    let tint: Color
-    let help: LocalizedStringKey
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-        }
-        .buttonStyle(CallButtonStyle(tint: tint))
-        .help(help)
-    }
-}
-
-private struct CallButtonStyle: ButtonStyle {
-    let tint: Color
-
-    func makeBody(configuration: Configuration) -> some View {
-        CallButton(configuration: configuration, tint: tint)
-    }
-
-    private struct CallButton: View {
-        let configuration: ButtonStyleConfiguration
-        let tint: Color
-        @Environment(\.isEnabled) private var isEnabled
-
-        var body: some View {
-            configuration.label
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 28, height: 28)
-                .background(Circle().fill(tint.gradient))
-                .glassCircle()
-                .brightness(configuration.isPressed ? -0.15 : 0)
-                .opacity(isEnabled ? 1 : 0.35)
-                .contentShape(Circle())
-        }
-    }
-}
-
-private extension View {
-    @ViewBuilder
-    func glassCircle() -> some View {
-        if #available(macOS 26, *) {
-            glassEffect(.regular.interactive(), in: .circle)
-        } else {
-            self
-        }
     }
 }
 

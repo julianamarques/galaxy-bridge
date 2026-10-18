@@ -4,14 +4,17 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let app = AppModel()
+    private var callPanel: CallPanel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         app.launched()
+        callPanel = CallPanel(app: app)
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [app] _ in
             MainActor.assumeIsolated { app.systemDidWake() }
         }
         #if DEBUG
         if ProcessInfo.processInfo.environment["GALAXY_PREVIEW_MENU"] != nil { showMenuPreview() }
+        if ProcessInfo.processInfo.environment["GALAXY_PREVIEW_CALL"] != nil { app.previewIncomingCall() }
         #endif
     }
 

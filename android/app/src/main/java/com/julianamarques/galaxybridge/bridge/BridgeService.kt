@@ -1,5 +1,6 @@
 package com.julianamarques.galaxybridge.bridge
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -18,13 +19,16 @@ import android.os.BatteryManager
 import android.os.Bundle
 import android.os.IBinder
 import android.telecom.TelecomManager
+import android.telephony.TelephonyCallback
+import android.telephony.TelephonyManager
 import android.util.Log
 import com.julianamarques.galaxybridge.Diagnostics
 import com.julianamarques.galaxybridge.MainActivity
 import com.julianamarques.galaxybridge.Permission
 import com.julianamarques.galaxybridge.R
-import com.julianamarques.galaxybridge.TAG
+import com.julianamarques.galaxybridge.Diagnostics.TAG
 import com.julianamarques.galaxybridge.protocol.BridgeError
+import com.julianamarques.galaxybridge.protocol.CallState
 import com.julianamarques.galaxybridge.protocol.Envelope
 import com.julianamarques.galaxybridge.protocol.Message
 import com.julianamarques.galaxybridge.protocol.PhoneStatus
@@ -41,6 +45,7 @@ class BridgeService : Service() {
     @Volatile private var lastStatus: PhoneStatus? = null
     @Volatile private var lastBattery: Pair<Int, Int>? = null
     private var worker: Thread? = null
+    private var callCallback: TelephonyCallback? = null
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) = sendStatus(intent)
@@ -80,12 +85,15 @@ class BridgeService : Service() {
         startForeground(NOTIFICATION_ID, notification(BridgeState.Connection.Searching), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         running = true
         Diagnostics.record(this, "Serviço iniciado")
+        CallTracker.onChange = ::sendCall
+        monitorCalls()
         registerReceiver(shutdownReceiver, IntentFilter(Intent.ACTION_SHUTDOWN))
         getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback)
         worker = thread(name = "bridge") { run() }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        monitorCalls()
         wake()
         return START_STICKY
     }
@@ -97,6 +105,9 @@ class BridgeService : Service() {
         connection?.close()
         wake()
         runCatching { unregisterReceiver(shutdownReceiver) }
+        CallTracker.onChange = null
+        callCallback?.let { getSystemService(TelephonyManager::class.java).unregisterTelephonyCallback(it) }
+        callCallback = null
         runCatching { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(networkCallback) }
         BridgeState.set(BridgeState.Connection.Stopped)
         super.onDestroy()
@@ -151,6 +162,7 @@ class BridgeService : Service() {
             lastStatus = null
             lastBattery = null
             registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            CallTracker.current?.let(::sendCall)
             connection.receiveTimeoutMs = RECEIVE_TIMEOUT_MS
             while (running) {
                 val envelope = connection.receive()
@@ -190,6 +202,15 @@ class BridgeService : Service() {
             is Message.CallPlaceMessage -> placeCall(message.body.number)?.let {
                 connection.send(Envelope(Message.ErrorMessage(it), replyTo = envelope.id))
             }
+            is Message.CallAnswerMessage -> controlCall(message.body.call, CallControl.Answer)?.let {
+                connection.send(Envelope(Message.ErrorMessage(it), replyTo = envelope.id))
+            }
+            is Message.CallDeclineMessage -> controlCall(message.body.call, CallControl.Decline)?.let {
+                connection.send(Envelope(Message.ErrorMessage(it), replyTo = envelope.id))
+            }
+            is Message.CallEndMessage -> controlCall(message.body.call, CallControl.End)?.let {
+                connection.send(Envelope(Message.ErrorMessage(it), replyTo = envelope.id))
+            }
             Message.Unpair -> {
                 Diagnostics.record(this, "O Mac esqueceu este celular")
                 PairingStore.clear(this)
@@ -226,8 +247,46 @@ class BridgeService : Service() {
         connection.send(Envelope(Message.StatusMessage(status)))
     }
 
+    private fun monitorCalls() {
+        if (callCallback != null || !Permission.has(this, Manifest.permission.READ_PHONE_STATE)) return
+        val callback = object : TelephonyCallback(), TelephonyCallback.CallStateListener {
+            override fun onCallStateChanged(state: Int) = CallTracker.phoneStateChanged(state)
+        }
+        getSystemService(TelephonyManager::class.java).registerTelephonyCallback(mainExecutor, callback)
+        callCallback = callback
+    }
+
+    private fun sendCall(call: CallState) {
+        Diagnostics.record(this, "Ligação ${call.direction}: ${call.state}")
+        val connection = connection ?: return
+        if (established) connection.send(Envelope(Message.CallStateMessage(call)))
+    }
+
+    private enum class CallControl { Answer, Decline, End }
+
+    @Suppress("DEPRECATION")
+    private fun controlCall(id: String, control: CallControl): BridgeError? {
+        val call = CallTracker.current
+        if (call == null || call.call != id) return null
+        if (!Permission.has(this, Manifest.permission.ANSWER_PHONE_CALLS)) {
+            return BridgeError("permission", "O Galaxy Bridge não tem permissão para atender ligações. Abra o app no Galaxy para permitir.")
+        }
+        val telecom = getSystemService(TelecomManager::class.java)
+        Diagnostics.record(this, "Mac pediu: $control")
+        return try {
+            when (control) {
+                CallControl.Answer -> if (call.state == CallState.RINGING) telecom.acceptRingingCall()
+                CallControl.Decline -> if (call.state == CallState.RINGING) telecom.endCall()
+                CallControl.End -> telecom.endCall()
+            }
+            null
+        } catch (e: SecurityException) {
+            BridgeError("permission", "O Galaxy recusou o pedido: ${e.message}")
+        }
+    }
+
     private fun placeCall(number: String): BridgeError? {
-        if (!Permission.Calls.isGranted(this)) {
+        if (!Permission.has(this, Manifest.permission.CALL_PHONE)) {
             return BridgeError("permission", "O Galaxy Bridge não tem permissão para fazer ligações. Abra o app no Galaxy para permitir.")
         }
         return try {

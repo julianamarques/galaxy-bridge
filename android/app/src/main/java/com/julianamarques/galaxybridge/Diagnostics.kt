@@ -12,6 +12,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 object Diagnostics {
+    const val TAG = "GalaxyBridge"
     private const val FILE_NAME = "diagnostics.log"
     private const val MAX_BYTES = 512 * 1024L
     private val time = DateTimeFormatter.ofPattern("MM-dd HH:mm:ss")

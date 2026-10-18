@@ -27,7 +27,7 @@ Status: **Phase 1 done** (2026-10-17). The Mac and the Android app connect, pair
  │  Bonjour: _galaxybridge._tcp ───────┼─ mDNS ────►│  NsdManager discovery               │
  │  PairingStore (pinned certificates) │            │  BridgeService (foreground service) │
  │                                     │            │   ├─ StatusMonitor (battery, SIM)   │
- │  Features: status, calls,           │            │   ├─ CallMonitor (Telecom)          │
+ │  Features: status, calls,           │            │   ├─ CallTracker (Telecom)          │
  │  notifications                      │            │   └─ NotificationRelay (listener)   │
  └─────────────────────────────────────┘            └─────────────────────────────────────┘
 ```
@@ -93,7 +93,7 @@ If the camera cannot be used, the Mac also shows a six-digit code that the phone
 Each message is a 4-byte big-endian length followed by UTF-8 JSON:
 
 ```json
-{ "type": "call.incoming", "id": "7f3a…", "body": { "callId": "c1", "number": "+5586999990001", "name": "Juliana" } }
+{ "type": "call.state", "body": { "call": "7", "state": "ringing", "direction": "incoming", "number": "+5586999990001", "name": "Maria" } }
 ```
 
 - `id` is set on requests. The answer carries the same `id` in `replyTo`.
@@ -111,8 +111,7 @@ Keep-alive: the **Mac** sends `ping` every 2 minutes and the phone answers `pong
 | `pair.request` / `pair.accepted` / `pair.rejected` | phone → Mac / Mac → phone | token, name, model / reason |
 | `status` | phone → Mac | battery level, charging, network country, SIM country |
 | `call.place` | Mac → phone | number (E.164, already normalized on the Mac) |
-| `call.incoming` | phone → Mac | call ID, number, contact name |
-| `call.state` | phone → Mac | call ID, `ringing` / `active` / `ended` |
+| `call.state` | phone → Mac | call ID, `ringing` / `active` / `voicemail` / `ended`, direction, number, contact name |
 | `call.answer` / `call.decline` / `call.end` | Mac → phone | call ID |
 | `notification.posted` | phone → Mac | key, app, title, text, time, icon ID, actions (ID, title, accepts reply) |
 | `notification.removed` | phone → Mac | key |
@@ -128,7 +127,7 @@ Keep-alive: the **Mac** sends `ping` every 2 minutes and the phone answers `pong
 - **Language and UI:** Kotlin, Jetpack Compose with Material 3. Minimum Android 11 (API 30), like Galaxy Mirror. Package ID `com.julianamarques.galaxybridge`.
 - **`BridgeService`:** a foreground service of type `connectedDevice`, with a silent ongoing notification ("Connected to MacBook Air"). It declares `FOREGROUND_SERVICE_CONNECTED_DEVICE`, plus one of the permissions the [service type requires](https://developer.android.com/guide/components/fg-service-types) (the network ones, such as `CHANGE_WIFI_MULTICAST_STATE`, which discovery needs anyway; confirm against the list in Phase 0). It starts on boot (`RECEIVE_BOOT_COMPLETED`; Android 15 forbids starting some service types from that broadcast, but not `connectedDevice`) and when the app is opened. It holds no wakelock.
 - **`StatusMonitor`:** battery from `ACTION_BATTERY_CHANGED`, countries from `TelephonyManager` (`networkCountryIso`, `simCountryIso`).
-- **`CallMonitor`:** (approach confirmed in Phase 0, see below)
+- **`CallTracker` and `NotificationListener`:** (approach confirmed in Phase 0, see below)
   - Call state through `TelephonyCallback` (`READ_PHONE_STATE`).
   - Caller name and number from the dialer's call notification (`com.samsung.android.incallui`, `Notification.CallStyle`): its title is the contact name and its `callPerson` carries the number as a `tel:` URI, in national format (`086…`), so the Mac normalizes it with PhoneNumberKit. `PhoneStateListener` with `READ_CALL_LOG` also has the number, but that permission is restricted on Google Play, so the app doesn't ask for it.
   - Answer and decline with `TelecomManager.acceptRingingCall()` and `endCall()` (`ANSWER_PHONE_CALLS`). Both are deprecated since Android 10 but work on One UI 9; `endCall()` also hangs up an active call.
@@ -141,7 +140,7 @@ Keep-alive: the **Mac** sends `ping` every 2 minutes and the phone answers `pong
 - **`BridgeProtocol`** (new library target, no UI): message types, framing, the TLS identity and fingerprints, the pairing store, and `BridgeServer`. Unit-tested with the fixtures, and end to end with a test TLS client.
 - **`BridgeServer`:** `NWListener` with TLS. It accepts one connection per paired phone, publishes the connection state and routes messages to the features.
 - **UI:** the same menu and settings as today. Setup changes from "turn on Wireless debugging" to "install Galaxy Bridge on the Galaxy and scan this code". The APK link is shown as a QR code too.
-- **Calls:** an incoming call shows a `UNUserNotificationCenter` notification with **Answer** and **Decline** actions (time-sensitive category). The existing dialer and `tel:` handler send `call.place` instead of running adb.
+- **Calls:** a floating panel in the top-right corner (`CallPanel`, a non-activating `NSPanel` on every Space) shows the caller with **Answer** and **Decline** while the phone rings, and the call's duration with **End** once answered. The menu shows the call too. A call nobody answered leaves a "Ligação perdida" notification in Notification Center. The panel replaced the planned notification with actions: macOS folds two actions into an "Options" menu, and a time-sensitive notification needs an entitlement that local signing can't have. The existing dialer and `tel:` handler send `call.place` instead of running adb.
 - **Notifications:** mirrored into Notification Center under the app's name and icon, with **Reply** as a text-input action. Removing one on either side removes it on the other.
 
 ## Distribution
@@ -266,6 +265,16 @@ Still open, to look at in Phase 2:
 
 Done when: a call to the S25 shows the contact's name on the Mac within 2 seconds and can be answered and declined from there.
 
+### Phase 2 results
+
+Galaxy S25, 2026-10-18, a dozen calls from another phone:
+
+- **The caller's name reaches the Mac in the same second the phone starts ringing.** The dialer's first notification already carries the name; the number comes in an update under a second later. Answering, declining and hanging up from the Mac act at once.
+- **The phone side:** `CallTracker` follows `TelephonyCallback`'s call state (ringing, off-hook, idle) and `NotificationListener` reads the caller from the dialer's `CallStyle` notification (`com.samsung.android.incallui`). Answer and decline use `TelecomManager.acceptRingingCall()` and `endCall()`.
+- **Declining sends the caller to the carrier's voicemail**, from the Mac and from the phone alike: that is how rejecting works.
+- **A call declined on the phone shows on the Mac as missed.** The phone can't tell a decline from the caller giving up without reading the call log (`READ_CALL_LOG`, restricted on Google Play).
+- **Direct voicemail:** after about 20 seconds unanswered, One UI picks up and the call goes off-hook as if answered. A second before that, the dialer's notification changes: its text becomes "Correio de voz direto" and the Samsung extra `android.ongoingActivityNoti.nowbarCallChronometerWithText` turns `true` (it stays `false` when the user answers). The phone uses that extra, with the text as a fallback, only while the call goes from ringing to off-hook (or within 3 s after), so a call put on hold later isn't mistaken for voicemail. It then reports `voicemail` instead of `active`: the Mac hides the panel and, when the call ends, posts "Ligação perdida · … · correio de voz".
+
 ### Phase 3 — Notifications
 
 `NotificationRelay`, icons, replies, removal on both sides, and a per-app filter in the settings of both apps.
@@ -285,5 +294,4 @@ Done when: a call to the S25 shows the contact's name on the Mac within 2 second
 
 - **App name on the phone:** "Galaxy Bridge" as well, or something that says what it does from the phone's point of view ("Galaxy Bridge for Mac")?
 - **More than one Mac per phone, or more than one phone per Mac.** The protocol allows both. The first versions will support one of each, to keep the UI simple.
-- **One UI's direct voicemail.** "Correio de voz direto" is a One UI feature the user turns on in the Phone app's settings (it is on for the user's S25). When it is on and a call goes unanswered for about 20 seconds, it picks the call up to record a message: the call state becomes off-hook and the dialer's notification text changes to "Correio de voz direto" (confirmed with the user). Phase 2 must tell this apart from the user answering, so the Mac shows "went to voicemail" instead of an answered call. The notification text is localized, so look for a sturdier signal first (a notification extra, the call's audio route, or the order of events), with the text as a last resort.
 - **Bluetooth LE presence.** Android's `CompanionDeviceManager` can wake the app when a paired device comes near, and an association also exempts the app from some background limits. It would need the Mac to advertise over BLE. Worth evaluating after Phase 2.

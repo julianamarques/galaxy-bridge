@@ -31,11 +31,15 @@ final class AppModel: ObservableObject {
     @Published private(set) var battery: Battery?
     @Published private(set) var phoneCountry: String?
     @Published private(set) var callError: String?
+    @Published private(set) var call: CallState?
+    @Published private(set) var callAnsweredAt: Date?
     @Published var setupRequested = false
 
     lazy var setup = SetupModel(app: self)
 
     private(set) var bridge: BridgeServer?
+    private let callNotifier = CallNotifier()
+    private var declinedCall: String?
     private let deviceMonitor = DeviceMonitor()
     private var trackedDevices: [ADBDevice] = []
     private var isMonitoringDevices = false
@@ -261,11 +265,96 @@ final class AppModel: ObservableObject {
         Task { callError = await placeCall(number) }
     }
 
-    var canEndCall: Bool { appPhone == nil && connection.serial != nil }
+    var canEndCall: Bool { appPhone == nil ? connection.serial != nil : call != nil }
 
     func endCall() {
+        if let call {
+            Log.phone.info("Encerrando a ligação pelo Mac")
+            #if DEBUG
+            if call.call.hasPrefix(Self.previewCall) { return callChanged(CallState(call: call.call, state: .ended, direction: call.direction)) }
+            #endif
+            bridge?.send(.callEnd(CallID(call: call.call)))
+            return
+        }
         guard canEndCall, let serial = connection.serial else { return }
         Task { await ADB.endCall(serial: serial) }
+    }
+
+    func answerCall() {
+        guard let id = call?.call else { return }
+        Log.phone.info("Atendendo a ligação pelo Mac")
+        #if DEBUG
+        if id.hasPrefix(Self.previewCall) { return callChanged(CallState(call: id, state: .active, direction: .incoming, number: call?.number, name: call?.name)) }
+        #endif
+        bridge?.send(.callAnswer(CallID(call: id)))
+    }
+
+    func declineCall() {
+        guard let id = call?.call else { return }
+        declinedCall = id
+        Log.phone.info("Recusando a ligação pelo Mac")
+        #if DEBUG
+        if id.hasPrefix(Self.previewCall) { return callChanged(CallState(call: id, state: .ended, direction: .incoming, number: call?.number, name: call?.name)) }
+        #endif
+        bridge?.send(.callDecline(CallID(call: id)))
+    }
+
+    var callerName: String {
+        guard let call else { return "" }
+        return call.name ?? callerNumber ?? String(localized: "Número desconhecido")
+    }
+
+    var callerNumber: String? {
+        call?.number.map { PhoneNumbers.shared.display($0, country: dialCountry) }
+    }
+
+    private func callChanged(_ state: CallState) {
+        let previous = call?.call == state.call ? call : nil
+        let wasAnswered = previous != nil && callAnsweredAt != nil
+        switch state.state {
+        case .ringing:
+            call = state
+            callAnsweredAt = nil
+        case .active:
+            call = state
+            if !wasAnswered { callAnsweredAt = Date() }
+        case .voicemail:
+            call = state
+            callAnsweredAt = nil
+        case .ended:
+            let caller = callerName.isEmpty ? (state.name ?? state.number ?? "") : callerName
+            if state.direction == .incoming, !wasAnswered, declinedCall != state.call {
+                callNotifier.missed(call: state.call, caller: caller, toVoicemail: previous?.state == .voicemail)
+            }
+            call = nil
+            callAnsweredAt = nil
+            declinedCall = nil
+        }
+    }
+
+    #if DEBUG
+    private static let previewCall = "preview"
+
+    func previewIncomingCall() {
+        Task {
+            for round in 1...2 {
+                let id = "\(Self.previewCall)-\(round)"
+                callChanged(CallState(call: id, state: .ringing, direction: .incoming))
+                try? await Task.sleep(for: .milliseconds(500))
+                callChanged(CallState(call: id, state: .ringing, direction: .incoming, number: "086999990001", name: "Maria"))
+                try? await Task.sleep(for: .seconds(15))
+                if call?.call == id, call?.state == .ringing {
+                    callChanged(CallState(call: id, state: .ended, direction: .incoming, number: "086999990001", name: "Maria"))
+                }
+                try? await Task.sleep(for: .seconds(3))
+            }
+        }
+    }
+    #endif
+
+    private func dropCall() {
+        call = nil
+        callAnsweredAt = nil
     }
 
     func open(_ urls: [URL]) {
@@ -329,6 +418,7 @@ extension AppModel {
             let bridge = BridgeServer(identity: identity, store: store, hello: hello)
             bridge.onEvent = { [weak self] in self?.handle($0) }
             bridge.start()
+            callNotifier.requestAuthorization()
             self.bridge = bridge
             return bridge
         } catch {
@@ -350,6 +440,7 @@ extension AppModel {
             callError = nil
         case .disconnected:
             isAppConnected = false
+            dropCall()
         case .paired(let phone):
             didPairApp(phone)
         case .pairingExpired:
@@ -362,6 +453,8 @@ extension AppModel {
             if let country = (status.networkCountry ?? status.simCountry)?.lowercased(), country != phoneCountry {
                 phoneCountry = country
             }
+        case .call(let state):
+            callChanged(state)
         case .error(let error):
             callError = error.message
         }

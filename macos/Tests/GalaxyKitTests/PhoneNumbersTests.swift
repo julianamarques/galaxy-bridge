@@ -44,6 +44,14 @@ struct PhoneNumbersTests {
         #expect(dialable("+55 86 99999-0001", country: "us") == "+5586999990001")
     }
 
+    @Test func showsCallersInTheLocalFormat() {
+        #expect(numbers.display("+5586999990001", country: "br") == "(86) 99999-0001")
+        #expect(numbers.display("086999990001", country: "br") == "(86) 99999-0001")
+        #expect(numbers.display("+14155550100", country: "br") == "+1 415-555-0100")
+        #expect(numbers.display("190", country: "br") == "190")
+        #expect(numbers.display("+5586999990001", country: nil) == "+5586999990001")
+    }
+
     @Test func keepsNumbersItCannotPlace() {
         #expect(dialable("99999-0001", country: "br") == "999990001")
         #expect(dialable("190", country: "br") == "190")

@@ -2,7 +2,7 @@ package com.julianamarques.galaxybridge.bridge
 
 import android.content.Context
 import android.util.Log
-import com.julianamarques.galaxybridge.TAG
+import com.julianamarques.galaxybridge.Diagnostics.TAG
 import com.julianamarques.galaxybridge.protocol.Envelope
 import com.julianamarques.galaxybridge.protocol.Frames
 import java.io.BufferedInputStream

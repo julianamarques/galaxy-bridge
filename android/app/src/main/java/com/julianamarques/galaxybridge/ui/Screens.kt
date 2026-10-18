@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -242,14 +243,14 @@ private fun PermissionCard(refresh: Int) {
     val context = LocalContext.current
     fun read() = Permission.needed().associateWith { it.isGranted(context) }
     val granted = remember(refresh) { mutableStateOf(read()) }
-    val request = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted.value = read() }
+    val request = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted.value = read() }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(vertical = 8.dp)) {
             Permission.needed().forEach { permission ->
                 PermissionRow(permission, isGranted = granted.value[permission] == true) {
-                    val manifestPermission = permission.manifestPermission
-                    if (manifestPermission != null) request.launch(manifestPermission)
-                    else context.startActivity(Permission.batteryIntent(context))
+                    val manifestPermissions = permission.manifestPermissions
+                    if (manifestPermissions.isNotEmpty()) request.launch(manifestPermissions.toTypedArray())
+                    else permission.settingsIntent(context)?.let(context::startActivity)
                 }
             }
         }
@@ -281,5 +282,6 @@ private val Permission.icon: ImageVector
     get() = when (this) {
         Permission.Notifications -> Icons.Filled.Notifications
         Permission.Calls -> Icons.Filled.Call
+        Permission.CallerName -> Icons.Filled.Person
         Permission.Battery -> Icons.Filled.Info
     }

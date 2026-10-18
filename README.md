@@ -2,7 +2,7 @@
 
 Use a Samsung Galaxy (or any Android 11+) together with your Mac over Wi-Fi.
 
-Galaxy Bridge lives in the menu bar. It shows whether the Galaxy is connected and its battery level, and places calls on the phone from the Mac: type a number in the menu, or make the phone numbers in Safari, Contacts, Calendar and other apps (`tel:` links) ring through the Galaxy.
+Galaxy Bridge lives in the menu bar. It shows whether the Galaxy is connected and its battery level, and places calls on the phone from the Mac: type a number in the menu, or make the phone numbers in Safari, Contacts, Calendar and other apps (`tel:` links) ring through the Galaxy. With the Android app, incoming calls show on the Mac with the caller's name, to answer or decline from there.
 
 There are two ways to connect:
 
@@ -15,7 +15,7 @@ Galaxy Mirror shows and controls the phone's screen, and Galaxy Bridge brings th
 
 - macOS 14 or later
 - A phone with Android 11+ on the same Wi-Fi network as the Mac
-- For the Android app: battery usage set to **Unrestricted** (the app asks for it), so Android doesn't cut its network while the screen is off
+- For the Android app: battery usage set to **Unrestricted**, so Android doesn't cut its network while the screen is off, and notification access, to read the caller's name from the dialer (the app asks for both)
 - For adb: Wireless debugging (or USB debugging and a cable) turned on
 
 ## Build
@@ -59,14 +59,15 @@ macos/                    the Mac app (Swift package)
 │   └── GalaxyBridge/     the menu bar app
 │       ├── App/          entry point and app delegate (tel: links)
 │       ├── ViewModels/   AppModel (connection, battery, calls) and SetupModel (pairing)
-│       ├── Views/        menu, setup flow, settings and components
+│       ├── Services/     incoming call panel and missed-call notifications
+│       ├── Views/        menu, call panel, setup flow, settings and components
 │       └── Extensions/   default tel: handler, launch at login, links
 ├── Tests/                BridgeProtocolTests, GalaxyKitTests
 ├── Resources/            Info.plist, icon, bundled adb
 └── scripts/              build, adb download, icon
 android/                  the Android app (Kotlin, Jetpack Compose)
 └── app/src/main/java/com/julianamarques/galaxybridge/
-    ├── bridge/           BridgeService, TLS connection, Keystore identity, Mac discovery
+    ├── bridge/           BridgeService, TLS connection, Keystore identity, Mac discovery, call tracking
     ├── protocol/         messages and framing
     └── ui/               onboarding and pairing screens
 protocol/                 protocol reference and JSON fixtures shared by both test suites
@@ -80,6 +81,7 @@ spikes/                   Phase 0 experiments (throwaway)
 - **Connection (adb)** — the same flow as Galaxy Mirror: pairing with a QR code or a six-digit code, `adb connect` to the phone's `_adb-tls-connect._tcp` service, switching to the USB cable when it is plugged in, and reconnecting every 30 seconds while the phone is away.
 - **Battery** — the Android app sends it when it changes; with adb, `dumpsys battery` every minute.
 - **Calls** — the Android app dials with `TelecomManager.placeCall()`; with adb, `am start -a android.intent.action.CALL`. Numbers are formatted as you type and dialed in international format (`+55 86 99999-0001`) with [PhoneNumberKit](https://github.com/PhoneNumberKit/PhoneNumberKit), using the country of the network the Galaxy is on (so it follows you when traveling), then the SIM's country, then the Mac's region. The audio stays on the phone (or on the earbuds connected to it). **Settings › Calls** makes the app the default handler for `tel:` links; macOS asks for confirmation.
+- **Incoming calls (Android app)** — the phone follows the call state and reads the caller's name and number from the dialer's notification. On the Mac a panel in the top-right corner shows the caller with Answer and Decline, then the call's duration with End; a call nobody answered, including one taken by One UI's direct voicemail, leaves a "Ligação perdida" notification.
 
 ## Roadmap
 
@@ -88,7 +90,7 @@ Features that work without an Apple Developer account:
 - [x] Connection status and battery in the menu bar
 - [x] Calls from the Mac
 - [x] Android app, with no Developer options on the phone
-- [ ] Incoming calls on the Mac, with Answer and Decline
+- [x] Incoming calls on the Mac, with Answer and Decline
 - [ ] Phone notifications on the Mac
 - [ ] "Send to Galaxy" in the Finder (Services menu)
 - [ ] File browser and photo import

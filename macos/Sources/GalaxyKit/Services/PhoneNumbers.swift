@@ -34,6 +34,12 @@ public final class PhoneNumbers {
         return international
     }
 
+    public func display(_ text: String, country: String?) -> String {
+        guard let region = Self.region(country), let parsed = try? utility.parse(text, withRegion: region) else { return text }
+        let isLocal = parsed.regionID == region
+        return utility.format(parsed, toType: isLocal ? .national : .international)
+    }
+
     private func partialFormatter(for region: String) -> PartialFormatter {
         if let formatter = partialFormatters[region] { return formatter }
         let formatter = PartialFormatter(utility: utility, defaultRegion: region, withPrefix: true)
