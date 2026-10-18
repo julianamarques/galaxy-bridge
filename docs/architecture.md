@@ -243,13 +243,12 @@ Galaxy S25, 2026-10-14 to 2026-10-17, MacBook on the power adapter, both on home
 
 - **After a restart the app only starts after the first unlock.** Android delivers `BOOT_COMPLETED` once the user unlocks; before that the app's storage is encrypted. The 31 s after unlocking are the system's queue of boot broadcasts: the app connected half a second after it was started. Starting before the first unlock would mean keeping the pairing in device-protected storage; not worth it for now.
 - **Bugs found and fixed during the tests:** the Mac took up to 7.5 minutes to notice a phone that had restarted (now: the phone closes the connection on `ACTION_SHUTDOWN`, and the Mac waits 60 s for a `pong`); the phone dropped the connection every 6 minutes while charging, because the Mac only pinged after 2 minutes of silence and the phone kept sending status; and the Mac app's quit could beat its own close message (now it waits up to 1 s).
-- **The Mac reaches the phone while asleep only because "Wake for network access" is on** (`pmset` `womp 1`, usually only on the power adapter). Packets from the phone wake the Mac for a few seconds (`DarkWake … wifibt` in `pmset -g log`) and the connection comes back without lighting the screen.
+- **The Mac reaches the phone while asleep only because "Wake for network access" is on** (`pmset` `womp 1`, usually only on the power adapter). Packets from the phone wake the Mac for a few seconds (`DarkWake … wifibt` in `pmset -g log`) and the connection comes back without lighting the screen. `wifibt` is the combined Wi-Fi and Bluetooth chip, so a Bluetooth mouse being moved shows up the same way: during the 16-minute sleep the Mac woke about once a minute while its mouse was being jostled on a bed.
 
 Still open, to look at in Phase 2:
 
 - **Mac on battery.** Without wake for network access the sleeping Mac can't be reached, the phone's retry delay grows to 5 minutes, and the battery may take that long to show after the Mac wakes. Not measured yet.
-- **The Mac woke every minute during the 16-minute sleep** (`wifibt`), against about once an hour on earlier nights. Likely the Wireless debugging connection that was on during the test; measure a night without it.
-- **"Software caused connection abort" on the phone.** Twice during the long sleep, and possibly behind the hourly reconnections of earlier nights. On Android it usually means the system destroyed the app's sockets; find out when and why.
+- **"Software caused connection abort" on the phone.** Twice during the long sleep. On earlier nights the phone also reconnected about once an hour, each time in the same second as a `wifibt` dark wake on the Mac, so these reconnections are what wakes it at night. On Android this error usually means the system destroyed the app's sockets; find out when and why.
 - **A crashed Mac app** still leaves the phone waiting its own 6 minutes, since nothing closes the connection.
 - **Phone battery with the real app** overnight, now that the Mac pings every 2 minutes.
 
