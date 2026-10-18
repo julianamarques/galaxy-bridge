@@ -245,13 +245,18 @@ Galaxy S25, 2026-10-14 to 2026-10-17, MacBook on the power adapter, both on home
 - **Bugs found and fixed during the tests:** the Mac took up to 7.5 minutes to notice a phone that had restarted (now: the phone closes the connection on `ACTION_SHUTDOWN`, and the Mac waits 60 s for a `pong`); the phone dropped the connection every 6 minutes while charging, because the Mac only pinged after 2 minutes of silence and the phone kept sending status; and the Mac app's quit could beat its own close message (now it waits up to 1 s).
 - **The Mac reaches the phone while asleep only because "Wake for network access" is on** (`pmset` `womp 1`, usually only on the power adapter). Packets from the phone wake the Mac for a few seconds (`DarkWake … wifibt` in `pmset -g log`) and the connection comes back without lighting the screen. `wifibt` is the combined Wi-Fi and Bluetooth chip, so a Bluetooth mouse being moved shows up the same way: during the 16-minute sleep the Mac woke about once a minute while its mouse was being jostled on a bed.
 
+**A night with the real app** — 2026-10-17 to 18, phone unplugged at 00:22 with 100%, screen off from about 01:19 to 08:32, Mac on the power adapter and asleep:
+
+- **The connection held all night.** Debug builds of the Android app append each connection event (start, connect, close with the reason, retries, pings, network lost or blocked, shutdown) to `files/diagnostics.log`, with the phone's state at that moment (Doze, screen, network, battery); read it with `adb shell run-as com.julianamarques.galaxybridge cat files/diagnostics.log`. It shows a `ping` every 2 minutes, in Doze too, whenever the Mac was awake.
+- **The Mac's Power Nap sets the rhythm.** On the power adapter the sleeping Mac spends long stretches in dark wake (1 to 1.5 hours each, as on nights before the app existed) and keeps pinging. When it really sleeps the pings stop, the phone's read timeout runs out 6 minutes later, and its reconnection wakes the Mac (`wifibt`), which accepts it. Seven such reconnections, each taking 2 s. These are the hourly reconnections of earlier nights; no "connection abort" this time.
+- **The app's own battery cost is negligible:** 0.17 mAh for the whole night in `dumpsys batterystats`, against 1,277 mAh for the phone. The phone's total (747 mAh with the screen off, about 2.75% per hour) says nothing about the app: a USB-C to 3.5 mm adapter with wired earphones stayed plugged in all night, and its USB controller held the CPU awake for 6 hours (`Kernel Wake lock a600000.ssusb`). It isn't known whether something similar inflated the Phase 0 numbers.
+
 Still open, to look at in Phase 2:
 
 - **Mac on battery.** Without wake for network access the sleeping Mac can't be reached, the phone's retry delay grows to 5 minutes, and the battery may take that long to show after the Mac wakes. Not measured yet.
-- **Diagnostics:** debug builds of the Android app append each connection event (start, connect, close with the reason, retries, pings, network lost or blocked, shutdown) to `files/diagnostics.log`, with the phone's state at that moment (Doze, screen, network, battery). Read it with `adb shell run-as com.julianamarques.galaxybridge cat files/diagnostics.log`.
-- **"Software caused connection abort" on the phone.** Twice during the long sleep. On earlier nights the phone also reconnected about once an hour, each time in the same second as a `wifibt` dark wake on the Mac, so these reconnections are what wakes it at night. On Android this error usually means the system destroyed the app's sockets; find out when and why.
+- **"Software caused connection abort" on the phone.** Twice during the 16-minute sleep test, not seen since. On Android this error usually means the system destroyed the app's sockets; the diagnostic log should show when it happens again.
 - **A crashed Mac app** still leaves the phone waiting its own 6 minutes, since nothing closes the connection. Measured with `kill -9` and an immediate relaunch: the phone came back after 4 min 10 s, when its read timeout ran out (6 minutes after the Mac's last ping). Rare enough to leave as is.
-- **Phone battery with the real app** overnight, now that the Mac pings every 2 minutes.
+- **The phone's overall battery overnight** with nothing plugged into the USB port, for a realistic total.
 
 ### Phase 2 — Incoming calls
 
