@@ -90,6 +90,10 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func systemDidWake() {
+        bridge?.systemDidWake()
+    }
+
     private func finishQuitting() {
         let completion = quitCompletion
         quitCompletion = nil

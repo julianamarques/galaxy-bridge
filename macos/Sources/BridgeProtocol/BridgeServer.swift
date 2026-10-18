@@ -36,6 +36,7 @@ public final class BridgeServer {
     private var active: BridgeConnection?
     private var timer: Timer?
     private var pairingTimer: Timer?
+    private var wakeMonitor: NWPathMonitor?
     private var nextID = 0
     private let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.julianamarques.BridgeProtocol", category: "bridge")
 
@@ -77,7 +78,28 @@ public final class BridgeServer {
         }
     }
 
+    public func systemDidWake() {
+        guard active != nil, wakeMonitor == nil else { return }
+        let monitor = NWPathMonitor()
+        monitor.pathUpdateHandler = { [weak self] path in
+            guard path.status == .satisfied else { return }
+            MainActor.assumeIsolated { self?.networkReturnedAfterWake() }
+        }
+        wakeMonitor = monitor
+        monitor.start(queue: .main)
+    }
+
+    private func networkReturnedAfterWake() {
+        wakeMonitor?.cancel()
+        wakeMonitor = nil
+        guard let active else { return }
+        log.info("Mac acordou; pedindo ao celular uma conexão nova")
+        active.finish {}
+    }
+
     public func stop(then completion: @escaping @MainActor () -> Void = {}) {
+        wakeMonitor?.cancel()
+        wakeMonitor = nil
         timer?.invalidate()
         timer = nil
         pairingTimer?.invalidate()

@@ -240,10 +240,13 @@ Galaxy S25, 2026-10-14 to 2026-10-17, MacBook on the power adapter, both on home
 | Phone Wi-Fi off for 3+ minutes | The Mac dropped the phone after 3 min 17 s; reconnected 3 s after Wi-Fi came back. |
 | Mac sleeps for 1 minute | The connection survived; no reconnection needed. |
 | Mac sleeps for 16 minutes | Already connected when the Mac woke. |
+| Mac on battery sleeps for an hour | Battery back in the menu 1 min 53 s after waking; 3 s after the fix below (21-minute sleep). |
 
 - **After a restart the app only starts after the first unlock.** Android delivers `BOOT_COMPLETED` once the user unlocks; before that the app's storage is encrypted. The 31 s after unlocking are the system's queue of boot broadcasts: the app connected half a second after it was started. Starting before the first unlock would mean keeping the pairing in device-protected storage; not worth it for now.
 - **Bugs found and fixed during the tests:** the Mac took up to 7.5 minutes to notice a phone that had restarted (now: the phone closes the connection on `ACTION_SHUTDOWN`, and the Mac waits 60 s for a `pong`); the phone dropped the connection every 6 minutes while charging, because the Mac only pinged after 2 minutes of silence and the phone kept sending status; and the Mac app's quit could beat its own close message (now it waits up to 1 s).
 - **The Mac reaches the phone while asleep only because "Wake for network access" is on** (`pmset` `womp 1`, usually only on the power adapter). Packets from the phone wake the Mac for a few seconds (`DarkWake … wifibt` in `pmset -g log`) and the connection comes back without lighting the screen. `wifibt` is the combined Wi-Fi and Bluetooth chip, so a Bluetooth mouse being moved shows up the same way: during the 16-minute sleep the Mac woke about once a minute while its mouse was being jostled on a bed.
+
+**Mac on battery** — without wake for network access the sleeping Mac can't be reached. macOS still wakes it for a few seconds every 10 to 20 minutes for maintenance, and the phone sometimes connects then, but the connection is stuck once the Mac sleeps again: the phone, in light idle, never noticed (its read timeout didn't fire for 17 minutes), and a status it sent meanwhile stayed unacknowledged, so after the Mac woke the phone's `pong` waited behind TCP retransmissions spaced minutes apart. The Mac gave up after 60 s and the phone reconnected, 1 min 53 s after the wake. **Fix:** when macOS posts `NSWorkspace.didWakeNotification` (a real wake, not a dark wake), the Mac waits for the network to be back and closes the phone's connection, and the phone reconnects at once. A 21-minute sleep on battery then took 3 s from wake to battery in the menu.
 
 **A night with the real app** — 2026-10-17 to 18, phone unplugged at 00:22 with 100%, screen off from about 01:19 to 08:32, Mac on the power adapter and asleep:
 
@@ -253,7 +256,6 @@ Galaxy S25, 2026-10-14 to 2026-10-17, MacBook on the power adapter, both on home
 
 Still open, to look at in Phase 2:
 
-- **Mac on battery.** Without wake for network access the sleeping Mac can't be reached, the phone's retry delay grows to 5 minutes, and the battery may take that long to show after the Mac wakes. Not measured yet.
 - **"Software caused connection abort" on the phone.** Twice during the 16-minute sleep test, not seen since. On Android this error usually means the system destroyed the app's sockets; the diagnostic log should show when it happens again.
 - **A crashed Mac app** still leaves the phone waiting its own 6 minutes, since nothing closes the connection. Measured with `kill -9` and an immediate relaunch: the phone came back after 4 min 10 s, when its read timeout ran out (6 minutes after the Mac's last ping). Rare enough to leave as is.
 - **The phone's overall battery overnight** with nothing plugged into the USB port, for a realistic total.

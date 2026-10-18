@@ -141,6 +141,13 @@ struct BridgeServerTests {
         phone.close()
     }
 
+    @Test func asksThePhoneToReconnectAfterWaking() async throws {
+        let phone = try await connectPairedPhone()
+        server.systemDidWake()
+        try await until { server.phone == nil }
+        await #expect(throws: (any Error).self) { try await phone.next() }
+    }
+
     private func connectPairedPhone() async throws -> TestPhone {
         let port = try await start()
         let phone = try TestPhone()
