@@ -19,6 +19,7 @@ import android.os.Bundle
 import android.os.IBinder
 import android.telecom.TelecomManager
 import android.util.Log
+import com.julianamarques.galaxybridge.Diagnostics
 import com.julianamarques.galaxybridge.MainActivity
 import com.julianamarques.galaxybridge.Permission
 import com.julianamarques.galaxybridge.R
@@ -49,15 +50,24 @@ class BridgeService : Service() {
         override fun onReceive(context: Context, intent: Intent) {
             running = false
             val connection = connection ?: return
-            Log.i(TAG, "Celular desligando; encerrando a conexão")
+            Diagnostics.record(context, "Celular desligando; encerrando a conexão")
             thread { connection.close() }.join(SHUTDOWN_CLOSE_MS)
         }
     }
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
-        override fun onAvailable(network: Network) = wake()
+        override fun onAvailable(network: Network) {
+            Diagnostics.record(this@BridgeService, "Rede disponível")
+            wake()
+        }
+
         override fun onLost(network: Network) {
+            Diagnostics.record(this@BridgeService, "Rede perdida")
             connection?.close()
+        }
+
+        override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
+            Diagnostics.record(this@BridgeService, if (blocked) "Rede bloqueada para o app" else "Rede desbloqueada para o app")
         }
     }
 
@@ -69,6 +79,7 @@ class BridgeService : Service() {
         createChannel(this)
         startForeground(NOTIFICATION_ID, notification(BridgeState.Connection.Searching), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         running = true
+        Diagnostics.record(this, "Serviço iniciado")
         registerReceiver(shutdownReceiver, IntentFilter(Intent.ACTION_SHUTDOWN))
         getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback)
         worker = thread(name = "bridge") { run() }
@@ -80,6 +91,7 @@ class BridgeService : Service() {
     }
 
     override fun onDestroy() {
+        Diagnostics.record(this, "Serviço parado")
         running = false
         instance = null
         connection?.close()
@@ -96,19 +108,24 @@ class BridgeService : Service() {
             val mac = PairingStore.current(this) ?: break
             if (BridgeState.connection.value != BridgeState.Connection.Refused) setState(BridgeState.Connection.Searching)
             if (!isOnWiFi()) {
+                Diagnostics.record(this, "Sem Wi-Fi; aguardando")
                 sleep(0)
                 continue
             }
             val wasEstablished = session(mac)
             if (!running) break
             delay = if (wasEstablished) RETRY_DELAYS.first() else RETRY_DELAYS.firstOrNull { it > delay } ?: RETRY_DELAYS.last()
+            Diagnostics.record(this, "Nova tentativa em ${delay / 1000} s")
             sleep(delay)
         }
         if (PairingStore.current(this) == null) stopSelf()
     }
 
     private fun session(mac: PairedMac): Boolean {
-        val connection = open(mac) ?: return false
+        val connection = open(mac) ?: run {
+            Diagnostics.record(this, "Não foi possível conectar ao Mac")
+            return false
+        }
         this.connection = connection
         var greeted = false
         try {
@@ -118,6 +135,7 @@ class BridgeService : Service() {
                     greeted = true
                     PairingStore.updateAddress(this, connection.host, connection.port, first.body.name)
                     setState(BridgeState.Connection.Connected(first.body.name))
+                    Diagnostics.record(this, "Conectado a ${first.body.name}")
                 }
                 is Message.ErrorMessage -> {
                     Log.w(TAG, "Mac recusou: ${first.body.message}")
@@ -142,9 +160,9 @@ class BridgeService : Service() {
             if (!greeted && e.message.orEmpty().contains("certificate", ignoreCase = true)) {
                 setState(BridgeState.Connection.Refused)
             }
-            Log.i(TAG, "Conexão TLS encerrada: ${e.message}")
+            Diagnostics.record(this, "Conexão TLS encerrada: ${e.message}")
         } catch (e: IOException) {
-            Log.i(TAG, "Conexão encerrada: ${e.javaClass.simpleName} ${e.message}")
+            Diagnostics.record(this, "Conexão encerrada: ${e.javaClass.simpleName} ${e.message}")
         } finally {
             if (established) runCatching { unregisterReceiver(batteryReceiver) }
             established = false
@@ -165,12 +183,15 @@ class BridgeService : Service() {
 
     private fun handle(envelope: Envelope, connection: BridgeConnection) {
         when (val message = envelope.message) {
-            Message.Ping -> connection.send(Envelope(Message.Pong, replyTo = envelope.id))
+            Message.Ping -> {
+                Diagnostics.record(this, "Ping")
+                connection.send(Envelope(Message.Pong, replyTo = envelope.id))
+            }
             is Message.CallPlaceMessage -> placeCall(message.body.number)?.let {
                 connection.send(Envelope(Message.ErrorMessage(it), replyTo = envelope.id))
             }
             Message.Unpair -> {
-                Log.i(TAG, "O Mac esqueceu este celular")
+                Diagnostics.record(this, "O Mac esqueceu este celular")
                 PairingStore.clear(this)
                 running = false
                 stopSelf()

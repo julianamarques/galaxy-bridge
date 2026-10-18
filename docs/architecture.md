@@ -248,8 +248,9 @@ Galaxy S25, 2026-10-14 to 2026-10-17, MacBook on the power adapter, both on home
 Still open, to look at in Phase 2:
 
 - **Mac on battery.** Without wake for network access the sleeping Mac can't be reached, the phone's retry delay grows to 5 minutes, and the battery may take that long to show after the Mac wakes. Not measured yet.
+- **Diagnostics:** debug builds of the Android app append each connection event (start, connect, close with the reason, retries, pings, network lost or blocked, shutdown) to `files/diagnostics.log`, with the phone's state at that moment (Doze, screen, network, battery). Read it with `adb shell run-as com.julianamarques.galaxybridge cat files/diagnostics.log`.
 - **"Software caused connection abort" on the phone.** Twice during the long sleep. On earlier nights the phone also reconnected about once an hour, each time in the same second as a `wifibt` dark wake on the Mac, so these reconnections are what wakes it at night. On Android this error usually means the system destroyed the app's sockets; find out when and why.
-- **A crashed Mac app** still leaves the phone waiting its own 6 minutes, since nothing closes the connection.
+- **A crashed Mac app** still leaves the phone waiting its own 6 minutes, since nothing closes the connection. Measured with `kill -9` and an immediate relaunch: the phone came back after 4 min 10 s, when its read timeout ran out (6 minutes after the Mac's last ping). Rare enough to leave as is.
 - **Phone battery with the real app** overnight, now that the Mac pings every 2 minutes.
 
 ### Phase 2 — Incoming calls
