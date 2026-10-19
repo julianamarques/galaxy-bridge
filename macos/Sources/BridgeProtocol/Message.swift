@@ -41,6 +41,7 @@ public enum Message: Equatable, Sendable {
     case transferDownload(TransferID)
     case transferChunk(TransferChunk)
     case transferResult(TransferResult)
+    case clipboard(Clipboard)
     case error(BridgeError)
     case ping
     case pong
@@ -74,6 +75,7 @@ public enum Message: Equatable, Sendable {
         case .transferDownload: "transfer.download"
         case .transferChunk: "transfer.chunk"
         case .transferResult: "transfer.result"
+        case .clipboard: "clipboard"
         case .error: "error"
         case .ping: "ping"
         case .pong: "pong"
@@ -373,6 +375,16 @@ public struct TransferResult: Codable, Equatable, Sendable {
     }
 }
 
+public struct Clipboard: Codable, Equatable, Sendable {
+    public static let maxLength = 100_000
+
+    public var text: String
+
+    public init(text: String) {
+        self.text = text
+    }
+}
+
 public struct BridgeError: Codable, Equatable, Sendable, Error {
     public enum Code: String, Codable, Sendable {
         case version
@@ -426,6 +438,7 @@ extension Envelope: Codable {
         case "transfer.download": .transferDownload(try container.decode(TransferID.self, forKey: .body))
         case "transfer.chunk": .transferChunk(try container.decode(TransferChunk.self, forKey: .body))
         case "transfer.result": .transferResult(try container.decode(TransferResult.self, forKey: .body))
+        case "clipboard": .clipboard(try container.decode(Clipboard.self, forKey: .body))
         case "error": .error(try container.decode(BridgeError.self, forKey: .body))
         case "ping": .ping
         case "pong": .pong
@@ -460,6 +473,7 @@ extension Envelope: Codable {
         case .transferDownload(let body): try container.encode(body, forKey: .body)
         case .transferChunk(let body): try container.encode(body, forKey: .body)
         case .transferResult(let body): try container.encode(body, forKey: .body)
+        case .clipboard(let body): try container.encode(body, forKey: .body)
         case .error(let body): try container.encode(body, forKey: .body)
         case .unpair, .ping, .pong, .unknown: break
         }

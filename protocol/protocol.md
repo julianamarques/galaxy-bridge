@@ -171,6 +171,14 @@ Press a notification's button, with `reply` for the ones that take text, or dism
 
 The apps whose notifications the phone should not send. Sent after `hello` and whenever the user changes it in the Mac's settings; the phone keeps it until the next one.
 
+### `clipboard` — both directions
+
+```json
+{ "type": "clipboard", "body": { "text": "Rua das Flores, 123 — apto 4" } }
+```
+
+Text the user chose to send to the other side's clipboard, up to 100,000 characters. Only sent on an explicit action: the Mac's "Enviar Texto Copiado" menu item, or sharing text to "Enviar para o Mac" on the phone. Neither side watches the clipboard.
+
 ### File transfers
 
 Files don't travel on the main connection, so a large one never holds up pings, calls or notifications. Each transfer gets its own connection: the phone opens a new TLS connection to the Mac's port, with the same certificates, and its first message says what it's for instead of `hello`. The Mac accepts it only from a paired phone.

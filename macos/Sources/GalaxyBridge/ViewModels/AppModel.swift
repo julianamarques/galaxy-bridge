@@ -348,6 +348,19 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func sendClipboard() {
+        guard let text = NSPasteboard.general.string(forType: .string), !text.isEmpty else {
+            return notifier.clipboard(String(localized: "Não há texto copiado"), text: String(localized: "Copie um texto no Mac e tente de novo."))
+        }
+        guard text.count <= Clipboard.maxLength else {
+            return notifier.clipboard(String(localized: "Texto grande demais"), text: String(localized: "Envie textos longos como arquivo."))
+        }
+        guard bridge?.send(.clipboard(Clipboard(text: text))) != nil else {
+            return notifier.clipboard(String(localized: "O \(deviceName) não está conectado"), text: text)
+        }
+        notifier.clipboard(String(localized: "Copiado no \(deviceName)"), text: text)
+    }
+
     func chooseFilesToSend() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
@@ -567,6 +580,10 @@ extension AppModel {
             }
         case .transferEnded(let id):
             transfers.removeAll { $0.id == id }
+        case .clipboard(let text):
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+            notifier.clipboard(String(localized: "Copiado do \(deviceName)"), text: text)
         case .notificationPosted(let notification):
             notificationPosted(notification)
         case .notificationRemoved(let key):

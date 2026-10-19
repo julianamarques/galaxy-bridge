@@ -3,6 +3,7 @@ package com.julianamarques.galaxybridge.bridge
 import android.Manifest
 import android.app.Notification
 import android.content.ClipData
+import android.content.ClipboardManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -30,6 +31,7 @@ import com.julianamarques.galaxybridge.R
 import com.julianamarques.galaxybridge.Diagnostics.TAG
 import com.julianamarques.galaxybridge.protocol.BridgeError
 import com.julianamarques.galaxybridge.protocol.CallState
+import com.julianamarques.galaxybridge.protocol.Clipboard
 import com.julianamarques.galaxybridge.protocol.ContactPhoto
 import com.julianamarques.galaxybridge.protocol.ContactResults
 import com.julianamarques.galaxybridge.protocol.NotificationKey
@@ -241,6 +243,7 @@ class BridgeService : Service() {
             is Message.NotificationDismissMessage -> NotificationListener.dismiss(message.body.key)
             is Message.NotificationFilterMessage -> NotificationRelay.muted = message.body.muted.toSet()
             is Message.TransferOfferMessage -> transfers.download(message.body)
+            is Message.ClipboardMessage -> copy(message.body.text)
             is Message.PhotoRequestMessage -> PhoneContacts.photo(this, message.body.contact)?.let {
                 connection.send(Envelope(Message.PhotoMessage(ContactPhoto(message.body.contact, it)), replyTo = envelope.id))
             }
@@ -289,9 +292,18 @@ class BridgeService : Service() {
         callCallback = callback
     }
 
-    private fun send(message: Message) {
-        val connection = connection ?: return
-        if (established) connection.send(Envelope(message))
+    private fun send(message: Message): Boolean {
+        val connection = connection ?: return false
+        if (!established) return false
+        connection.send(Envelope(message))
+        return true
+    }
+
+    private fun copy(text: String) {
+        mainExecutor.execute {
+            getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText(getString(R.string.clipboard_label), text))
+        }
+        Diagnostics.record(this, "Texto copiado do Mac: ${text.length} caracteres")
     }
 
     private fun sendCall(call: CallState) {
@@ -390,6 +402,9 @@ class BridgeService : Service() {
             intent.clipData = clip
             context.startForegroundService(intent)
         }
+
+        fun copyToMac(text: String): Boolean =
+            instance?.send(Message.ClipboardMessage(Clipboard(text.take(Clipboard.MAX_LENGTH)))) == true
 
         fun forget(context: Context) {
             val app = context.applicationContext

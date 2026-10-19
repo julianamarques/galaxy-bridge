@@ -13,6 +13,7 @@ final class Notifier: NSObject {
     nonisolated private static let phonePrefix = "phone-"
     nonisolated private static let filePrefix = "file-"
     nonisolated private static let fileInfo = "path"
+    private static let clipboardPreview = 120
     private static let actionPrefix = "action-"
 
     override init() {
@@ -49,6 +50,13 @@ final class Notifier: NSObject {
         content.title = ok ? String(localized: "Enviado para o Galaxy") : String(localized: "Não foi possível enviar para o Galaxy")
         content.body = name
         center.add(UNNotificationRequest(identifier: Self.filePrefix + UUID().uuidString, content: content, trigger: nil))
+    }
+
+    func clipboard(_ title: String, text: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = String(text.prefix(Self.clipboardPreview))
+        center.add(UNNotificationRequest(identifier: "clipboard", content: content, trigger: nil))
     }
 
     func show(_ notification: PhoneNotification, icon: URL?) {

@@ -229,6 +229,9 @@ struct MenuView: View {
                 Button("Enviar Arquivo para o \(app.deviceName)…") { app.chooseFilesToSend() }
                     .buttonStyle(MenuRowStyle())
                     .disabled(!app.isAppConnected)
+                Button("Enviar Texto Copiado para o \(app.deviceName)") { app.sendClipboard() }
+                    .buttonStyle(MenuRowStyle())
+                    .disabled(!app.isAppConnected)
             }
             SettingsLink { Text("Ajustes do \(Bundle.appName)…") }
                 .buttonStyle(MenuRowStyle())

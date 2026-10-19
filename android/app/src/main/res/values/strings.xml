@@ -13,6 +13,9 @@
     <string name="transfer_receive_failed">Não foi possível receber do Mac</string>
     <string name="share_label">Enviar para o Mac</string>
     <string name="share_sending">Enviando para o Mac…</string>
+    <string name="share_copied">Copiado no Mac</string>
+    <string name="share_not_connected">O Mac não está conectado agora.</string>
+    <string name="clipboard_label">Texto do Mac</string>
     <string name="share_nothing">Não há arquivo para enviar.</string>
     <string name="share_unreadable">O Galaxy Bridge não recebeu permissão para ler esses arquivos.</string>
     <string name="share_not_paired">Pareie o Galaxy Bridge com o Mac primeiro.</string>

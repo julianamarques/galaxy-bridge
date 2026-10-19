@@ -24,6 +24,7 @@ public final class BridgeServer {
         case fileSent(name: String, ok: Bool)
         case transferProgress(TransferProgress)
         case transferEnded(String)
+        case clipboard(String)
         case error(BridgeError, replyTo: String?)
     }
 
@@ -283,6 +284,8 @@ public final class BridgeServer {
             onEvent?(.notificationPosted(notification))
         case .notificationRemoved(let notification) where connection === active:
             onEvent?(.notificationRemoved(notification.key))
+        case .clipboard(let clipboard) where connection === active:
+            onEvent?(.clipboard(clipboard.text))
         case .notificationActive(let notifications) where connection === active:
             onEvent?(.notificationsActive(notifications.keys))
         case .error(let error) where connection === active:

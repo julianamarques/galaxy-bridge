@@ -19,8 +19,10 @@ class ShareActivity : Activity() {
             Intent.ACTION_SEND_MULTIPLE -> extras?.parcelables<Uri>(Intent.EXTRA_STREAM).orEmpty()
             else -> emptyList()
         }
+        val text = extras?.getCharSequence(Intent.EXTRA_TEXT)?.toString()
         val message = when {
             PairingStore.current(this) == null -> R.string.share_not_paired
+            files.isEmpty() && !text.isNullOrBlank() -> if (BridgeService.copyToMac(text)) R.string.share_copied else R.string.share_not_connected
             files.isEmpty() -> R.string.share_nothing
             else -> if (runCatching { BridgeService.send(this, files) }.isSuccess) R.string.share_sending else R.string.share_unreadable
         }

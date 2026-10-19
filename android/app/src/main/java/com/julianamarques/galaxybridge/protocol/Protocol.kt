@@ -123,6 +123,13 @@ data class TransferChunk(val id: String, val data: String)
 data class TransferResult(val id: String, val ok: Boolean, val message: String? = null)
 
 @Serializable
+data class Clipboard(val text: String) {
+    companion object {
+        const val MAX_LENGTH = 100_000
+    }
+}
+
+@Serializable
 data class BridgeError(val code: String, val message: String)
 
 sealed interface Message {
@@ -154,6 +161,7 @@ sealed interface Message {
     data class TransferDownloadMessage(val body: TransferID) : Message { override val type get() = "transfer.download" }
     data class TransferChunkMessage(val body: TransferChunk) : Message { override val type get() = "transfer.chunk" }
     data class TransferResultMessage(val body: TransferResult) : Message { override val type get() = "transfer.result" }
+    data class ClipboardMessage(val body: Clipboard) : Message { override val type get() = "clipboard" }
     data class ErrorMessage(val body: BridgeError) : Message { override val type get() = "error" }
     data object Ping : Message { override val type get() = "ping" }
     data object Pong : Message { override val type get() = "pong" }
@@ -209,6 +217,7 @@ object Codec {
             "transfer.download" -> Message.TransferDownloadMessage(body(TransferID.serializer()))
             "transfer.chunk" -> Message.TransferChunkMessage(body(TransferChunk.serializer()))
             "transfer.result" -> Message.TransferResultMessage(body(TransferResult.serializer()))
+            "clipboard" -> Message.ClipboardMessage(body(Clipboard.serializer()))
             "error" -> Message.ErrorMessage(body(BridgeError.serializer()))
             "ping" -> Message.Ping
             "pong" -> Message.Pong
@@ -247,6 +256,7 @@ object Codec {
         is Message.TransferDownloadMessage -> json.encodeToJsonElement(TransferID.serializer(), message.body)
         is Message.TransferChunkMessage -> json.encodeToJsonElement(TransferChunk.serializer(), message.body)
         is Message.TransferResultMessage -> json.encodeToJsonElement(TransferResult.serializer(), message.body)
+        is Message.ClipboardMessage -> json.encodeToJsonElement(Clipboard.serializer(), message.body)
         is Message.ErrorMessage -> json.encodeToJsonElement(BridgeError.serializer(), message.body)
         Message.Unpair, Message.Ping, Message.Pong, is Message.Unknown -> null
     }

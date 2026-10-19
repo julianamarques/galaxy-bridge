@@ -12,6 +12,7 @@ final class BridgeConnection {
     private(set) var awaitingPong = false
     private var decoder = FrameDecoder()
     private var isClosed = false
+    private var whenCancelled: (@MainActor () -> Void)?
 
     var onMessage: ((Envelope) -> Void)?
     var onClose: (() -> Void)?
@@ -45,8 +46,9 @@ final class BridgeConnection {
         guard !isClosed else { return completion() }
         connection.send(content: nil, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.close()
-                completion()
+                guard let self else { return completion() }
+                self.whenCancelled = completion
+                self.close()
             }
         })
     }
@@ -66,6 +68,10 @@ final class BridgeConnection {
             receive()
         case .failed, .cancelled, .waiting:
             close()
+            if case .waiting = state { return }
+            let done = whenCancelled
+            whenCancelled = nil
+            done?()
         default:
             break
         }
