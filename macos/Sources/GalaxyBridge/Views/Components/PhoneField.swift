@@ -7,6 +7,7 @@ struct PhoneField: NSViewRepresentable {
     @Binding var text: String
     let country: String?
     let onSubmit: () -> Void
+    let onMove: (Int) -> Void
 
     func makeNSView(context: Context) -> NSTextField {
         let field = NSTextField()
@@ -43,8 +44,16 @@ struct PhoneField: NSViewRepresentable {
         }
 
         func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
-            guard selector == #selector(NSResponder.insertNewline(_:)) else { return false }
-            parent.onSubmit()
+            switch selector {
+            case #selector(NSResponder.insertNewline(_:)):
+                parent.onSubmit()
+            case #selector(NSResponder.moveDown(_:)):
+                parent.onMove(1)
+            case #selector(NSResponder.moveUp(_:)):
+                parent.onMove(-1)
+            default:
+                return false
+            }
             return true
         }
     }

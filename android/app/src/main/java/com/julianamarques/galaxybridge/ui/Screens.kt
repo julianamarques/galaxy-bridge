@@ -20,6 +20,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
@@ -283,5 +284,6 @@ private val Permission.icon: ImageVector
         Permission.Notifications -> Icons.Filled.Notifications
         Permission.Calls -> Icons.Filled.Call
         Permission.CallerName -> Icons.Filled.Person
+        Permission.Contacts -> Icons.Filled.AccountCircle
         Permission.Battery -> Icons.Filled.Info
     }

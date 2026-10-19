@@ -29,6 +29,8 @@ import com.julianamarques.galaxybridge.R
 import com.julianamarques.galaxybridge.Diagnostics.TAG
 import com.julianamarques.galaxybridge.protocol.BridgeError
 import com.julianamarques.galaxybridge.protocol.CallState
+import com.julianamarques.galaxybridge.protocol.ContactPhoto
+import com.julianamarques.galaxybridge.protocol.ContactResults
 import com.julianamarques.galaxybridge.protocol.Envelope
 import com.julianamarques.galaxybridge.protocol.Message
 import com.julianamarques.galaxybridge.protocol.PhoneStatus
@@ -211,6 +213,17 @@ class BridgeService : Service() {
             is Message.CallEndMessage -> controlCall(message.body.call, CallControl.End)?.let {
                 connection.send(Envelope(Message.ErrorMessage(it), replyTo = envelope.id))
             }
+            is Message.ContactsSearchMessage -> connection.send(
+                if (!PhoneContacts.canRead(this)) {
+                    Envelope(Message.ErrorMessage(CONTACTS_PERMISSION), replyTo = envelope.id)
+                } else {
+                    val contacts = PhoneContacts.search(this, message.body.query, message.body.limit)
+                    Envelope(Message.ContactsResultsMessage(ContactResults(contacts)), replyTo = envelope.id)
+                },
+            )
+            is Message.PhotoRequestMessage -> PhoneContacts.photo(this, message.body.contact)?.let {
+                connection.send(Envelope(Message.PhotoMessage(ContactPhoto(message.body.contact, it)), replyTo = envelope.id))
+            }
             Message.Unpair -> {
                 Diagnostics.record(this, "O Mac esqueceu este celular")
                 PairingStore.clear(this)
@@ -289,6 +302,7 @@ class BridgeService : Service() {
         if (!Permission.has(this, Manifest.permission.CALL_PHONE)) {
             return BridgeError("permission", "O Galaxy Bridge não tem permissão para fazer ligações. Abra o app no Galaxy para permitir.")
         }
+        CallTracker.placing(number, PhoneContacts.lookup(this, number))
         return try {
             getSystemService(TelecomManager::class.java).placeCall(Uri.fromParts("tel", number, null), Bundle())
             Log.i(TAG, "Ligação pedida pelo Mac")
@@ -331,6 +345,7 @@ class BridgeService : Service() {
         private const val RECEIVE_TIMEOUT_MS = 6 * 60_000
         private const val DISCOVERY_TIMEOUT_MS = 10_000L
         private const val SHUTDOWN_CLOSE_MS = 1_000L
+        private val CONTACTS_PERMISSION = BridgeError("permission", "O Galaxy Bridge não tem permissão para ler os contatos. Abra o app no Galaxy para permitir.")
         private val RETRY_DELAYS = listOf(2_000L, 5_000L, 15_000L, 30_000L, 60_000L, 120_000L, 300_000L)
 
         @Volatile private var instance: BridgeService? = null

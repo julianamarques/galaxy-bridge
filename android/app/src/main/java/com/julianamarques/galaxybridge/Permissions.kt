@@ -17,12 +17,14 @@ enum class Permission(val title: String, val reason: String) {
     Notifications("Notificações", "Mostra quando o Galaxy está conectado ao Mac."),
     Calls("Ligações", "Para fazer, atender e recusar ligações pelo Mac."),
     CallerName("Nome de quem liga", "Lê o aviso de ligação do Galaxy para mostrar no Mac quem está ligando."),
+    Contacts("Contatos", "Para buscar contatos e mostrar as fotos deles no Mac. Os contatos ficam no Galaxy."),
     Battery("Bateria sem restrições", "Para a conexão continuar com a tela apagada.");
 
     val manifestPermissions: List<String>
         get() = when (this) {
             Notifications -> listOf(Manifest.permission.POST_NOTIFICATIONS)
             Calls -> listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE, Manifest.permission.ANSWER_PHONE_CALLS)
+            Contacts -> listOf(Manifest.permission.READ_CONTACTS)
             CallerName, Battery -> emptyList()
         }
 

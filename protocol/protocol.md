@@ -107,7 +107,7 @@ Sent on every change of the phone's call, and once after `hello` if a call is al
 | `voicemail` | One UI's direct voicemail picked up an unanswered call. The Mac treats it as unanswered. |
 | `ended` | The call is over. The phone forgets it. |
 
-`direction` is `incoming` or `outgoing`. `name` is the contact name and `number` the number, both as the dialer shows them (the number is often national, like `086…`), left out until known. They usually arrive in a second `call.state` a moment after the first.
+`direction` is `incoming` or `outgoing`. `name` is the contact name and `number` the number, both as the dialer shows them (the number is often national, like `086…`), left out until known. They usually arrive in a second `call.state` a moment after the first. `contact` is the phone's contact ID when the number is in the phone's contacts, so the Mac can ask for the photo; for calls placed with `call.place`, the phone fills in the number it dialed and its contact.
 
 ### `call.answer` / `call.decline` / `call.end` — Mac → phone
 
@@ -116,6 +116,24 @@ Sent on every change of the phone's call, and once after `hello` if a call is al
 ```
 
 Answer or decline the ringing call, or hang up the call. Ignored when `call` is not the phone's current call. The new state arrives as `call.state`; the phone answers with `error` only if it can't (`permission` when it lacks the phone permissions).
+
+### `contacts.search` / `contacts.results` — Mac → phone / phone → Mac
+
+```json
+{ "type": "contacts.search", "id": "s3", "body": { "query": "pai", "limit": 8 } }
+{ "type": "contacts.results", "replyTo": "s3", "body": { "contacts": [ { "id": "3789r1-2A4E", "name": "Maria", "numbers": [ { "number": "+55 86 99999-0001", "label": "Celular" } ], "hasPhoto": true } ] } }
+```
+
+Searches the phone's contacts by name or number, up to `limit` contacts, those whose name starts with the query first. Numbers are as stored on the phone, `label` in the phone's language. The contacts stay on the phone: the Mac asks as the user types and keeps only the latest results. Without the contacts permission the phone answers `error` (`permission`).
+
+### `photo.request` / `photo` — Mac → phone / phone → Mac
+
+```json
+{ "type": "photo.request", "id": "p1", "body": { "contact": "3789r1-2A4E" } }
+{ "type": "photo", "replyTo": "p1", "body": { "contact": "3789r1-2A4E", "data": "/9j/4AAQ…" } }
+```
+
+The contact's thumbnail, base64 (JPEG or PNG, a few KB). No answer when the contact has no photo. The Mac asks once per contact and connection.
 
 ### `error` — both directions
 

@@ -22,7 +22,7 @@ struct CallPanelView: View {
 
     private func content(for call: CallState) -> some View {
         HStack(spacing: 12) {
-            CallerAvatar(name: call.name)
+            ContactAvatar(name: call.name, photo: call.contact.flatMap { app.photos[$0] }, size: 40)
             VStack(alignment: .leading, spacing: 2) {
                 Text(app.callerName)
                     .font(.headline)
@@ -80,32 +80,6 @@ struct CallPanelView: View {
         return hours > 0
             ? String(format: "%d:%02d:%02d", hours, minutes, seconds % 60)
             : String(format: "%d:%02d", minutes, seconds % 60)
-    }
-}
-
-private struct CallerAvatar: View {
-    let name: String?
-
-    var body: some View {
-        ZStack {
-            Circle().fill(LinearGradient(colors: [Color(white: 0.62), Color(white: 0.45)], startPoint: .top, endPoint: .bottom))
-            if let initials {
-                Text(initials)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.white)
-            } else {
-                Image(systemName: "person.fill")
-                    .font(.system(size: 18))
-                    .foregroundStyle(.white)
-            }
-        }
-        .frame(width: 40, height: 40)
-    }
-
-    private var initials: String? {
-        guard let name, name.first?.isLetter == true else { return nil }
-        let letters = name.split(separator: " ").prefix(2).compactMap(\.first)
-        return String(letters).uppercased()
     }
 }
 

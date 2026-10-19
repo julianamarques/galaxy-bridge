@@ -113,6 +113,8 @@ Keep-alive: the **Mac** sends `ping` every 2 minutes and the phone answers `pong
 | `call.place` | Mac → phone | number (E.164, already normalized on the Mac) |
 | `call.state` | phone → Mac | call ID, `ringing` / `active` / `voicemail` / `ended`, direction, number, contact name |
 | `call.answer` / `call.decline` / `call.end` | Mac → phone | call ID |
+| `contacts.search` / `contacts.results` | Mac → phone / phone → Mac | query, limit / contacts (ID, name, numbers with labels, has photo) |
+| `photo.request` / `photo` | Mac → phone / phone → Mac | contact ID / thumbnail, base64 |
 | `notification.posted` | phone → Mac | key, app, title, text, time, icon ID, actions (ID, title, accepts reply) |
 | `notification.removed` | phone → Mac | key |
 | `notification.action` | Mac → phone | key, action ID, reply text |

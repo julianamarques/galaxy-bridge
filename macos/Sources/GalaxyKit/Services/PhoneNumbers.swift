@@ -11,7 +11,7 @@ public final class PhoneNumbers {
     public init() {}
 
     public func formatPartial(_ text: String, country: String?) -> String {
-        guard let region = Self.region(country), !text.isEmpty else { return text }
+        guard let region = Self.region(country), !text.isEmpty, !PhoneNumber.isName(text) else { return text }
         let isInternational = text.hasPrefix("+")
         if let parsed = try? utility.parse(text, withRegion: region) {
             return utility.format(parsed, toType: isInternational ? .international : .national)

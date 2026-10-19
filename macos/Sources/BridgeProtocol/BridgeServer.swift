@@ -14,7 +14,9 @@ public final class BridgeServer {
         case unpaired
         case status(PhoneStatus)
         case call(CallState)
-        case error(BridgeError)
+        case contacts(ContactResults, replyTo: String?)
+        case photo(ContactPhoto)
+        case error(BridgeError, replyTo: String?)
     }
 
     public static let serviceType = "_galaxybridge._tcp"
@@ -238,8 +240,12 @@ public final class BridgeServer {
             onEvent?(.status(status))
         case .callState(let call) where connection === active:
             onEvent?(.call(call))
+        case .contactsResults(let results) where connection === active:
+            onEvent?(.contacts(results, replyTo: envelope.replyTo))
+        case .photo(let photo) where connection === active:
+            onEvent?(.photo(photo))
         case .error(let error) where connection === active:
-            onEvent?(.error(error))
+            onEvent?(.error(error, replyTo: envelope.replyTo))
         case .unpair where connection === active:
             if let phone = connection.phone {
                 store.remove(fingerprint: phone.fingerprint)

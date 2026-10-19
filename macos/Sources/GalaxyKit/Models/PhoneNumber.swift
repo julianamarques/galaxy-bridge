@@ -11,6 +11,15 @@ public struct PhoneNumber: Equatable, Sendable {
         self.digits = digits
     }
 
+    public init?(typed text: String) {
+        guard !Self.isName(text) else { return nil }
+        self.init(text)
+    }
+
+    public static func isName(_ text: String) -> Bool {
+        text.contains(where: \.isLetter)
+    }
+
     public init?(url: URL) {
         guard url.scheme?.lowercased() == "tel" else { return nil }
         let text = url.absoluteString.dropFirst("tel:".count)

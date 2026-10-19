@@ -33,6 +33,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var callError: String?
     @Published private(set) var call: CallState?
     @Published private(set) var callAnsweredAt: Date?
+    @Published private(set) var contactSuggestions: [ContactSuggestion] = []
+    @Published private(set) var contactsError: String?
+    @Published private(set) var photos: [String: NSImage] = [:]
     @Published var setupRequested = false
 
     lazy var setup = SetupModel(app: self)
@@ -40,6 +43,12 @@ final class AppModel: ObservableObject {
     private(set) var bridge: BridgeServer?
     private let callNotifier = CallNotifier()
     private var declinedCall: String?
+    private var searchRequest: String?
+    private var searchTask: Task<Void, Never>?
+    private var requestedPhotos: Set<String> = []
+    private static let searchDelay: Duration = .milliseconds(150)
+    private static let searchLimit = 8
+    private static let maxSuggestions = 6
     private let deviceMonitor = DeviceMonitor()
     private var trackedDevices: [ADBDevice] = []
     private var isMonitoringDevices = false
@@ -308,7 +317,28 @@ final class AppModel: ObservableObject {
         call?.number.map { PhoneNumbers.shared.display($0, country: dialCountry) }
     }
 
+    func searchContacts(_ query: String) {
+        searchTask?.cancel()
+        let query = query.trimmingCharacters(in: .whitespaces)
+        guard isAppConnected, query.count >= 2 else {
+            searchRequest = nil
+            contactSuggestions = []
+            return
+        }
+        searchTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.searchDelay)
+            guard !Task.isCancelled, let self else { return }
+            searchRequest = bridge?.send(.contactsSearch(ContactsSearch(query: query, limit: Self.searchLimit)))
+        }
+    }
+
+    func requestPhoto(_ contact: String) {
+        guard photos[contact] == nil, requestedPhotos.insert(contact).inserted else { return }
+        bridge?.send(.photoRequest(PhotoRequest(contact: contact)))
+    }
+
     private func callChanged(_ state: CallState) {
+        if let contact = state.contact { requestPhoto(contact) }
         let previous = call?.call == state.call ? call : nil
         let wasAnswered = previous != nil && callAnsweredAt != nil
         switch state.state {
@@ -441,6 +471,9 @@ extension AppModel {
         case .disconnected:
             isAppConnected = false
             dropCall()
+            requestedPhotos.removeAll()
+            photos.removeAll()
+            contactSuggestions = []
         case .paired(let phone):
             didPairApp(phone)
         case .pairingExpired:
@@ -455,8 +488,21 @@ extension AppModel {
             }
         case .call(let state):
             callChanged(state)
-        case .error(let error):
-            callError = error.message
+        case .contacts(let results, let replyTo):
+            guard replyTo != nil, replyTo == searchRequest else { return }
+            contactsError = nil
+            contactSuggestions = Array(results.contacts.lazy.flatMap { contact in
+                contact.numbers.map { ContactSuggestion(contact: contact, number: $0, country: self.dialCountry) }
+            }.prefix(Self.maxSuggestions))
+            for contact in results.contacts where contact.hasPhoto { requestPhoto(contact.id) }
+        case .photo(let photo):
+            if let image = NSImage(data: photo.data) { photos[photo.contact] = image }
+        case .error(let error, let replyTo):
+            if replyTo != nil, replyTo == searchRequest {
+                contactsError = error.message
+            } else {
+                callError = error.message
+            }
         }
     }
 
@@ -479,5 +525,21 @@ extension AppModel {
         var model = [CChar](repeating: 0, count: max(size, 1))
         sysctlbyname("hw.model", &model, &size, nil, 0)
         return String(decoding: model.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+    }
+}
+
+struct ContactSuggestion: Identifiable {
+    let contact: Contact
+    let number: Contact.Number
+    let detail: String
+
+    var id: String { contact.id + "|" + number.number }
+
+    @MainActor
+    init(contact: Contact, number: Contact.Number, country: String?) {
+        self.contact = contact
+        self.number = number
+        let formatted = PhoneNumbers.shared.display(number.number, country: country)
+        detail = [number.label, formatted].compactMap { $0 }.joined(separator: " · ")
     }
 }

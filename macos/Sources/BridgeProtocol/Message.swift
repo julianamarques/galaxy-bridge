@@ -26,6 +26,10 @@ public enum Message: Equatable, Sendable {
     case callAnswer(CallID)
     case callDecline(CallID)
     case callEnd(CallID)
+    case contactsSearch(ContactsSearch)
+    case contactsResults(ContactResults)
+    case photoRequest(PhotoRequest)
+    case photo(ContactPhoto)
     case error(BridgeError)
     case ping
     case pong
@@ -44,6 +48,10 @@ public enum Message: Equatable, Sendable {
         case .callAnswer: "call.answer"
         case .callDecline: "call.decline"
         case .callEnd: "call.end"
+        case .contactsSearch: "contacts.search"
+        case .contactsResults: "contacts.results"
+        case .photoRequest: "photo.request"
+        case .photo: "photo"
         case .error: "error"
         case .ping: "ping"
         case .pong: "pong"
@@ -147,13 +155,15 @@ public struct CallState: Codable, Equatable, Sendable {
     public var direction: Direction
     public var number: String?
     public var name: String?
+    public var contact: String?
 
-    public init(call: String, state: State, direction: Direction, number: String? = nil, name: String? = nil) {
+    public init(call: String, state: State, direction: Direction, number: String? = nil, name: String? = nil, contact: String? = nil) {
         self.call = call
         self.state = state
         self.direction = direction
         self.number = number
         self.name = name
+        self.contact = contact
     }
 }
 
@@ -162,6 +172,66 @@ public struct CallID: Codable, Equatable, Sendable {
 
     public init(call: String) {
         self.call = call
+    }
+}
+
+public struct ContactsSearch: Codable, Equatable, Sendable {
+    public var query: String
+    public var limit: Int
+
+    public init(query: String, limit: Int) {
+        self.query = query
+        self.limit = limit
+    }
+}
+
+public struct Contact: Codable, Equatable, Identifiable, Sendable {
+    public struct Number: Codable, Equatable, Sendable {
+        public var number: String
+        public var label: String?
+
+        public init(number: String, label: String? = nil) {
+            self.number = number
+            self.label = label
+        }
+    }
+
+    public var id: String
+    public var name: String
+    public var numbers: [Number]
+    public var hasPhoto: Bool
+
+    public init(id: String, name: String, numbers: [Number], hasPhoto: Bool) {
+        self.id = id
+        self.name = name
+        self.numbers = numbers
+        self.hasPhoto = hasPhoto
+    }
+}
+
+public struct ContactResults: Codable, Equatable, Sendable {
+    public var contacts: [Contact]
+
+    public init(contacts: [Contact]) {
+        self.contacts = contacts
+    }
+}
+
+public struct PhotoRequest: Codable, Equatable, Sendable {
+    public var contact: String
+
+    public init(contact: String) {
+        self.contact = contact
+    }
+}
+
+public struct ContactPhoto: Codable, Equatable, Sendable {
+    public var contact: String
+    public var data: Data
+
+    public init(contact: String, data: Data) {
+        self.contact = contact
+        self.data = data
     }
 }
 
@@ -203,6 +273,10 @@ extension Envelope: Codable {
         case "call.answer": .callAnswer(try container.decode(CallID.self, forKey: .body))
         case "call.decline": .callDecline(try container.decode(CallID.self, forKey: .body))
         case "call.end": .callEnd(try container.decode(CallID.self, forKey: .body))
+        case "contacts.search": .contactsSearch(try container.decode(ContactsSearch.self, forKey: .body))
+        case "contacts.results": .contactsResults(try container.decode(ContactResults.self, forKey: .body))
+        case "photo.request": .photoRequest(try container.decode(PhotoRequest.self, forKey: .body))
+        case "photo": .photo(try container.decode(ContactPhoto.self, forKey: .body))
         case "error": .error(try container.decode(BridgeError.self, forKey: .body))
         case "ping": .ping
         case "pong": .pong
@@ -224,6 +298,10 @@ extension Envelope: Codable {
         case .callPlace(let body): try container.encode(body, forKey: .body)
         case .callState(let body): try container.encode(body, forKey: .body)
         case .callAnswer(let body), .callDecline(let body), .callEnd(let body): try container.encode(body, forKey: .body)
+        case .contactsSearch(let body): try container.encode(body, forKey: .body)
+        case .contactsResults(let body): try container.encode(body, forKey: .body)
+        case .photoRequest(let body): try container.encode(body, forKey: .body)
+        case .photo(let body): try container.encode(body, forKey: .body)
         case .error(let body): try container.encode(body, forKey: .body)
         case .unpair, .ping, .pong, .unknown: break
         }

@@ -6,6 +6,7 @@ struct MenuView: View {
     @EnvironmentObject private var app: AppModel
     @Environment(\.openWindow) private var openWindow
     @State private var number = ""
+    @State private var selectedSuggestion: Int?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -128,15 +129,31 @@ struct MenuView: View {
             MenuSectionTitle("Ligar pelo Galaxy")
             HStack(spacing: 8) {
                 PhoneField(
-                    placeholder: String(localized: "Número de telefone"),
+                    placeholder: String(localized: app.appPhone == nil ? "Número de telefone" : "Nome ou número"),
                     text: $number,
                     country: app.dialCountry,
-                    onSubmit: call
+                    onSubmit: call,
+                    onMove: moveSelection
                 )
                 CircleButton(systemImage: "phone.fill", tint: .green, help: "Ligar", action: call)
-                    .disabled(PhoneNumber(number) == nil)
+                    .disabled(target == nil)
                 CircleButton(systemImage: "phone.down.fill", tint: .red, help: "Encerrar a ligação") { app.endCall() }
                     .disabled(!app.canEndCall)
+            }
+            if !app.contactSuggestions.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(Array(app.contactSuggestions.enumerated()), id: \.element.id) { index, suggestion in
+                        SuggestionRow(suggestion: suggestion, photo: app.photos[suggestion.contact.id], isSelected: index == selectedSuggestion) {
+                            dial(PhoneNumber(suggestion.number.number))
+                        }
+                    }
+                }
+                .padding(.horizontal, -8)
+            } else if let error = app.contactsError, PhoneNumber.isName(number) {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if let error = app.callError {
                 Text(error)
@@ -146,6 +163,31 @@ struct MenuView: View {
             }
         }
         .padding(.horizontal, 8)
+        .onChange(of: number) { _, query in
+            selectedSuggestion = nil
+            app.searchContacts(query)
+        }
+    }
+
+    private var target: PhoneNumber? {
+        let suggestions = app.contactSuggestions
+        if let index = selectedSuggestion, suggestions.indices.contains(index) {
+            return PhoneNumber(suggestions[index].number.number)
+        }
+        return PhoneNumber(typed: number) ?? suggestions.first.flatMap { PhoneNumber($0.number.number) }
+    }
+
+    private func moveSelection(_ step: Int) {
+        let count = app.contactSuggestions.count
+        guard count > 0 else { return }
+        let next = (selectedSuggestion ?? -1) + step
+        selectedSuggestion = next < 0 ? nil : min(next, count - 1)
+    }
+
+    private func dial(_ phone: PhoneNumber?) {
+        guard let phone else { return }
+        app.call(phone)
+        number = ""
     }
 
     private var footer: some View {
@@ -159,8 +201,7 @@ struct MenuView: View {
     }
 
     private func call() {
-        guard let phone = PhoneNumber(number) else { return }
-        app.call(phone)
+        dial(target)
     }
 
     private func showSetup() {
@@ -204,12 +245,15 @@ private struct MenuDivider: View {
 }
 
 struct MenuRowStyle: ButtonStyle {
+    var isSelected = false
+
     func makeBody(configuration: Configuration) -> some View {
-        MenuRow(configuration: configuration)
+        MenuRow(configuration: configuration, isSelected: isSelected)
     }
 
     private struct MenuRow: View {
         let configuration: ButtonStyleConfiguration
+        let isSelected: Bool
         @Environment(\.isEnabled) private var isEnabled
         @State private var isHovered = false
 
@@ -221,7 +265,7 @@ struct MenuRowStyle: ButtonStyle {
                 .foregroundStyle(isEnabled ? .primary : .tertiary)
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.primary.opacity(configuration.isPressed ? 0.16 : isHovered && isEnabled ? 0.09 : 0))
+                        .fill(isSelected ? Color.accentColor.opacity(0.22) : Color.primary.opacity(configuration.isPressed ? 0.16 : isHovered && isEnabled ? 0.09 : 0))
                 )
                 .contentShape(Rectangle())
                 .onHover { isHovered = $0 }
@@ -256,5 +300,30 @@ private struct BatteryLabel: View {
         case ..<88: return "battery.75percent"
         default: return "battery.100percent"
         }
+    }
+}
+
+private struct SuggestionRow: View {
+    let suggestion: ContactSuggestion
+    let photo: NSImage?
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                ContactAvatar(name: suggestion.contact.name, photo: photo, size: 26)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(suggestion.contact.name)
+                        .font(.subheadline.weight(.medium))
+                        .lineLimit(1)
+                    Text(suggestion.detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .buttonStyle(MenuRowStyle(isSelected: isSelected))
     }
 }

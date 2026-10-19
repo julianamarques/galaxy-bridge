@@ -30,6 +30,11 @@ struct PhoneNumbersTests {
         #expect(typing("86", country: "br") == "86")
     }
 
+    @Test func leavesNamesAlone() {
+        #expect(numbers.formatPartial("Maria", country: "br") == "Maria")
+        #expect(numbers.formatPartial("Ana 2", country: "br") == "Ana 2")
+    }
+
     @Test func leavesTextAloneWithoutCountry() {
         #expect(numbers.formatPartial("86999990001", country: nil) == "86999990001")
     }

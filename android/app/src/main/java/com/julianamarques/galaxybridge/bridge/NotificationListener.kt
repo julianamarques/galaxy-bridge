@@ -34,7 +34,15 @@ class NotificationListener : NotificationListenerService() {
             "Aviso de ligação: nome=${name != null}, número=${number != null}, texto=$text, tipo=${extras.getInt(Notification.EXTRA_CALL_TYPE)}",
         )
         val voicemail = extras.getBoolean(VOICEMAIL_FLAG) || text in VOICEMAIL_TEXTS
-        CallTracker.callerChanged(name, number, voicemail)
+        val contact = number?.let(::contactFor)
+        CallTracker.callerChanged(name ?: contact?.name, number, contact?.key, voicemail)
+    }
+
+    private var lastLookup: Pair<String, PhoneContacts.Match?>? = null
+
+    private fun contactFor(number: String): PhoneContacts.Match? {
+        lastLookup?.takeIf { it.first == number }?.let { return it.second }
+        return PhoneContacts.lookup(this, number).also { lastLookup = number to it }
     }
 
     private fun isCallNotification(notification: StatusBarNotification): Boolean {
