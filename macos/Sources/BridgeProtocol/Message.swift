@@ -36,8 +36,6 @@ public enum Message: Equatable, Sendable {
     case notificationAction(NotificationAction)
     case notificationDismiss(NotificationKey)
     case notificationFilter(NotificationFilter)
-    case iconRequest(IconRequest)
-    case icon(AppIcon)
     case error(BridgeError)
     case ping
     case pong
@@ -66,8 +64,6 @@ public enum Message: Equatable, Sendable {
         case .notificationAction: "notification.action"
         case .notificationDismiss: "notification.dismiss"
         case .notificationFilter: "notification.filter"
-        case .iconRequest: "icon.request"
-        case .icon: "icon"
         case .error: "error"
         case .ping: "ping"
         case .pong: "pong"
@@ -272,8 +268,9 @@ public struct PhoneNotification: Codable, Equatable, Sendable {
     public var time: Int64
     public var actions: [Action]
     public var silent: Bool
+    public var icon: Data?
 
-    public init(key: String, app: String, appName: String, title: String?, text: String?, time: Int64, actions: [Action], silent: Bool) {
+    public init(key: String, app: String, appName: String, title: String?, text: String?, time: Int64, actions: [Action], silent: Bool, icon: Data? = nil) {
         self.key = key
         self.app = app
         self.appName = appName
@@ -282,6 +279,7 @@ public struct PhoneNotification: Codable, Equatable, Sendable {
         self.time = time
         self.actions = actions
         self.silent = silent
+        self.icon = icon
     }
 }
 
@@ -318,24 +316,6 @@ public struct NotificationFilter: Codable, Equatable, Sendable {
 
     public init(muted: [String]) {
         self.muted = muted
-    }
-}
-
-public struct IconRequest: Codable, Equatable, Sendable {
-    public var app: String
-
-    public init(app: String) {
-        self.app = app
-    }
-}
-
-public struct AppIcon: Codable, Equatable, Sendable {
-    public var app: String
-    public var data: Data
-
-    public init(app: String, data: Data) {
-        self.app = app
-        self.data = data
     }
 }
 
@@ -387,8 +367,6 @@ extension Envelope: Codable {
         case "notification.action": .notificationAction(try container.decode(NotificationAction.self, forKey: .body))
         case "notification.dismiss": .notificationDismiss(try container.decode(NotificationKey.self, forKey: .body))
         case "notification.filter": .notificationFilter(try container.decode(NotificationFilter.self, forKey: .body))
-        case "icon.request": .iconRequest(try container.decode(IconRequest.self, forKey: .body))
-        case "icon": .icon(try container.decode(AppIcon.self, forKey: .body))
         case "error": .error(try container.decode(BridgeError.self, forKey: .body))
         case "ping": .ping
         case "pong": .pong
@@ -419,8 +397,6 @@ extension Envelope: Codable {
         case .notificationActive(let body): try container.encode(body, forKey: .body)
         case .notificationAction(let body): try container.encode(body, forKey: .body)
         case .notificationFilter(let body): try container.encode(body, forKey: .body)
-        case .iconRequest(let body): try container.encode(body, forKey: .body)
-        case .icon(let body): try container.encode(body, forKey: .body)
         case .error(let body): try container.encode(body, forKey: .body)
         case .unpair, .ping, .pong, .unknown: break
         }

@@ -5,13 +5,11 @@ import UserNotifications
 
 @MainActor
 final class Notifier: NSObject {
-    var onAction: ((String, Int, String?) -> Void)?
-    var onDismiss: ((String) -> Void)?
+    var send: ((Message) -> Void)?
 
     private let center = UNUserNotificationCenter.current()
     private var categories: [String: UNNotificationCategory] = [:]
     nonisolated private static let phonePrefix = "phone-"
-    nonisolated private static let keyInfo = "key"
     private static let actionPrefix = "action-"
 
     override init() {
@@ -40,7 +38,6 @@ final class Notifier: NSObject {
         if notification.title != nil { content.subtitle = notification.appName }
         content.body = notification.text ?? ""
         content.threadIdentifier = notification.app
-        content.userInfo = [Self.keyInfo: notification.key]
         content.categoryIdentifier = category(for: notification.actions)
         if !notification.silent { content.sound = .default }
         if let icon, let attachment = Self.attachment(copying: icon) { content.attachments = [attachment] }
@@ -63,7 +60,11 @@ final class Notifier: NSObject {
     private static func attachment(copying icon: URL) -> UNNotificationAttachment? {
         let copy = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".png")
         guard (try? FileManager.default.copyItem(at: icon, to: copy)) != nil else { return nil }
-        return try? UNNotificationAttachment(identifier: "icon", url: copy)
+        guard let attachment = try? UNNotificationAttachment(identifier: "icon", url: copy) else {
+            try? FileManager.default.removeItem(at: copy)
+            return nil
+        }
+        return attachment
     }
 
     private func category(for actions: [PhoneNotification.Action]) -> String {
@@ -82,9 +83,9 @@ final class Notifier: NSObject {
 
     private func received(_ actionIdentifier: String, key: String, reply: String?) {
         if actionIdentifier == UNNotificationDismissActionIdentifier {
-            onDismiss?(key)
+            send?(.notificationDismiss(NotificationKey(key: key)))
         } else if actionIdentifier.hasPrefix(Self.actionPrefix), let action = Int(actionIdentifier.dropFirst(Self.actionPrefix.count)) {
-            onAction?(key, action, reply)
+            send?(.notificationAction(NotificationAction(key: key, action: action, reply: reply)))
         }
     }
 }
@@ -101,7 +102,9 @@ extension Notifier: UNUserNotificationCenterDelegate {
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
-        guard let key = response.notification.request.content.userInfo[Self.keyInfo] as? String else { return }
+        let identifier = response.notification.request.identifier
+        guard identifier.hasPrefix(Self.phonePrefix) else { return }
+        let key = String(identifier.dropFirst(Self.phonePrefix.count))
         let action = response.actionIdentifier
         let reply = (response as? UNTextInputNotificationResponse)?.userText
         await MainActor.run { received(action, key: key, reply: reply) }

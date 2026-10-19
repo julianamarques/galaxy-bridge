@@ -43,9 +43,6 @@ final class AppModel: ObservableObject {
     private(set) var bridge: BridgeServer?
     private let notifier = Notifier()
     let phoneApps = PhoneApps(iconDirectory: AppModel.supportDirectory.appendingPathComponent("icons", isDirectory: true))
-    private var waitingForIcon: [String: [PhoneNotification]] = [:]
-    private var requestedIcons: Set<String> = []
-    private static let iconWait: Duration = .seconds(1)
     private var declinedCall: String?
     private var searchRequest: String?
     private var searchTask: Task<Void, Never>?
@@ -67,12 +64,7 @@ final class AppModel: ObservableObject {
     init() {
         pairedDevice = UserDefaults.standard.data(forKey: Self.deviceKey)
             .flatMap { try? JSONDecoder().decode(PairedDevice.self, from: $0) }
-        notifier.onAction = { [weak self] key, action, reply in
-            self?.bridge?.send(.notificationAction(NotificationAction(key: key, action: action, reply: reply)))
-        }
-        notifier.onDismiss = { [weak self] key in
-            self?.bridge?.send(.notificationDismiss(NotificationKey(key: key)))
-        }
+        notifier.send = { [weak self] in self?.bridge?.send($0) }
         phoneApps.onMutedChange = { [weak self] muted in
             self?.bridge?.send(.notificationFilter(NotificationFilter(muted: muted.sorted())))
         }
@@ -347,22 +339,9 @@ final class AppModel: ObservableObject {
 
     private func notificationPosted(_ notification: PhoneNotification) {
         phoneApps.remember(notification.app, name: notification.appName)
-        guard !phoneApps.isMuted(notification.app) else { return }
-        if let icon = phoneApps.iconFile(notification.app) { return notifier.show(notification, icon: icon) }
-        waitingForIcon[notification.app, default: []].append(notification)
-        guard requestedIcons.insert(notification.app).inserted else { return }
-        bridge?.send(.iconRequest(IconRequest(app: notification.app)))
-        Task { [weak self] in
-            try? await Task.sleep(for: Self.iconWait)
-            self?.showWaiting(for: notification.app)
-        }
-    }
-
-    private func showWaiting(for app: String) {
-        let icon = phoneApps.iconFile(app)
-        for notification in waitingForIcon.removeValue(forKey: app) ?? [] {
-            notifier.show(notification, icon: icon)
-        }
+        if let icon = notification.icon { phoneApps.saveIcon(notification.app, data: icon) }
+        guard !phoneApps.muted.contains(notification.app) else { return }
+        notifier.show(notification, icon: phoneApps.iconFile(notification.app))
     }
 
     func requestPhoto(_ contact: String) {
@@ -506,7 +485,6 @@ extension AppModel {
             isAppConnected = false
             dropCall()
             requestedPhotos.removeAll()
-            requestedIcons.removeAll()
             photos.removeAll()
             contactSuggestions = []
         case .paired(let phone):
@@ -532,9 +510,6 @@ extension AppModel {
             for contact in results.contacts where contact.hasPhoto { requestPhoto(contact.id) }
         case .notificationPosted(let notification):
             notificationPosted(notification)
-        case .icon(let icon):
-            phoneApps.saveIcon(icon.app, data: icon.data)
-            showWaiting(for: icon.app)
         case .notificationRemoved(let key):
             notifier.remove(key)
         case .notificationsActive(let keys):

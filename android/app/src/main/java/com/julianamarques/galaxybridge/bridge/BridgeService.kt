@@ -27,7 +27,6 @@ import com.julianamarques.galaxybridge.MainActivity
 import com.julianamarques.galaxybridge.Permission
 import com.julianamarques.galaxybridge.R
 import com.julianamarques.galaxybridge.Diagnostics.TAG
-import com.julianamarques.galaxybridge.protocol.AppIcon
 import com.julianamarques.galaxybridge.protocol.BridgeError
 import com.julianamarques.galaxybridge.protocol.CallState
 import com.julianamarques.galaxybridge.protocol.ContactPhoto
@@ -172,6 +171,7 @@ class BridgeService : Service() {
             lastBattery = null
             registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             CallTracker.current?.let(::sendCall)
+            NotificationRelay.connected()
             connection.send(Envelope(Message.NotificationActiveMessage(NotificationKeys(NotificationRelay.activeKeys))))
             connection.receiveTimeoutMs = RECEIVE_TIMEOUT_MS
             while (running) {
@@ -235,9 +235,6 @@ class BridgeService : Service() {
             }
             is Message.NotificationDismissMessage -> NotificationListener.dismiss(message.body.key)
             is Message.NotificationFilterMessage -> NotificationRelay.muted = message.body.muted.toSet()
-            is Message.IconRequestMessage -> NotificationRelay.icon(this, message.body.app)?.let {
-                connection.send(Envelope(Message.IconMessage(AppIcon(message.body.app, it)), replyTo = envelope.id))
-            }
             is Message.PhotoRequestMessage -> PhoneContacts.photo(this, message.body.contact)?.let {
                 connection.send(Envelope(Message.PhotoMessage(ContactPhoto(message.body.contact, it)), replyTo = envelope.id))
             }

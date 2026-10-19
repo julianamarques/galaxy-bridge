@@ -108,7 +108,7 @@ private struct NotificationAppsSection: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(apps.apps) { app in
-                    Toggle(isOn: Binding(get: { !apps.isMuted(app.id) }, set: { apps.setMuted(app.id, !$0) })) {
+                    Toggle(isOn: Binding(get: { !apps.muted.contains(app.id) }, set: { apps.setMuted(app.id, !$0) })) {
                         HStack(spacing: 8) {
                             if let icon = apps.icon(app.id) {
                                 Image(nsImage: icon).resizable().frame(width: 20, height: 20)

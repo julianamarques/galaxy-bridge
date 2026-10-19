@@ -3,7 +3,6 @@ package com.julianamarques.galaxybridge.bridge
 import android.app.Notification
 import android.app.Person
 import android.net.Uri
-import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.telecom.TelecomManager
@@ -12,26 +11,28 @@ import com.julianamarques.galaxybridge.Diagnostics
 class NotificationListener : NotificationListenerService() {
     override fun onListenerConnected() {
         instance = this
+        val rankings = runCatching { currentRanking }.getOrNull()
         runCatching { activeNotifications }.getOrNull()?.forEach {
             read(it)
-            NotificationRelay.posted(this, it, ranking(it), announce = false)
+            NotificationRelay.posted(this, it, ranking(it, rankings), announce = false)
         }
     }
 
     override fun onListenerDisconnected() {
         instance = null
+        NotificationRelay.forgetAll()
     }
 
     override fun onNotificationPosted(notification: StatusBarNotification, rankingMap: RankingMap?) {
         read(notification)
-        NotificationRelay.posted(this, notification, rankingMap?.let { ranking(notification, it) }, announce = true)
+        NotificationRelay.posted(this, notification, ranking(notification, rankingMap), announce = true)
     }
 
     override fun onNotificationRemoved(notification: StatusBarNotification) {
         NotificationRelay.removed(notification.key)
     }
 
-    private fun ranking(notification: StatusBarNotification, map: RankingMap? = runCatching { currentRanking }.getOrNull()): Ranking? {
+    private fun ranking(notification: StatusBarNotification, map: RankingMap?): Ranking? {
         val ranking = Ranking()
         return if (map?.getRanking(notification.key, ranking) == true) ranking else null
     }
@@ -39,12 +40,7 @@ class NotificationListener : NotificationListenerService() {
     private fun read(notification: StatusBarNotification) {
         if (!isCallNotification(notification)) return
         val extras = notification.notification.extras
-        val person = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            extras.getParcelable(Notification.EXTRA_CALL_PERSON, Person::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            extras.getParcelable<Person>(Notification.EXTRA_CALL_PERSON)
-        }
+        val person = extras.parcelable<Person>(Notification.EXTRA_CALL_PERSON)
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
         val number = person?.uri?.let(Uri::parse)?.takeIf { it.scheme == "tel" }?.schemeSpecificPart

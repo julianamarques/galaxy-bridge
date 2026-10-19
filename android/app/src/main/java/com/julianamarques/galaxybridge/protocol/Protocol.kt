@@ -92,6 +92,7 @@ data class PhoneNotification(
     val time: Long,
     val actions: List<Action>,
     val silent: Boolean,
+    val icon: String? = null,
 ) {
     @Serializable
     data class Action(val id: Int, val title: String, val reply: Boolean)
@@ -108,12 +109,6 @@ data class NotificationAction(val key: String, val action: Int, val reply: Strin
 
 @Serializable
 data class NotificationFilter(val muted: List<String>)
-
-@Serializable
-data class IconRequest(val app: String)
-
-@Serializable
-data class AppIcon(val app: String, val data: String)
 
 @Serializable
 data class BridgeError(val code: String, val message: String)
@@ -142,8 +137,6 @@ sealed interface Message {
     data class NotificationActionMessage(val body: NotificationAction) : Message { override val type get() = "notification.action" }
     data class NotificationDismissMessage(val body: NotificationKey) : Message { override val type get() = "notification.dismiss" }
     data class NotificationFilterMessage(val body: NotificationFilter) : Message { override val type get() = "notification.filter" }
-    data class IconRequestMessage(val body: IconRequest) : Message { override val type get() = "icon.request" }
-    data class IconMessage(val body: AppIcon) : Message { override val type get() = "icon" }
     data class ErrorMessage(val body: BridgeError) : Message { override val type get() = "error" }
     data object Ping : Message { override val type get() = "ping" }
     data object Pong : Message { override val type get() = "pong" }
@@ -194,8 +187,6 @@ object Codec {
             "notification.action" -> Message.NotificationActionMessage(body(NotificationAction.serializer()))
             "notification.dismiss" -> Message.NotificationDismissMessage(body(NotificationKey.serializer()))
             "notification.filter" -> Message.NotificationFilterMessage(body(NotificationFilter.serializer()))
-            "icon.request" -> Message.IconRequestMessage(body(IconRequest.serializer()))
-            "icon" -> Message.IconMessage(body(AppIcon.serializer()))
             "error" -> Message.ErrorMessage(body(BridgeError.serializer()))
             "ping" -> Message.Ping
             "pong" -> Message.Pong
@@ -229,8 +220,6 @@ object Codec {
         is Message.NotificationActionMessage -> json.encodeToJsonElement(NotificationAction.serializer(), message.body)
         is Message.NotificationDismissMessage -> json.encodeToJsonElement(NotificationKey.serializer(), message.body)
         is Message.NotificationFilterMessage -> json.encodeToJsonElement(NotificationFilter.serializer(), message.body)
-        is Message.IconRequestMessage -> json.encodeToJsonElement(IconRequest.serializer(), message.body)
-        is Message.IconMessage -> json.encodeToJsonElement(AppIcon.serializer(), message.body)
         is Message.ErrorMessage -> json.encodeToJsonElement(BridgeError.serializer(), message.body)
         Message.Unpair, Message.Ping, Message.Pong, is Message.Unknown -> null
     }

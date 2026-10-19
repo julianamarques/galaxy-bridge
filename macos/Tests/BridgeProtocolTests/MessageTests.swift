@@ -12,7 +12,7 @@ struct FixtureTests {
     }
 
     @Test func fixturesExist() {
-        #expect(Self.fixtures.count >= 29)
+        #expect(Self.fixtures.count >= 28)
     }
 
     @Test(arguments: fixtures)

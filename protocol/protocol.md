@@ -138,10 +138,10 @@ The contact's thumbnail, base64 (JPEG or PNG, a few KB). No answer when the cont
 ### `notification.posted` — phone → Mac
 
 ```json
-{ "type": "notification.posted", "body": { "key": "0|com.whatsapp|1|xyz|10123", "app": "com.whatsapp", "appName": "WhatsApp", "title": "Maria", "text": "Chego às 8", "time": 1792360000000, "actions": [ { "id": 0, "title": "Responder", "reply": true }, { "id": 1, "title": "Marcar como lida", "reply": false } ], "silent": false } }
+{ "type": "notification.posted", "body": { "key": "0|com.whatsapp|1|xyz|10123", "app": "com.whatsapp", "appName": "WhatsApp", "title": "Maria", "text": "Chego às 8", "time": 1792360000000, "actions": [ { "id": 0, "title": "Responder", "reply": true }, { "id": 1, "title": "Marcar como lida", "reply": false } ], "silent": false, "icon": "iVBORw0KGgo=" } }
 ```
 
-A new or updated notification on the phone. `key` is Android's notification key: an update carries the same key and replaces the Mac's copy. `time` is in milliseconds since 1970. `actions` are the notification's buttons, `id` being the button's position; `reply` marks the ones that take text. `silent` is set on updates the app asked not to alert for.
+A new or updated notification on the phone. `key` is Android's notification key: an update carries the same key and replaces the Mac's copy. `time` is in milliseconds since 1970. `actions` are the notification's buttons, `id` being the button's position; `reply` marks the ones that take text. `silent` is set on updates the app asked not to alert for. `icon` is the app's icon as a 96×96 PNG, base64, sent with the app's first notification on each connection and left out after that; the Mac keeps it on disk.
 
 The phone leaves out ongoing notifications (music, downloads, its own), group summaries, notifications that can't be dismissed, low-importance ones, calls (shown by `call.state`), and those the app marked as local to the phone.
 
@@ -170,15 +170,6 @@ Press a notification's button, with `reply` for the ones that take text, or dism
 ```
 
 The apps whose notifications the phone should not send. Sent after `hello` and whenever the user changes it in the Mac's settings; the phone keeps it until the next one.
-
-### `icon.request` / `icon` — Mac → phone / phone → Mac
-
-```json
-{ "type": "icon.request", "id": "i1", "body": { "app": "com.whatsapp" } }
-{ "type": "icon", "replyTo": "i1", "body": { "app": "com.whatsapp", "data": "iVBORw0KGgo=" } }
-```
-
-An app's icon as a 96×96 PNG, base64. The Mac asks the first time it sees an app and keeps the icon on disk.
 
 ### `error` — both directions
 

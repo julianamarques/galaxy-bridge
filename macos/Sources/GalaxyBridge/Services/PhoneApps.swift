@@ -13,6 +13,7 @@ final class PhoneApps: ObservableObject {
     var onMutedChange: ((Set<String>) -> Void)?
 
     private let iconDirectory: URL
+    private var images: [String: NSImage] = [:]
     private static let appsKey = "phoneApps"
     private static let mutedKey = "mutedPhoneApps"
 
@@ -34,8 +35,6 @@ final class PhoneApps: ObservableObject {
         UserDefaults.standard.set(try? JSONEncoder().encode(apps), forKey: Self.appsKey)
     }
 
-    func isMuted(_ id: String) -> Bool { muted.contains(id) }
-
     func setMuted(_ id: String, _ isMuted: Bool) {
         if isMuted { muted.insert(id) } else { muted.remove(id) }
         UserDefaults.standard.set(muted.sorted(), forKey: Self.mutedKey)
@@ -43,17 +42,25 @@ final class PhoneApps: ObservableObject {
     }
 
     func iconFile(_ id: String) -> URL? {
-        let file = iconDirectory.appendingPathComponent(id + ".png")
+        let file = iconURL(id)
         return FileManager.default.fileExists(atPath: file.path) ? file : nil
     }
 
     func icon(_ id: String) -> NSImage? {
-        iconFile(id).flatMap { NSImage(contentsOf: $0) }
+        if let image = images[id] { return image }
+        let image = NSImage(contentsOf: iconURL(id))
+        images[id] = image
+        return image
     }
 
     func saveIcon(_ id: String, data: Data) {
         try? FileManager.default.createDirectory(at: iconDirectory, withIntermediateDirectories: true)
-        try? data.write(to: iconDirectory.appendingPathComponent(id + ".png"), options: .atomic)
+        try? data.write(to: iconURL(id), options: .atomic)
+        images[id] = NSImage(data: data)
         objectWillChange.send()
+    }
+
+    private func iconURL(_ id: String) -> URL {
+        iconDirectory.appendingPathComponent(id + ".png")
     }
 }
