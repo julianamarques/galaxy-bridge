@@ -184,7 +184,7 @@ struct BridgeServerTests {
         try content.write(to: source)
         defer { try? FileManager.default.removeItem(at: source) }
         let id = try #require(server.offer(source))
-        #expect(try await control.next() == .transferOffer(TransferFile(id: id, name: "Relatório.pdf", size: Int64(content.count))))
+        #expect(try await control.next() == .transferOffer(TransferFile(id: id, name: "Relatório.pdf", size: Int64(content.count), mime: "application/pdf")))
         let download = try TestPhone(identity: control.identity)
         try await download.connect(port: server.port!, pinning: server.identity.fingerprint)
         download.send(Envelope(.transferDownload(TransferID(id: id))))

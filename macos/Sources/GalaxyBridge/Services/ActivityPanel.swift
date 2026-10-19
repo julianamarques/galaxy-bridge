@@ -4,22 +4,39 @@ import Combine
 import SwiftUI
 
 @MainActor
-final class CallPanel {
+final class ActivityPanel: ObservableObject {
+    @Published private(set) var hidden: Set<String> = []
+
     private let app: AppModel
     private var panel: NSPanel?
-    private var hiddenCall: String?
     private var isShowing = false
-    private var subscription: AnyCancellable?
+    private var subscriptions: Set<AnyCancellable> = []
 
     init(app: AppModel) {
         self.app = app
-        subscription = app.$call
+        app.$call.combineLatest(app.$transfers, $hidden)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] call in self?.update(call) }
+            .sink { [weak self] _ in self?.update() }
+            .store(in: &subscriptions)
     }
 
-    private func update(_ call: CallState?) {
-        guard let call, call.call != hiddenCall, call.state != .voicemail else { return hide() }
+    var visibleCall: CallState? {
+        guard let call = app.call, call.state != .voicemail, !hidden.contains(call.call) else { return nil }
+        return call
+    }
+
+    var visibleTransfers: [TransferProgress] {
+        app.transfers.filter { !hidden.contains($0.id) }
+    }
+
+    func hide(_ id: String) {
+        hidden.insert(id)
+    }
+
+    private func update() {
+        let active = Set([app.call?.call].compactMap { $0 } + app.transfers.map(\.id))
+        if !hidden.isSubset(of: active) { hidden.formIntersection(active) }
+        if visibleCall == nil, visibleTransfers.isEmpty { return hide() }
         show()
     }
 
@@ -27,11 +44,11 @@ final class CallPanel {
         let panel = panel ?? makePanel()
         self.panel = panel
         isShowing = true
-        if !panel.isVisible || panel.alphaValue == 0 {
-            position(panel)
-            panel.alphaValue = 0
-        }
+        let appearing = !panel.isVisible || panel.alphaValue == 0
+        if appearing { panel.alphaValue = 0 }
+        DispatchQueue.main.async { [weak self] in self?.position(panel) }
         panel.orderFrontRegardless()
+        guard appearing else { return }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.2
             panel.animator().alphaValue = 1
@@ -52,11 +69,6 @@ final class CallPanel {
         }
     }
 
-    private func close() {
-        hiddenCall = app.call?.call
-        hide()
-    }
-
     private func makePanel() -> NSPanel {
         let panel = NSPanel(
             contentRect: .zero,
@@ -73,7 +85,7 @@ final class CallPanel {
         panel.hidesOnDeactivate = false
         panel.isMovableByWindowBackground = true
         panel.becomesKeyOnlyIfNeeded = true
-        let view = NSHostingView(rootView: CallPanelView { [weak self] in self?.close() }.environmentObject(app))
+        let view = NSHostingView(rootView: ActivityPanelView(panel: self).environmentObject(app))
         view.sizingOptions = [.intrinsicContentSize]
         panel.contentView = view
         return panel

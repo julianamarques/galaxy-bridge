@@ -6,7 +6,7 @@ struct MenuBarLabel: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        Image(systemName: "smartphone")
+        Image(systemName: app.transfers.isEmpty ? "smartphone" : "arrow.up.arrow.down")
             .onChange(of: app.setupRequested, initial: true) { _, requested in
                 guard requested else { return }
                 app.setupRequested = false

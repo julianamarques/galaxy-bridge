@@ -19,6 +19,10 @@ struct MenuView: View {
                 }
                 MenuDivider()
                 dialer
+                if !app.transfers.isEmpty {
+                    MenuDivider()
+                    transfers
+                }
             }
             MenuDivider()
             footer
@@ -190,8 +194,42 @@ struct MenuView: View {
         number = ""
     }
 
+    private var transfers: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            MenuSectionTitle("Transferências")
+            ForEach(app.transfers) { transfer in
+                HStack(spacing: 8) {
+                    Image(systemName: transfer.direction == .toPhone ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
+                        .foregroundStyle(.secondary)
+                        .help(transfer.direction == .toPhone ? "Enviando para o \(app.deviceName)" : "Recebendo do \(app.deviceName)")
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            Text(transfer.name)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer(minLength: 4)
+                            Text(transfer.done == 0 && transfer.direction == .toPhone ? String(localized: "Aguardando…") : transfer.fraction.formatted(.percent.precision(.fractionLength(0))))
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                        }
+                        .font(.caption)
+                        ProgressView(value: transfer.fraction)
+                            .progressViewStyle(.linear)
+                            .controlSize(.small)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+    }
+
     private var footer: some View {
         VStack(spacing: 0) {
+            if app.appPhone != nil {
+                Button("Enviar Arquivo para o \(app.deviceName)…") { app.chooseFilesToSend() }
+                    .buttonStyle(MenuRowStyle())
+                    .disabled(!app.isAppConnected)
+            }
             SettingsLink { Text("Ajustes do \(Bundle.appName)…") }
                 .buttonStyle(MenuRowStyle())
                 .simultaneousGesture(TapGesture().onEnded { NSApp.activate() })

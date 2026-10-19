@@ -1,5 +1,6 @@
 import Foundation
 import Network
+import UniformTypeIdentifiers
 import OSLog
 
 @MainActor
@@ -21,6 +22,8 @@ public final class BridgeServer {
         case notificationsActive([String])
         case fileReceived(URL, name: String)
         case fileSent(name: String, ok: Bool)
+        case transferProgress(TransferProgress)
+        case transferEnded(String)
         case error(BridgeError, replyTo: String?)
     }
 
@@ -48,6 +51,8 @@ public final class BridgeServer {
     private var nextID = 0
     private var incoming: [ObjectIdentifier: IncomingTransfer] = [:]
     private var offered: [String: OutgoingTransfer] = [:]
+    private var sending: [ObjectIdentifier: String] = [:]
+    static let offerTimeout: Duration = .seconds(60)
     private var activities: [ObjectIdentifier: NSObjectProtocol] = [:]
     private let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.julianamarques.BridgeProtocol", category: "bridge")
 
@@ -236,7 +241,9 @@ public final class BridgeServer {
         if let transfer = incoming.removeValue(forKey: ObjectIdentifier(connection)), !transfer.isComplete {
             log.info("Transferência interrompida: \(transfer.file.name, privacy: .public)")
             transfer.discard()
+            onEvent?(.transferEnded(transfer.file.id))
         }
+        if let id = sending.removeValue(forKey: ObjectIdentifier(connection)) { failOffer(id) }
         guard connection === active else { return }
         active = nil
         log.info("Celular desconectado")
@@ -258,8 +265,10 @@ public final class BridgeServer {
         case .transferChunk(let chunk):
             received(chunk, on: connection)
         case .transferResult(let result) where connection.isTransfer:
+            sending[ObjectIdentifier(connection)] = nil
             if let transfer = offered.removeValue(forKey: result.id) {
                 onEvent?(.fileSent(name: transfer.file.name, ok: result.ok))
+                onEvent?(.transferEnded(result.id))
             }
             connection.close()
         case .status(let status) where connection === active:
@@ -354,10 +363,22 @@ public final class BridgeServer {
     public func offer(_ url: URL) -> String? {
         guard let active, let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize else { return nil }
         nextID += 1
-        let file = TransferFile(id: "f\(nextID)", name: url.lastPathComponent, size: Int64(size))
+        let file = TransferFile(id: "f\(nextID)", name: url.lastPathComponent, size: Int64(size), mime: UTType(filenameExtension: url.pathExtension)?.preferredMIMEType)
         offered[file.id] = OutgoingTransfer(file: file, url: url)
         active.send(Envelope(.transferOffer(file)))
+        onEvent?(.transferProgress(TransferProgress(id: file.id, name: file.name, direction: .toPhone, done: 0, total: file.size)))
+        Task { [weak self] in
+            try? await Task.sleep(for: Self.offerTimeout)
+            guard let self, !self.sending.values.contains(file.id) else { return }
+            self.failOffer(file.id)
+        }
         return file.id
+    }
+
+    private func failOffer(_ id: String) {
+        guard let transfer = offered.removeValue(forKey: id) else { return }
+        onEvent?(.fileSent(name: transfer.file.name, ok: false))
+        onEvent?(.transferEnded(id))
     }
 
     private func startTransfer(on connection: BridgeConnection) -> Bool {
@@ -382,6 +403,7 @@ public final class BridgeServer {
         }
         log.info("Recebendo \(file.name, privacy: .public) (\(file.size) bytes)")
         incoming[ObjectIdentifier(connection)] = transfer
+        report(transfer)
         if transfer.isComplete { finish(transfer, on: connection) }
     }
 
@@ -392,6 +414,7 @@ public final class BridgeServer {
         } catch {
             return connection.close()
         }
+        report(transfer)
         if transfer.isComplete { finish(transfer, on: connection) }
     }
 
@@ -399,13 +422,23 @@ public final class BridgeServer {
         incoming[ObjectIdentifier(connection)] = nil
         connection.send(Envelope(.transferResult(TransferResult(id: transfer.file.id, ok: true))))
         onEvent?(.fileReceived(transfer.url, name: transfer.file.name))
+        onEvent?(.transferEnded(transfer.file.id))
+    }
+
+    private func report(_ transfer: IncomingTransfer) {
+        let file = transfer.file
+        onEvent?(.transferProgress(TransferProgress(id: file.id, name: file.name, direction: .fromPhone, done: transfer.received, total: file.size)))
     }
 
     private func send(_ id: String, on connection: BridgeConnection) {
         guard startTransfer(on: connection) else { return }
         guard let transfer = offered[id] else { return connection.close() }
         log.info("Enviando \(transfer.file.name, privacy: .public)")
-        transfer.stream(on: connection)
+        sending[ObjectIdentifier(connection)] = id
+        let file = transfer.file
+        transfer.stream(on: connection) { [weak self] sent in
+            self?.onEvent?(.transferProgress(TransferProgress(id: file.id, name: file.name, direction: .toPhone, done: sent, total: file.size)))
+        }
     }
 
     @discardableResult

@@ -34,6 +34,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var call: CallState?
     @Published private(set) var callAnsweredAt: Date?
     @Published private(set) var contactSuggestions: [ContactSuggestion] = []
+    @Published private(set) var transfers: [TransferProgress] = []
     @Published private(set) var contactsError: String?
     @Published private(set) var photos: [String: NSImage] = [:]
     @Published var setupRequested = false
@@ -337,6 +338,27 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func sendFiles(_ urls: [URL]) {
+        let files = urls.filter { (try? $0.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true }
+        if files.count < urls.count {
+            notifier.fileSent(String(localized: "Pastas não podem ser enviadas, só arquivos."), ok: false)
+        }
+        for file in files where bridge?.offer(file) == nil {
+            notifier.fileSent(String(localized: "\(file.lastPathComponent): o \(deviceName) não está conectado."), ok: false)
+        }
+    }
+
+    func chooseFilesToSend() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.prompt = String(localized: "Enviar")
+        panel.message = String(localized: "Os arquivos vão para a pasta Download/Galaxy Bridge do \(deviceName).")
+        NSApp.activate()
+        guard panel.runModal() == .OK else { return }
+        sendFiles(panel.urls)
+    }
+
     private func fileReceived(_ file: URL, name: String) {
         let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
         do {
@@ -387,6 +409,19 @@ final class AppModel: ObservableObject {
     }
 
     #if DEBUG
+    func previewTransfer() {
+        Task {
+            let total: Int64 = 48_000_000
+            for step in 0...20 {
+                handle(.transferProgress(TransferProgress(id: "preview-up", name: "Relatório anual de atividades.pdf", direction: .toPhone, done: total * Int64(step) / 20, total: total)))
+                handle(.transferProgress(TransferProgress(id: "preview-down", name: "20261017_111110.mp4", direction: .fromPhone, done: total * Int64(step) / 40, total: total)))
+                try? await Task.sleep(for: .milliseconds(700))
+            }
+            handle(.transferEnded("preview-up"))
+            handle(.transferEnded("preview-down"))
+        }
+    }
+
     private static let previewCall = "preview"
 
     func previewIncomingCall() {
@@ -524,6 +559,14 @@ extension AppModel {
             fileReceived(file, name: name)
         case .fileSent(let name, let ok):
             notifier.fileSent(name, ok: ok)
+        case .transferProgress(let progress):
+            if let index = transfers.firstIndex(where: { $0.id == progress.id }) {
+                transfers[index] = progress
+            } else {
+                transfers.append(progress)
+            }
+        case .transferEnded(let id):
+            transfers.removeAll { $0.id == id }
         case .notificationPosted(let notification):
             notificationPosted(notification)
         case .notificationRemoved(let key):

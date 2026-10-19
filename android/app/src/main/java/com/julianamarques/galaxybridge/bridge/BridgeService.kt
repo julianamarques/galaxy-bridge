@@ -240,6 +240,7 @@ class BridgeService : Service() {
             }
             is Message.NotificationDismissMessage -> NotificationListener.dismiss(message.body.key)
             is Message.NotificationFilterMessage -> NotificationRelay.muted = message.body.muted.toSet()
+            is Message.TransferOfferMessage -> transfers.download(message.body)
             is Message.PhotoRequestMessage -> PhoneContacts.photo(this, message.body.contact)?.let {
                 connection.send(Envelope(Message.PhotoMessage(ContactPhoto(message.body.contact, it)), replyTo = envelope.id))
             }

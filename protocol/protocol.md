@@ -171,6 +171,23 @@ Press a notification's button, with `reply` for the ones that take text, or dism
 
 The apps whose notifications the phone should not send. Sent after `hello` and whenever the user changes it in the Mac's settings; the phone keeps it until the next one.
 
+### File transfers
+
+Files don't travel on the main connection, so a large one never holds up pings, calls or notifications. Each transfer gets its own connection: the phone opens a new TLS connection to the Mac's port, with the same certificates, and its first message says what it's for instead of `hello`. The Mac accepts it only from a paired phone.
+
+```json
+{ "type": "transfer.upload", "body": { "id": "t1", "name": "IMG_2041.jpg", "size": 3145728, "mime": "image/jpeg" } }
+{ "type": "transfer.offer", "body": { "id": "t2", "name": "Relatório.pdf", "size": 48213, "mime": "application/pdf" } }
+{ "type": "transfer.download", "body": { "id": "t2" } }
+{ "type": "transfer.chunk", "body": { "id": "t1", "data": "/9j/4AAQSkZJRg==" } }
+{ "type": "transfer.result", "body": { "id": "t1", "ok": true } }
+```
+
+- **Phone to Mac:** the phone opens a transfer connection and sends `transfer.upload`, then the file as `transfer.chunk`s.
+- **Mac to phone:** the Mac sends `transfer.offer` on the main connection; the phone opens a transfer connection, sends `transfer.download` with the offer's `id`, and the Mac sends the chunks. An offer nobody downloads within a minute is dropped.
+- Chunks carry up to 256 KB each, base64. When the receiver has `size` bytes it answers `transfer.result` (`ok`, and a `message` when it isn't) and the sender closes the connection. A connection that closes before then cancels the transfer, and the receiver throws away what it got.
+- The receiver treats `name` as a file name only: the Mac drops any path and leading dots and numbers copies ("foto (1).jpg"); the phone saves into `Download/Galaxy Bridge`.
+
 ### `error` — both directions
 
 ```json

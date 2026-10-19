@@ -26,11 +26,34 @@ public enum Transfer {
     }
 }
 
+public struct TransferProgress: Identifiable, Equatable, Sendable {
+    public enum Direction: Sendable {
+        case toPhone
+        case fromPhone
+    }
+
+    public let id: String
+    public let name: String
+    public let direction: Direction
+    public var done: Int64
+    public let total: Int64
+
+    public var fraction: Double { total > 0 ? Double(done) / Double(total) : 0 }
+
+    public init(id: String, name: String, direction: Direction, done: Int64, total: Int64) {
+        self.id = id
+        self.name = name
+        self.direction = direction
+        self.done = done
+        self.total = total
+    }
+}
+
 final class IncomingTransfer {
     let file: TransferFile
     let url: URL
     private let handle: FileHandle
-    private var received: Int64 = 0
+    private(set) var received: Int64 = 0
 
     init?(_ file: TransferFile) {
         guard file.size >= 0 else { return nil }
@@ -67,15 +90,20 @@ final class OutgoingTransfer {
     }
 
     @MainActor
-    func stream(on connection: BridgeConnection) {
+    func stream(on connection: BridgeConnection, progress: @escaping @MainActor (Int64) -> Void) {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return connection.close() }
         let id = file.id
+        var sent: Int64 = 0
         func next() {
             guard let data = try? handle.read(upToCount: Transfer.chunkSize), !data.isEmpty else {
                 try? handle.close()
                 return
             }
-            connection.send(Envelope(.transferChunk(TransferChunk(id: id, data: data))), then: next)
+            connection.send(Envelope(.transferChunk(TransferChunk(id: id, data: data)))) {
+                sent += Int64(data.count)
+                progress(sent)
+                next()
+            }
         }
         next()
     }

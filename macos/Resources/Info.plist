@@ -37,6 +37,26 @@
 	<string>14.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSServices</key>
+	<array>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Enviar para o Galaxy</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>sendToGalaxy</string>
+			<key>NSPortName</key>
+			<string>Galaxy Bridge</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.data</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_adb-tls-pairing._tcp</string>

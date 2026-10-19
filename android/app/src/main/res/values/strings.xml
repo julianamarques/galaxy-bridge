@@ -4,10 +4,13 @@
     <string name="channel_connection">Conexão com o Mac</string>
     <string name="notification_connected">Conectado ao %1$s</string>
     <string name="notification_searching">Procurando o %1$s…</string>
-    <string name="channel_transfers">Arquivos enviados ao Mac</string>
+    <string name="channel_transfers">Arquivos entre o Galaxy e o Mac</string>
     <string name="transfer_sending">Enviando para o Mac…</string>
     <string name="transfer_sent">Enviado para o Mac</string>
     <string name="transfer_failed">Não foi possível enviar para o Mac</string>
+    <string name="transfer_receiving">Recebendo do Mac…</string>
+    <string name="transfer_received">Recebido do Mac</string>
+    <string name="transfer_receive_failed">Não foi possível receber do Mac</string>
     <string name="share_label">Enviar para o Mac</string>
     <string name="share_sending">Enviando para o Mac…</string>
     <string name="share_nothing">Não há arquivo para enviar.</string>
