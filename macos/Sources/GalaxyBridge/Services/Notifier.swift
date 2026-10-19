@@ -34,7 +34,7 @@ final class Notifier: NSObject {
         center.add(UNNotificationRequest(identifier: "missed-\(call)", content: content, trigger: nil))
     }
 
-    func show(_ notification: PhoneNotification) {
+    func show(_ notification: PhoneNotification, icon: URL?) {
         let content = UNMutableNotificationContent()
         content.title = notification.title ?? notification.appName
         if notification.title != nil { content.subtitle = notification.appName }
@@ -43,6 +43,7 @@ final class Notifier: NSObject {
         content.userInfo = [Self.keyInfo: notification.key]
         content.categoryIdentifier = category(for: notification.actions)
         if !notification.silent { content.sound = .default }
+        if let icon, let attachment = Self.attachment(copying: icon) { content.attachments = [attachment] }
         center.add(UNNotificationRequest(identifier: Self.phonePrefix + notification.key, content: content, trigger: nil))
     }
 
@@ -57,6 +58,12 @@ final class Notifier: NSObject {
             let stale = delivered.map(\.request.identifier).filter { $0.hasPrefix(Self.phonePrefix) && !active.contains($0) }
             center.removeDeliveredNotifications(withIdentifiers: stale)
         }
+    }
+
+    private static func attachment(copying icon: URL) -> UNNotificationAttachment? {
+        let copy = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".png")
+        guard (try? FileManager.default.copyItem(at: icon, to: copy)) != nil else { return nil }
+        return try? UNNotificationAttachment(identifier: "icon", url: copy)
     }
 
     private func category(for actions: [PhoneNotification.Action]) -> String {

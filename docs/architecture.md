@@ -283,11 +283,13 @@ Galaxy S25, 2026-10-18, a dozen calls from another phone:
 
 `NotificationRelay`, icons, replies, removal on both sides, and a per-app filter in the settings of both apps.
 
-### Phase 3 results so far
+### Phase 3 results
 
 - **The relay** (`NotificationRelay`, fed by the same `NotificationListener` as the calls) keeps each mirrored notification by key, so the Mac's button presses and replies run the original `PendingIntent`s, with replies filled into the action's `RemoteInput`. Tested with replies and actions from the Mac on the S25.
 - **The Mac** (`Notifier`, which also posts missed calls) shows each one in Notification Center with the app's name as subtitle and the phone's buttons as notification actions (a text field for replies). macOS folds the buttons into an "Options" menu, as with calls; here that's acceptable, since nothing is time-critical. Categories are made on the fly for each set of buttons. `customDismissAction` tells the phone when one is dismissed on the Mac.
-- Still to do: the sending app's icon, and the per-app filter.
+- **Icons:** the first notification from an app makes the Mac ask for its icon (`icon.request`), rendered by the phone as a 96×96 PNG from the notification's own `android.appInfo` (so the app needs no package visibility). The Mac keeps it in `~/Library/Application Support/Galaxy Bridge/icons` and attaches a copy to each notification, waiting up to a second for the first one.
+- **Per-app filter:** the Mac's settings list every app that has sent a notification, with a switch each. The muted list goes to the phone (`notification.filter`) after `hello` and on every change, so muted notifications don't leave the phone; the Mac also drops them if one arrives before the phone has the list. The planned filter in the Android app's own settings wasn't needed.
+- Tested on the S25 with WhatsApp: notifications with the app's icon, replies from the Mac, dismissing on either side, muting an app.
 
 ### Phase 4 — Files and clipboard
 

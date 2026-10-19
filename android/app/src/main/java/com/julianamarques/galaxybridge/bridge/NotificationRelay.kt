@@ -6,18 +6,26 @@ import android.app.RemoteInput
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.os.Build
 import android.os.Bundle
 import android.service.notification.NotificationListenerService.Ranking
 import android.service.notification.StatusBarNotification
+import android.util.Base64
 import com.julianamarques.galaxybridge.protocol.PhoneNotification
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.ConcurrentHashMap
 
 object NotificationRelay {
     @Volatile var onPosted: ((PhoneNotification) -> Unit)? = null
     @Volatile var onRemoved: ((String) -> Unit)? = null
 
+    @Volatile var muted: Set<String> = emptySet()
+
     private val mirrored = ConcurrentHashMap<String, StatusBarNotification>()
+    private val apps = ConcurrentHashMap<String, ApplicationInfo>()
+    private const val ICON_SIZE = 96
     private const val MAX_TEXT = 1_000
     private const val SKIPPED_FLAGS = Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE or
         Notification.FLAG_GROUP_SUMMARY or Notification.FLAG_LOCAL_ONLY
@@ -54,7 +62,7 @@ object NotificationRelay {
 
     private fun describe(context: Context, notification: StatusBarNotification, ranking: Ranking?): PhoneNotification? {
         val content = notification.notification
-        if (notification.packageName == context.packageName) return null
+        if (notification.packageName == context.packageName || notification.packageName in muted) return null
         if (content.flags and SKIPPED_FLAGS != 0 || !notification.isClearable) return null
         if (content.category == Notification.CATEGORY_CALL) return null
         if (ranking != null && ranking.importance < NotificationManager.IMPORTANCE_DEFAULT) return null
@@ -69,7 +77,18 @@ object NotificationRelay {
         return PhoneNotification(notification.key, notification.packageName, appName(context, notification), title, text, notification.postTime, actions, silent = false)
     }
 
-    fun appInfo(context: Context, notification: StatusBarNotification): ApplicationInfo? {
+    fun icon(context: Context, app: String): String? = runCatching {
+        val info = apps[app] ?: context.packageManager.getApplicationInfo(app, 0)
+        val bitmap = Bitmap.createBitmap(ICON_SIZE, ICON_SIZE, Bitmap.Config.ARGB_8888)
+        info.loadIcon(context.packageManager).apply {
+            setBounds(0, 0, ICON_SIZE, ICON_SIZE)
+            draw(Canvas(bitmap))
+        }
+        val png = ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+        Base64.encodeToString(png, Base64.NO_WRAP)
+    }.getOrNull()
+
+    private fun appInfo(context: Context, notification: StatusBarNotification): ApplicationInfo? {
         val extras = notification.notification.extras
         val attached = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             extras.getParcelable(EXTRA_APP_INFO, ApplicationInfo::class.java)
@@ -77,7 +96,8 @@ object NotificationRelay {
             @Suppress("DEPRECATION")
             extras.getParcelable<ApplicationInfo>(EXTRA_APP_INFO)
         }
-        return attached ?: runCatching { context.packageManager.getApplicationInfo(notification.packageName, 0) }.getOrNull()
+        return (attached ?: runCatching { context.packageManager.getApplicationInfo(notification.packageName, 0) }.getOrNull())
+            ?.also { apps[notification.packageName] = it }
     }
 
     private fun appName(context: Context, notification: StatusBarNotification): String =

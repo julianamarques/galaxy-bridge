@@ -163,6 +163,23 @@ The phone leaves out ongoing notifications (music, downloads, its own), group su
 
 Press a notification's button, with `reply` for the ones that take text, or dismiss the notification on the phone.
 
+### `notification.filter` — Mac → phone
+
+```json
+{ "type": "notification.filter", "body": { "muted": [ "com.instagram.android" ] } }
+```
+
+The apps whose notifications the phone should not send. Sent after `hello` and whenever the user changes it in the Mac's settings; the phone keeps it until the next one.
+
+### `icon.request` / `icon` — Mac → phone / phone → Mac
+
+```json
+{ "type": "icon.request", "id": "i1", "body": { "app": "com.whatsapp" } }
+{ "type": "icon", "replyTo": "i1", "body": { "app": "com.whatsapp", "data": "iVBORw0KGgo=" } }
+```
+
+An app's icon as a 96×96 PNG, base64. The Mac asks the first time it sees an app and keeps the icon on disk.
+
 ### `error` — both directions
 
 ```json

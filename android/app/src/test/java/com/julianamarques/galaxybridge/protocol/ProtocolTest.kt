@@ -18,7 +18,7 @@ class ProtocolTest {
 
     @Test
     fun fixturesExist() {
-        assertTrue("Exemplos não encontrados em ${File("../../protocol/fixtures").absolutePath}", fixtures.size >= 26)
+        assertTrue("Exemplos não encontrados em ${File("../../protocol/fixtures").absolutePath}", fixtures.size >= 29)
     }
 
     @Test

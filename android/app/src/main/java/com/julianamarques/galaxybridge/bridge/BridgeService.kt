@@ -27,6 +27,7 @@ import com.julianamarques.galaxybridge.MainActivity
 import com.julianamarques.galaxybridge.Permission
 import com.julianamarques.galaxybridge.R
 import com.julianamarques.galaxybridge.Diagnostics.TAG
+import com.julianamarques.galaxybridge.protocol.AppIcon
 import com.julianamarques.galaxybridge.protocol.BridgeError
 import com.julianamarques.galaxybridge.protocol.CallState
 import com.julianamarques.galaxybridge.protocol.ContactPhoto
@@ -233,6 +234,10 @@ class BridgeService : Service() {
                 Diagnostics.record(this, "Mac pediu ação de notificação: ${if (done) "feita" else "não encontrada"}")
             }
             is Message.NotificationDismissMessage -> NotificationListener.dismiss(message.body.key)
+            is Message.NotificationFilterMessage -> NotificationRelay.muted = message.body.muted.toSet()
+            is Message.IconRequestMessage -> NotificationRelay.icon(this, message.body.app)?.let {
+                connection.send(Envelope(Message.IconMessage(AppIcon(message.body.app, it)), replyTo = envelope.id))
+            }
             is Message.PhotoRequestMessage -> PhoneContacts.photo(this, message.body.contact)?.let {
                 connection.send(Envelope(Message.PhotoMessage(ContactPhoto(message.body.contact, it)), replyTo = envelope.id))
             }

@@ -53,6 +53,10 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            if app.appPhone != nil {
+                NotificationAppsSection(apps: app.phoneApps)
+            }
+
             Section("Geral") {
                 Toggle("Abrir ao iniciar sessão", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, enabled in
@@ -73,7 +77,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: 410)
+        .frame(width: 460, height: app.appPhone != nil ? 560 : 410)
         .onAppear { isCallHandler = CallLinks.isDefault }
         .confirmationDialog("Esquecer o \(app.deviceName)?", isPresented: $confirmingForget) {
             Button("Esquecer", role: .destructive) { app.forget() }
@@ -90,6 +94,37 @@ struct SettingsView: View {
                 Log.phone.info("App padrão para tel: não alterado: \(error.localizedDescription, privacy: .public)")
             }
             isCallHandler = CallLinks.isDefault
+        }
+    }
+}
+
+private struct NotificationAppsSection: View {
+    @ObservedObject var apps: PhoneApps
+
+    var body: some View {
+        Section {
+            if apps.apps.isEmpty {
+                Text("Os apps aparecem aqui quando mandarem a primeira notificação.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(apps.apps) { app in
+                    Toggle(isOn: Binding(get: { !apps.isMuted(app.id) }, set: { apps.setMuted(app.id, !$0) })) {
+                        HStack(spacing: 8) {
+                            if let icon = apps.icon(app.id) {
+                                Image(nsImage: icon).resizable().frame(width: 20, height: 20)
+                            } else {
+                                Image(systemName: "app.fill").foregroundStyle(.secondary).frame(width: 20, height: 20)
+                            }
+                            Text(app.name)
+                        }
+                    }
+                }
+            }
+        } header: {
+            Text("Notificações")
+        } footer: {
+            Text("As notificações do Galaxy aparecem na Central de Notificações do Mac. Desligue os apps que você não quer ver aqui.")
+                .foregroundStyle(.secondary)
         }
     }
 }

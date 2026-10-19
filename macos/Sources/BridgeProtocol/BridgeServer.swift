@@ -19,6 +19,7 @@ public final class BridgeServer {
         case notificationPosted(PhoneNotification)
         case notificationRemoved(String)
         case notificationsActive([String])
+        case icon(AppIcon)
         case error(BridgeError, replyTo: String?)
     }
 
@@ -253,6 +254,8 @@ public final class BridgeServer {
             onEvent?(.notificationRemoved(notification.key))
         case .notificationActive(let notifications) where connection === active:
             onEvent?(.notificationsActive(notifications.keys))
+        case .icon(let icon) where connection === active:
+            onEvent?(.icon(icon))
         case .error(let error) where connection === active:
             onEvent?(.error(error, replyTo: envelope.replyTo))
         case .unpair where connection === active:

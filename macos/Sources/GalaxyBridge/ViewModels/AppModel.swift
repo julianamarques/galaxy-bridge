@@ -42,6 +42,10 @@ final class AppModel: ObservableObject {
 
     private(set) var bridge: BridgeServer?
     private let notifier = Notifier()
+    let phoneApps = PhoneApps(iconDirectory: AppModel.supportDirectory.appendingPathComponent("icons", isDirectory: true))
+    private var waitingForIcon: [String: [PhoneNotification]] = [:]
+    private var requestedIcons: Set<String> = []
+    private static let iconWait: Duration = .seconds(1)
     private var declinedCall: String?
     private var searchRequest: String?
     private var searchTask: Task<Void, Never>?
@@ -68,6 +72,9 @@ final class AppModel: ObservableObject {
         }
         notifier.onDismiss = { [weak self] key in
             self?.bridge?.send(.notificationDismiss(NotificationKey(key: key)))
+        }
+        phoneApps.onMutedChange = { [weak self] muted in
+            self?.bridge?.send(.notificationFilter(NotificationFilter(muted: muted.sorted())))
         }
     }
 
@@ -338,6 +345,26 @@ final class AppModel: ObservableObject {
         }
     }
 
+    private func notificationPosted(_ notification: PhoneNotification) {
+        phoneApps.remember(notification.app, name: notification.appName)
+        guard !phoneApps.isMuted(notification.app) else { return }
+        if let icon = phoneApps.iconFile(notification.app) { return notifier.show(notification, icon: icon) }
+        waitingForIcon[notification.app, default: []].append(notification)
+        guard requestedIcons.insert(notification.app).inserted else { return }
+        bridge?.send(.iconRequest(IconRequest(app: notification.app)))
+        Task { [weak self] in
+            try? await Task.sleep(for: Self.iconWait)
+            self?.showWaiting(for: notification.app)
+        }
+    }
+
+    private func showWaiting(for app: String) {
+        let icon = phoneApps.iconFile(app)
+        for notification in waitingForIcon.removeValue(forKey: app) ?? [] {
+            notifier.show(notification, icon: icon)
+        }
+    }
+
     func requestPhoto(_ contact: String) {
         guard photos[contact] == nil, requestedPhotos.insert(contact).inserted else { return }
         bridge?.send(.photoRequest(PhotoRequest(contact: contact)))
@@ -474,10 +501,12 @@ extension AppModel {
             appPhone = phone
             isAppConnected = true
             callError = nil
+            bridge?.send(.notificationFilter(NotificationFilter(muted: phoneApps.muted.sorted())))
         case .disconnected:
             isAppConnected = false
             dropCall()
             requestedPhotos.removeAll()
+            requestedIcons.removeAll()
             photos.removeAll()
             contactSuggestions = []
         case .paired(let phone):
@@ -502,7 +531,10 @@ extension AppModel {
             }.prefix(Self.maxSuggestions))
             for contact in results.contacts where contact.hasPhoto { requestPhoto(contact.id) }
         case .notificationPosted(let notification):
-            notifier.show(notification)
+            notificationPosted(notification)
+        case .icon(let icon):
+            phoneApps.saveIcon(icon.app, data: icon.data)
+            showWaiting(for: icon.app)
         case .notificationRemoved(let key):
             notifier.remove(key)
         case .notificationsActive(let keys):

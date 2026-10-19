@@ -35,6 +35,9 @@ public enum Message: Equatable, Sendable {
     case notificationActive(NotificationKeys)
     case notificationAction(NotificationAction)
     case notificationDismiss(NotificationKey)
+    case notificationFilter(NotificationFilter)
+    case iconRequest(IconRequest)
+    case icon(AppIcon)
     case error(BridgeError)
     case ping
     case pong
@@ -62,6 +65,9 @@ public enum Message: Equatable, Sendable {
         case .notificationActive: "notification.active"
         case .notificationAction: "notification.action"
         case .notificationDismiss: "notification.dismiss"
+        case .notificationFilter: "notification.filter"
+        case .iconRequest: "icon.request"
+        case .icon: "icon"
         case .error: "error"
         case .ping: "ping"
         case .pong: "pong"
@@ -307,6 +313,32 @@ public struct NotificationAction: Codable, Equatable, Sendable {
     }
 }
 
+public struct NotificationFilter: Codable, Equatable, Sendable {
+    public var muted: [String]
+
+    public init(muted: [String]) {
+        self.muted = muted
+    }
+}
+
+public struct IconRequest: Codable, Equatable, Sendable {
+    public var app: String
+
+    public init(app: String) {
+        self.app = app
+    }
+}
+
+public struct AppIcon: Codable, Equatable, Sendable {
+    public var app: String
+    public var data: Data
+
+    public init(app: String, data: Data) {
+        self.app = app
+        self.data = data
+    }
+}
+
 public struct BridgeError: Codable, Equatable, Sendable, Error {
     public enum Code: String, Codable, Sendable {
         case version
@@ -354,6 +386,9 @@ extension Envelope: Codable {
         case "notification.active": .notificationActive(try container.decode(NotificationKeys.self, forKey: .body))
         case "notification.action": .notificationAction(try container.decode(NotificationAction.self, forKey: .body))
         case "notification.dismiss": .notificationDismiss(try container.decode(NotificationKey.self, forKey: .body))
+        case "notification.filter": .notificationFilter(try container.decode(NotificationFilter.self, forKey: .body))
+        case "icon.request": .iconRequest(try container.decode(IconRequest.self, forKey: .body))
+        case "icon": .icon(try container.decode(AppIcon.self, forKey: .body))
         case "error": .error(try container.decode(BridgeError.self, forKey: .body))
         case "ping": .ping
         case "pong": .pong
@@ -383,6 +418,9 @@ extension Envelope: Codable {
         case .notificationRemoved(let body), .notificationDismiss(let body): try container.encode(body, forKey: .body)
         case .notificationActive(let body): try container.encode(body, forKey: .body)
         case .notificationAction(let body): try container.encode(body, forKey: .body)
+        case .notificationFilter(let body): try container.encode(body, forKey: .body)
+        case .iconRequest(let body): try container.encode(body, forKey: .body)
+        case .icon(let body): try container.encode(body, forKey: .body)
         case .error(let body): try container.encode(body, forKey: .body)
         case .unpair, .ping, .pong, .unknown: break
         }
