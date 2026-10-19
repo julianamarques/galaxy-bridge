@@ -9,4 +9,6 @@ open build/HandsFreeSpike.app
 
 Pair the phone with the Mac over Bluetooth first. The window lists the paired devices, connects as hands-free, and has buttons to answer, hang up and move the audio. Everything it sees is also written to `~/Library/Logs/GalaxyBridgeHandsFreeSpike.log`.
 
-Result on the Galaxy S25 and macOS 27 (2026-10-18): the hands-free connection and the call state work, the audio doesn't (`kIOReturnUnsupported`). Details in [docs/architecture.md](../../docs/architecture.md#phase-2-results). Unpair the phone from the Mac afterwards.
+The "Banda larga (mSBC)" toggle decides whether the Mac offers codec negotiation; the app asks for the microphone at launch.
+
+Result on the Galaxy S25 and macOS 27 (2026-10-18): the hands-free connection and the call state work, the audio doesn't (`kIOReturnUnsupported`), with or without mSBC and with the microphone allowed. Details in [docs/architecture.md](../../docs/architecture.md#phase-2-results). Unpair the phone from the Mac afterwards.

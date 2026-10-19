@@ -1,3 +1,4 @@
+import AVFoundation
 import AppKit
 import CoreAudio
 import IOBluetooth
@@ -7,6 +8,7 @@ final class Spike: NSObject, ObservableObject, IOBluetoothHandsFreeDeviceDelegat
     @Published var lines: [String] = []
     @Published var devices: [IOBluetoothDevice] = []
     @Published var selected: String = ""
+    @Published var wideband = false
     private var handsFree: IOBluetoothHandsFreeDevice?
     private let logURL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Logs/GalaxyBridgeHandsFreeSpike.log")
@@ -29,14 +31,20 @@ final class Spike: NSObject, ObservableObject, IOBluetoothHandsFreeDeviceDelegat
         guard let device = devices.first(where: { $0.addressString == selected }) else { return log("Escolha um aparelho") }
         log("Viva-voz de \(device.name ?? "?"): serviço de viva-voz do celular = \(device.handsFreeAudioGatewayServiceRecord() != nil)")
         let handsFree = IOBluetoothHandsFreeDevice(device: device, delegate: self)
-        handsFree?.supportedFeatures = IOBluetoothHandsFreeDeviceFeatures.cliPresentation.rawValue
+        var features = IOBluetoothHandsFreeDeviceFeatures.cliPresentation.rawValue
             | IOBluetoothHandsFreeDeviceFeatures.enhancedCallStatus.rawValue
             | IOBluetoothHandsFreeDeviceFeatures.remoteVolumeControl.rawValue
-            | IOBluetoothHandsFreeDeviceFeatures.ecAndOrNRFunction.rawValue
-            | IOBluetoothHandsFreeDeviceFeatures.codecNegotiation.rawValue
+        if wideband { features |= IOBluetoothHandsFreeDeviceFeatures.codecNegotiation.rawValue }
+        handsFree?.supportedFeatures = features
+        log("Recursos anunciados: \(features) (mSBC \(wideband ? "sim" : "não"))")
         self.handsFree = handsFree
         log("Conectando como viva-voz…")
         handsFree?.connect()
+    }
+
+    func requestMicrophone() {
+        log("Microfone antes: \(AVCaptureDevice.authorizationStatus(for: .audio).rawValue)")
+        AVCaptureDevice.requestAccess(for: .audio) { granted in self.log("Microfone permitido: \(granted)") }
     }
 
     func disconnect() { handsFree?.disconnect(); log("Desconectar pedido") }
@@ -97,7 +105,7 @@ final class Spike: NSObject, ObservableObject, IOBluetoothHandsFreeDeviceDelegat
     }
     func handsFree(_ device: IOBluetoothHandsFree!, disconnected status: NSNumber!) { log("Desconectado (status \(status ?? 0))") }
     func handsFree(_ device: IOBluetoothHandsFree!, scoConnectionOpened status: NSNumber!) {
-        log("SCO aberto (status \(status ?? 0))")
+        log("SCO aberto (status \(status ?? 0) = 0x\(String(UInt32(bitPattern: status?.int32Value ?? 0), radix: 16)))")
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.listAudioDevices() }
     }
     func handsFree(_ device: IOBluetoothHandsFree!, scoConnectionClosed status: NSNumber!) { log("SCO fechado (status \(status ?? 0))") }
@@ -125,6 +133,7 @@ struct SpikeView: View {
                     }
                 }
                 Button("Atualizar") { spike.refreshDevices() }
+                Toggle("Banda larga (mSBC)", isOn: $spike.wideband)
             }
             HStack {
                 Button("Conectar viva-voz") { spike.connect() }
@@ -150,7 +159,10 @@ struct SpikeView: View {
         }
         .padding()
         .frame(minWidth: 720, minHeight: 480)
-        .onAppear { spike.refreshDevices() }
+        .onAppear {
+            spike.refreshDevices()
+            spike.requestMicrophone()
+        }
     }
 }
 
