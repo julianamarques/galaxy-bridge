@@ -1,3 +1,4 @@
+import AppKit
 import BridgeProtocol
 import Foundation
 import GalaxyKit
@@ -10,6 +11,8 @@ final class Notifier: NSObject {
     private let center = UNUserNotificationCenter.current()
     private var categories: [String: UNNotificationCategory] = [:]
     nonisolated private static let phonePrefix = "phone-"
+    nonisolated private static let filePrefix = "file-"
+    nonisolated private static let fileInfo = "path"
     private static let actionPrefix = "action-"
 
     override init() {
@@ -30,6 +33,22 @@ final class Notifier: NSObject {
         content.body = toVoicemail ? String(localized: "\(caller) · correio de voz") : caller
         content.sound = .default
         center.add(UNNotificationRequest(identifier: "missed-\(call)", content: content, trigger: nil))
+    }
+
+    func fileReceived(_ file: URL) {
+        let content = UNMutableNotificationContent()
+        content.title = String(localized: "Recebido do Galaxy")
+        content.body = file.lastPathComponent
+        content.userInfo = [Self.fileInfo: file.path]
+        content.sound = .default
+        center.add(UNNotificationRequest(identifier: Self.filePrefix + UUID().uuidString, content: content, trigger: nil))
+    }
+
+    func fileSent(_ name: String, ok: Bool) {
+        let content = UNMutableNotificationContent()
+        content.title = ok ? String(localized: "Enviado para o Galaxy") : String(localized: "Não foi possível enviar para o Galaxy")
+        content.body = name
+        center.add(UNNotificationRequest(identifier: Self.filePrefix + UUID().uuidString, content: content, trigger: nil))
     }
 
     func show(_ notification: PhoneNotification, icon: URL?) {
@@ -103,6 +122,11 @@ extension Notifier: UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse
     ) async {
         let identifier = response.notification.request.identifier
+        if identifier.hasPrefix(Self.filePrefix), response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+           let path = response.notification.request.content.userInfo[Self.fileInfo] as? String {
+            await MainActor.run { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }
+            return
+        }
         guard identifier.hasPrefix(Self.phonePrefix) else { return }
         let key = String(identifier.dropFirst(Self.phonePrefix.count))
         let action = response.actionIdentifier

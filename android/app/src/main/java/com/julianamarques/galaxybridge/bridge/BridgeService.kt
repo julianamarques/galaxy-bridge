@@ -2,6 +2,7 @@ package com.julianamarques.galaxybridge.bridge
 
 import android.Manifest
 import android.app.Notification
+import android.content.ClipData
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -50,6 +51,7 @@ class BridgeService : Service() {
     @Volatile private var lastBattery: Pair<Int, Int>? = null
     private var worker: Thread? = null
     private var callCallback: TelephonyCallback? = null
+    private lateinit var transfers: Transfers
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) = sendStatus(intent)
@@ -89,6 +91,7 @@ class BridgeService : Service() {
         startForeground(NOTIFICATION_ID, notification(BridgeState.Connection.Searching), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         running = true
         Diagnostics.record(this, "Serviço iniciado")
+        transfers = Transfers(this)
         CallTracker.onChange = ::sendCall
         NotificationRelay.onPosted = { send(Message.NotificationPostedMessage(it)) }
         NotificationRelay.onRemoved = { send(Message.NotificationRemovedMessage(NotificationKey(it))) }
@@ -99,6 +102,7 @@ class BridgeService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_SEND_FILES) intent.extras?.parcelables<Uri>(EXTRA_FILES)?.let(transfers::upload)
         monitorCalls()
         wake()
         return START_STICKY
@@ -106,6 +110,7 @@ class BridgeService : Service() {
 
     override fun onDestroy() {
         Diagnostics.record(this, "Serviço parado")
+        transfers.shutdown()
         running = false
         instance = null
         connection?.close()
@@ -359,6 +364,8 @@ class BridgeService : Service() {
 
     companion object {
         private const val CHANNEL_ID = "connection"
+        private const val ACTION_SEND_FILES = "com.julianamarques.galaxybridge.SEND_FILES"
+        private const val EXTRA_FILES = "files"
         private const val NOTIFICATION_ID = 1
         private const val RECEIVE_TIMEOUT_MS = 6 * 60_000
         private const val DISCOVERY_TIMEOUT_MS = 10_000L
@@ -371,6 +378,16 @@ class BridgeService : Service() {
         fun start(context: Context) {
             if (PairingStore.current(context) == null) return
             context.startForegroundService(Intent(context, BridgeService::class.java))
+        }
+
+        fun send(context: Context, files: List<Uri>) {
+            val clip = ClipData.newRawUri(null, files.first()).apply { files.drop(1).forEach { addItem(ClipData.Item(it)) } }
+            val intent = Intent(context, BridgeService::class.java)
+                .setAction(ACTION_SEND_FILES)
+                .putParcelableArrayListExtra(EXTRA_FILES, ArrayList(files))
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            intent.clipData = clip
+            context.startForegroundService(intent)
         }
 
         fun forget(context: Context) {

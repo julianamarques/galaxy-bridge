@@ -7,6 +7,7 @@ final class BridgeConnection {
     private(set) var fingerprint: String?
     var hello: Hello?
     var phone: PairedPhone?
+    var isTransfer = false
     private(set) var lastPing = Date()
     private(set) var awaitingPong = false
     private var decoder = FrameDecoder()

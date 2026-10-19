@@ -296,6 +296,13 @@ Galaxy S25, 2026-10-18, a dozen calls from another phone:
 
 "Send to Galaxy" from the Finder's Services menu, files from the phone's share sheet to the Mac, and clipboard sync with an explicit action (no background sync of what the user copies).
 
+### Phase 4 results so far
+
+- **Each transfer gets its own TLS connection** to the Mac's port, so a large file never holds up pings, calls or notifications on the main one. The phone opens it in both directions (the Mac is the server): `transfer.upload` to send, `transfer.download` after the Mac's `transfer.offer` to receive. The file travels as `transfer.chunk`s of 256 KB in base64, and the receiver answers `transfer.result`. The Mac only accepts transfers from paired phones, cleans the file name (no paths, no hidden names) and numbers copies instead of replacing files in Downloads. While a transfer runs it holds a `ProcessInfo` activity, so the Mac doesn't sleep in the middle.
+- **Phone to Mac works** through "Enviar para o Mac" in Android's share sheet: photos and videos land in the Mac's Downloads with a "Recebido do Galaxy" notification that reveals the file.
+- **It was slow on this network, and the network is why.** A 2 MB photo took 21 s and a 41 MB video 15 minutes. The phone's TCP connections to the Mac sat at a congestion window of 2 segments, and a plain TCP socket from the phone to a plain socket on the Mac was just as slow (20 MB in 56 to 92 s), with or without Android's low-latency Wi-Fi lock. The other direction runs at 25 MB/s, and the Mac downloads from the internet at 260 Mbps on the same Wi-Fi, so the Mac's reception is fine; the slow part is the phone's sending to the Mac on this router. App Nap was a first suspect and ruled out.
+- **Testing notes:** on Android 17, `adb shell` tools can't open connections to the local network, and on macOS a process started from the Terminal can't receive connections from the local network without the Local Network permission, so raw `nc` tests between the two fail with "connection reset". Speed tests have to run inside the apps.
+
 ## Testing
 
 - **Protocol:** every message fixture is decoded and re-encoded by `swift test` and by the Android unit tests, so the two implementations can't drift apart.

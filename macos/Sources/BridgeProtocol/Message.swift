@@ -36,6 +36,11 @@ public enum Message: Equatable, Sendable {
     case notificationAction(NotificationAction)
     case notificationDismiss(NotificationKey)
     case notificationFilter(NotificationFilter)
+    case transferUpload(TransferFile)
+    case transferOffer(TransferFile)
+    case transferDownload(TransferID)
+    case transferChunk(TransferChunk)
+    case transferResult(TransferResult)
     case error(BridgeError)
     case ping
     case pong
@@ -64,6 +69,11 @@ public enum Message: Equatable, Sendable {
         case .notificationAction: "notification.action"
         case .notificationDismiss: "notification.dismiss"
         case .notificationFilter: "notification.filter"
+        case .transferUpload: "transfer.upload"
+        case .transferOffer: "transfer.offer"
+        case .transferDownload: "transfer.download"
+        case .transferChunk: "transfer.chunk"
+        case .transferResult: "transfer.result"
         case .error: "error"
         case .ping: "ping"
         case .pong: "pong"
@@ -319,6 +329,50 @@ public struct NotificationFilter: Codable, Equatable, Sendable {
     }
 }
 
+public struct TransferFile: Codable, Equatable, Sendable {
+    public var id: String
+    public var name: String
+    public var size: Int64
+    public var mime: String?
+
+    public init(id: String, name: String, size: Int64, mime: String? = nil) {
+        self.id = id
+        self.name = name
+        self.size = size
+        self.mime = mime
+    }
+}
+
+public struct TransferID: Codable, Equatable, Sendable {
+    public var id: String
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+public struct TransferChunk: Codable, Equatable, Sendable {
+    public var id: String
+    public var data: Data
+
+    public init(id: String, data: Data) {
+        self.id = id
+        self.data = data
+    }
+}
+
+public struct TransferResult: Codable, Equatable, Sendable {
+    public var id: String
+    public var ok: Bool
+    public var message: String?
+
+    public init(id: String, ok: Bool, message: String? = nil) {
+        self.id = id
+        self.ok = ok
+        self.message = message
+    }
+}
+
 public struct BridgeError: Codable, Equatable, Sendable, Error {
     public enum Code: String, Codable, Sendable {
         case version
@@ -367,6 +421,11 @@ extension Envelope: Codable {
         case "notification.action": .notificationAction(try container.decode(NotificationAction.self, forKey: .body))
         case "notification.dismiss": .notificationDismiss(try container.decode(NotificationKey.self, forKey: .body))
         case "notification.filter": .notificationFilter(try container.decode(NotificationFilter.self, forKey: .body))
+        case "transfer.upload": .transferUpload(try container.decode(TransferFile.self, forKey: .body))
+        case "transfer.offer": .transferOffer(try container.decode(TransferFile.self, forKey: .body))
+        case "transfer.download": .transferDownload(try container.decode(TransferID.self, forKey: .body))
+        case "transfer.chunk": .transferChunk(try container.decode(TransferChunk.self, forKey: .body))
+        case "transfer.result": .transferResult(try container.decode(TransferResult.self, forKey: .body))
         case "error": .error(try container.decode(BridgeError.self, forKey: .body))
         case "ping": .ping
         case "pong": .pong
@@ -397,6 +456,10 @@ extension Envelope: Codable {
         case .notificationActive(let body): try container.encode(body, forKey: .body)
         case .notificationAction(let body): try container.encode(body, forKey: .body)
         case .notificationFilter(let body): try container.encode(body, forKey: .body)
+        case .transferUpload(let body), .transferOffer(let body): try container.encode(body, forKey: .body)
+        case .transferDownload(let body): try container.encode(body, forKey: .body)
+        case .transferChunk(let body): try container.encode(body, forKey: .body)
+        case .transferResult(let body): try container.encode(body, forKey: .body)
         case .error(let body): try container.encode(body, forKey: .body)
         case .unpair, .ping, .pong, .unknown: break
         }

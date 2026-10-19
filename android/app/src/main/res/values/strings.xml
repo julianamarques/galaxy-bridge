@@ -4,5 +4,14 @@
     <string name="channel_connection">Conexão com o Mac</string>
     <string name="notification_connected">Conectado ao %1$s</string>
     <string name="notification_searching">Procurando o %1$s…</string>
+    <string name="channel_transfers">Arquivos enviados ao Mac</string>
+    <string name="transfer_sending">Enviando para o Mac…</string>
+    <string name="transfer_sent">Enviado para o Mac</string>
+    <string name="transfer_failed">Não foi possível enviar para o Mac</string>
+    <string name="share_label">Enviar para o Mac</string>
+    <string name="share_sending">Enviando para o Mac…</string>
+    <string name="share_nothing">Não há arquivo para enviar.</string>
+    <string name="share_unreadable">O Galaxy Bridge não recebeu permissão para ler esses arquivos.</string>
+    <string name="share_not_paired">Pareie o Galaxy Bridge com o Mac primeiro.</string>
     <string name="notification_refused">O %1$s não reconhece mais este celular</string>
 </resources>

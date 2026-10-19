@@ -111,6 +111,18 @@ data class NotificationAction(val key: String, val action: Int, val reply: Strin
 data class NotificationFilter(val muted: List<String>)
 
 @Serializable
+data class TransferFile(val id: String, val name: String, val size: Long, val mime: String? = null)
+
+@Serializable
+data class TransferID(val id: String)
+
+@Serializable
+data class TransferChunk(val id: String, val data: String)
+
+@Serializable
+data class TransferResult(val id: String, val ok: Boolean, val message: String? = null)
+
+@Serializable
 data class BridgeError(val code: String, val message: String)
 
 sealed interface Message {
@@ -137,6 +149,11 @@ sealed interface Message {
     data class NotificationActionMessage(val body: NotificationAction) : Message { override val type get() = "notification.action" }
     data class NotificationDismissMessage(val body: NotificationKey) : Message { override val type get() = "notification.dismiss" }
     data class NotificationFilterMessage(val body: NotificationFilter) : Message { override val type get() = "notification.filter" }
+    data class TransferUploadMessage(val body: TransferFile) : Message { override val type get() = "transfer.upload" }
+    data class TransferOfferMessage(val body: TransferFile) : Message { override val type get() = "transfer.offer" }
+    data class TransferDownloadMessage(val body: TransferID) : Message { override val type get() = "transfer.download" }
+    data class TransferChunkMessage(val body: TransferChunk) : Message { override val type get() = "transfer.chunk" }
+    data class TransferResultMessage(val body: TransferResult) : Message { override val type get() = "transfer.result" }
     data class ErrorMessage(val body: BridgeError) : Message { override val type get() = "error" }
     data object Ping : Message { override val type get() = "ping" }
     data object Pong : Message { override val type get() = "pong" }
@@ -187,6 +204,11 @@ object Codec {
             "notification.action" -> Message.NotificationActionMessage(body(NotificationAction.serializer()))
             "notification.dismiss" -> Message.NotificationDismissMessage(body(NotificationKey.serializer()))
             "notification.filter" -> Message.NotificationFilterMessage(body(NotificationFilter.serializer()))
+            "transfer.upload" -> Message.TransferUploadMessage(body(TransferFile.serializer()))
+            "transfer.offer" -> Message.TransferOfferMessage(body(TransferFile.serializer()))
+            "transfer.download" -> Message.TransferDownloadMessage(body(TransferID.serializer()))
+            "transfer.chunk" -> Message.TransferChunkMessage(body(TransferChunk.serializer()))
+            "transfer.result" -> Message.TransferResultMessage(body(TransferResult.serializer()))
             "error" -> Message.ErrorMessage(body(BridgeError.serializer()))
             "ping" -> Message.Ping
             "pong" -> Message.Pong
@@ -220,6 +242,11 @@ object Codec {
         is Message.NotificationActionMessage -> json.encodeToJsonElement(NotificationAction.serializer(), message.body)
         is Message.NotificationDismissMessage -> json.encodeToJsonElement(NotificationKey.serializer(), message.body)
         is Message.NotificationFilterMessage -> json.encodeToJsonElement(NotificationFilter.serializer(), message.body)
+        is Message.TransferUploadMessage -> json.encodeToJsonElement(TransferFile.serializer(), message.body)
+        is Message.TransferOfferMessage -> json.encodeToJsonElement(TransferFile.serializer(), message.body)
+        is Message.TransferDownloadMessage -> json.encodeToJsonElement(TransferID.serializer(), message.body)
+        is Message.TransferChunkMessage -> json.encodeToJsonElement(TransferChunk.serializer(), message.body)
+        is Message.TransferResultMessage -> json.encodeToJsonElement(TransferResult.serializer(), message.body)
         is Message.ErrorMessage -> json.encodeToJsonElement(BridgeError.serializer(), message.body)
         Message.Unpair, Message.Ping, Message.Pong, is Message.Unknown -> null
     }

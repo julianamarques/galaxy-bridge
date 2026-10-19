@@ -148,6 +148,57 @@ struct BridgeServerTests {
         await #expect(throws: (any Error).self) { try await phone.next() }
     }
 
+    @Test func receivesAFileFromThePhone() async throws {
+        let control = try await connectPairedPhone()
+        let upload = try TestPhone(identity: control.identity)
+        try await upload.connect(port: server.port!, pinning: server.identity.fingerprint)
+        let content = Data((0..<600_000).map { UInt8($0 % 251) })
+        upload.send(Envelope(.transferUpload(TransferFile(id: "t1", name: "../foto.jpg", size: Int64(content.count)))))
+        for start in stride(from: 0, to: content.count, by: Transfer.chunkSize) {
+            let chunk = content[start ..< min(start + Transfer.chunkSize, content.count)]
+            upload.send(Envelope(.transferChunk(TransferChunk(id: "t1", data: Data(chunk)))))
+        }
+        #expect(try await upload.next() == .transferResult(TransferResult(id: "t1", ok: true)))
+        try await until { events.contains { if case .fileReceived = $0 { true } else { false } } }
+        guard case .fileReceived(let file, let name) = events.events.last(where: { if case .fileReceived = $0 { true } else { false } }) else { return }
+        #expect(name == "../foto.jpg")
+        #expect(try Data(contentsOf: file) == content)
+        #expect(server.phone != nil)
+        try? FileManager.default.removeItem(at: file)
+        control.close()
+    }
+
+    @Test func refusesAFileFromAnUnpairedPhone() async throws {
+        let port = try await start()
+        server.beginPairing()
+        let stranger = try TestPhone()
+        try await stranger.connect(port: port, pinning: server.identity.fingerprint)
+        stranger.send(Envelope(.transferUpload(TransferFile(id: "t1", name: "x", size: 1))))
+        await #expect(throws: (any Error).self) { try await stranger.next() }
+    }
+
+    @Test func sendsAFileToThePhone() async throws {
+        let control = try await connectPairedPhone()
+        let content = Data((0..<300_000).map { UInt8($0 % 7) })
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent("Relatório.pdf")
+        try content.write(to: source)
+        defer { try? FileManager.default.removeItem(at: source) }
+        let id = try #require(server.offer(source))
+        #expect(try await control.next() == .transferOffer(TransferFile(id: id, name: "Relatório.pdf", size: Int64(content.count))))
+        let download = try TestPhone(identity: control.identity)
+        try await download.connect(port: server.port!, pinning: server.identity.fingerprint)
+        download.send(Envelope(.transferDownload(TransferID(id: id))))
+        var received = Data()
+        while received.count < content.count {
+            guard case .transferChunk(let chunk) = try await download.next() else { Issue.record("sem pedaço"); return }
+            received += chunk.data
+        }
+        #expect(received == content)
+        download.send(Envelope(.transferResult(TransferResult(id: id, ok: true))))
+        try await until { events.contains { if case .fileSent(name: "Relatório.pdf", ok: true) = $0 { true } else { false } } }
+        control.close()
+    }
+
     private func connectPairedPhone() async throws -> TestPhone {
         let port = try await start()
         let phone = try TestPhone()
@@ -202,8 +253,8 @@ final class TestPhone: @unchecked Sendable {
     private var failed = false
     private let lock = NSLock()
 
-    init() throws {
-        identity = try Identity.ephemeral(name: "Galaxy de teste")
+    init(identity: Identity? = nil) throws {
+        self.identity = try identity ?? Identity.ephemeral(name: "Galaxy de teste")
     }
 
     func connect(port: UInt16, pinning fingerprint: String) async throws {

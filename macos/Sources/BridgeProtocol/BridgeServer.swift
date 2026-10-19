@@ -19,6 +19,8 @@ public final class BridgeServer {
         case notificationPosted(PhoneNotification)
         case notificationRemoved(String)
         case notificationsActive([String])
+        case fileReceived(URL, name: String)
+        case fileSent(name: String, ok: Bool)
         case error(BridgeError, replyTo: String?)
     }
 
@@ -44,6 +46,9 @@ public final class BridgeServer {
     private var pairingTimer: Timer?
     private var wakeMonitor: NWPathMonitor?
     private var nextID = 0
+    private var incoming: [ObjectIdentifier: IncomingTransfer] = [:]
+    private var offered: [String: OutgoingTransfer] = [:]
+    private var activities: [ObjectIdentifier: NSObjectProtocol] = [:]
     private let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.julianamarques.BridgeProtocol", category: "bridge")
 
     public init(identity: Identity, store: PairingStore, hello: Hello) {
@@ -217,7 +222,7 @@ public final class BridgeServer {
         bridge.start()
         Timer.scheduledTimer(withTimeInterval: Self.setupTimeout, repeats: false) { [weak bridge] _ in
             MainActor.assumeIsolated {
-                guard let bridge, bridge.phone == nil else { return }
+                guard let bridge, bridge.phone == nil, !bridge.isTransfer else { return }
                 bridge.close()
             }
         }
@@ -225,6 +230,13 @@ public final class BridgeServer {
 
     private func closed(_ connection: BridgeConnection) {
         connections[ObjectIdentifier(connection)] = nil
+        if let activity = activities.removeValue(forKey: ObjectIdentifier(connection)) {
+            ProcessInfo.processInfo.endActivity(activity)
+        }
+        if let transfer = incoming.removeValue(forKey: ObjectIdentifier(connection)), !transfer.isComplete {
+            log.info("Transferência interrompida: \(transfer.file.name, privacy: .public)")
+            transfer.discard()
+        }
         guard connection === active else { return }
         active = nil
         log.info("Celular desconectado")
@@ -239,6 +251,17 @@ public final class BridgeServer {
             received(request, from: connection)
         case .ping:
             connection.send(Envelope(.pong, replyTo: envelope.id))
+        case .transferUpload(let file):
+            receive(file, on: connection)
+        case .transferDownload(let transfer):
+            send(transfer.id, on: connection)
+        case .transferChunk(let chunk):
+            received(chunk, on: connection)
+        case .transferResult(let result) where connection.isTransfer:
+            if let transfer = offered.removeValue(forKey: result.id) {
+                onEvent?(.fileSent(name: transfer.file.name, ok: result.ok))
+            }
+            connection.close()
         case .status(let status) where connection === active:
             onEvent?(.status(status))
         case .callState(let call) where connection === active:
@@ -325,6 +348,64 @@ public final class BridgeServer {
         }
         log.info("Conectado a \(phone.name, privacy: .public)")
         onEvent?(.connected(phone))
+    }
+
+    @discardableResult
+    public func offer(_ url: URL) -> String? {
+        guard let active, let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize else { return nil }
+        nextID += 1
+        let file = TransferFile(id: "f\(nextID)", name: url.lastPathComponent, size: Int64(size))
+        offered[file.id] = OutgoingTransfer(file: file, url: url)
+        active.send(Envelope(.transferOffer(file)))
+        return file.id
+    }
+
+    private func startTransfer(on connection: BridgeConnection) -> Bool {
+        guard connection.hello == nil, !connection.isTransfer,
+              let fingerprint = connection.fingerprint, store.phone(withFingerprint: fingerprint) != nil
+        else {
+            connection.close()
+            return false
+        }
+        connection.isTransfer = true
+        activities[ObjectIdentifier(connection)] = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiated, .idleSystemSleepDisabled],
+            reason: "Transferindo um arquivo com o celular"
+        )
+        return true
+    }
+
+    private func receive(_ file: TransferFile, on connection: BridgeConnection) {
+        guard startTransfer(on: connection) else { return }
+        guard let transfer = IncomingTransfer(file) else {
+            return connection.send(Envelope(.transferResult(TransferResult(id: file.id, ok: false, message: "Sem espaço no Mac")))) { connection.close() }
+        }
+        log.info("Recebendo \(file.name, privacy: .public) (\(file.size) bytes)")
+        incoming[ObjectIdentifier(connection)] = transfer
+        if transfer.isComplete { finish(transfer, on: connection) }
+    }
+
+    private func received(_ chunk: TransferChunk, on connection: BridgeConnection) {
+        guard let transfer = incoming[ObjectIdentifier(connection)], chunk.id == transfer.file.id else { return connection.close() }
+        do {
+            try transfer.write(chunk.data)
+        } catch {
+            return connection.close()
+        }
+        if transfer.isComplete { finish(transfer, on: connection) }
+    }
+
+    private func finish(_ transfer: IncomingTransfer, on connection: BridgeConnection) {
+        incoming[ObjectIdentifier(connection)] = nil
+        connection.send(Envelope(.transferResult(TransferResult(id: transfer.file.id, ok: true))))
+        onEvent?(.fileReceived(transfer.url, name: transfer.file.name))
+    }
+
+    private func send(_ id: String, on connection: BridgeConnection) {
+        guard startTransfer(on: connection) else { return }
+        guard let transfer = offered[id] else { return connection.close() }
+        log.info("Enviando \(transfer.file.name, privacy: .public)")
+        transfer.stream(on: connection)
     }
 
     @discardableResult

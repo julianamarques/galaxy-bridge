@@ -337,6 +337,18 @@ final class AppModel: ObservableObject {
         }
     }
 
+    private func fileReceived(_ file: URL, name: String) {
+        let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
+        do {
+            let saved = try Transfer.place(file, named: name, in: downloads)
+            Log.phone.info("Arquivo recebido do Galaxy salvo em Downloads")
+            notifier.fileReceived(saved)
+        } catch {
+            Log.phone.error("Não foi possível salvar o arquivo recebido: \(error.localizedDescription, privacy: .public)")
+            try? FileManager.default.removeItem(at: file)
+        }
+    }
+
     private func notificationPosted(_ notification: PhoneNotification) {
         phoneApps.remember(notification.app, name: notification.appName)
         if let icon = notification.icon { phoneApps.saveIcon(notification.app, data: icon) }
@@ -508,6 +520,10 @@ extension AppModel {
                 contact.numbers.map { ContactSuggestion(contact: contact, number: $0, country: self.dialCountry) }
             }.prefix(Self.maxSuggestions))
             for contact in results.contacts where contact.hasPhoto { requestPhoto(contact.id) }
+        case .fileReceived(let file, let name):
+            fileReceived(file, name: name)
+        case .fileSent(let name, let ok):
+            notifier.fileSent(name, ok: ok)
         case .notificationPosted(let notification):
             notificationPosted(notification)
         case .notificationRemoved(let key):
