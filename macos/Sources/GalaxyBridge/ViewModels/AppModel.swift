@@ -41,7 +41,7 @@ final class AppModel: ObservableObject {
     lazy var setup = SetupModel(app: self)
 
     private(set) var bridge: BridgeServer?
-    private let callNotifier = CallNotifier()
+    private let notifier = Notifier()
     private var declinedCall: String?
     private var searchRequest: String?
     private var searchTask: Task<Void, Never>?
@@ -63,6 +63,12 @@ final class AppModel: ObservableObject {
     init() {
         pairedDevice = UserDefaults.standard.data(forKey: Self.deviceKey)
             .flatMap { try? JSONDecoder().decode(PairedDevice.self, from: $0) }
+        notifier.onAction = { [weak self] key, action, reply in
+            self?.bridge?.send(.notificationAction(NotificationAction(key: key, action: action, reply: reply)))
+        }
+        notifier.onDismiss = { [weak self] key in
+            self?.bridge?.send(.notificationDismiss(NotificationKey(key: key)))
+        }
     }
 
     var deviceName: String { appPhone?.name ?? pairedDevice?.name ?? "Galaxy" }
@@ -354,7 +360,7 @@ final class AppModel: ObservableObject {
         case .ended:
             let caller = callerName.isEmpty ? (state.name ?? state.number ?? "") : callerName
             if state.direction == .incoming, !wasAnswered, declinedCall != state.call {
-                callNotifier.missed(call: state.call, caller: caller, toVoicemail: previous?.state == .voicemail)
+                notifier.missed(call: state.call, caller: caller, toVoicemail: previous?.state == .voicemail)
             }
             call = nil
             callAnsweredAt = nil
@@ -448,7 +454,7 @@ extension AppModel {
             let bridge = BridgeServer(identity: identity, store: store, hello: hello)
             bridge.onEvent = { [weak self] in self?.handle($0) }
             bridge.start()
-            callNotifier.requestAuthorization()
+            notifier.requestAuthorization()
             self.bridge = bridge
             return bridge
         } catch {
@@ -495,6 +501,12 @@ extension AppModel {
                 contact.numbers.map { ContactSuggestion(contact: contact, number: $0, country: self.dialCountry) }
             }.prefix(Self.maxSuggestions))
             for contact in results.contacts where contact.hasPhoto { requestPhoto(contact.id) }
+        case .notificationPosted(let notification):
+            notifier.show(notification)
+        case .notificationRemoved(let key):
+            notifier.remove(key)
+        case .notificationsActive(let keys):
+            notifier.keepOnly(keys)
         case .photo(let photo):
             if let image = NSImage(data: photo.data) { photos[photo.contact] = image }
         case .error(let error, let replyTo):

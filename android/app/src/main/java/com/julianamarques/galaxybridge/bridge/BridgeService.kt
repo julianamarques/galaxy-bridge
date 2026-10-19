@@ -31,6 +31,8 @@ import com.julianamarques.galaxybridge.protocol.BridgeError
 import com.julianamarques.galaxybridge.protocol.CallState
 import com.julianamarques.galaxybridge.protocol.ContactPhoto
 import com.julianamarques.galaxybridge.protocol.ContactResults
+import com.julianamarques.galaxybridge.protocol.NotificationKey
+import com.julianamarques.galaxybridge.protocol.NotificationKeys
 import com.julianamarques.galaxybridge.protocol.Envelope
 import com.julianamarques.galaxybridge.protocol.Message
 import com.julianamarques.galaxybridge.protocol.PhoneStatus
@@ -88,6 +90,8 @@ class BridgeService : Service() {
         running = true
         Diagnostics.record(this, "Serviço iniciado")
         CallTracker.onChange = ::sendCall
+        NotificationRelay.onPosted = { send(Message.NotificationPostedMessage(it)) }
+        NotificationRelay.onRemoved = { send(Message.NotificationRemovedMessage(NotificationKey(it))) }
         monitorCalls()
         registerReceiver(shutdownReceiver, IntentFilter(Intent.ACTION_SHUTDOWN))
         getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback)
@@ -108,6 +112,8 @@ class BridgeService : Service() {
         wake()
         runCatching { unregisterReceiver(shutdownReceiver) }
         CallTracker.onChange = null
+        NotificationRelay.onPosted = null
+        NotificationRelay.onRemoved = null
         callCallback?.let { getSystemService(TelephonyManager::class.java).unregisterTelephonyCallback(it) }
         callCallback = null
         runCatching { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(networkCallback) }
@@ -165,6 +171,7 @@ class BridgeService : Service() {
             lastBattery = null
             registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             CallTracker.current?.let(::sendCall)
+            connection.send(Envelope(Message.NotificationActiveMessage(NotificationKeys(NotificationRelay.activeKeys))))
             connection.receiveTimeoutMs = RECEIVE_TIMEOUT_MS
             while (running) {
                 val envelope = connection.receive()
@@ -221,6 +228,11 @@ class BridgeService : Service() {
                     Envelope(Message.ContactsResultsMessage(ContactResults(contacts)), replyTo = envelope.id)
                 },
             )
+            is Message.NotificationActionMessage -> {
+                val done = NotificationRelay.act(this, message.body.key, message.body.action, message.body.reply)
+                Diagnostics.record(this, "Mac pediu ação de notificação: ${if (done) "feita" else "não encontrada"}")
+            }
+            is Message.NotificationDismissMessage -> NotificationListener.dismiss(message.body.key)
             is Message.PhotoRequestMessage -> PhoneContacts.photo(this, message.body.contact)?.let {
                 connection.send(Envelope(Message.PhotoMessage(ContactPhoto(message.body.contact, it)), replyTo = envelope.id))
             }
@@ -269,10 +281,14 @@ class BridgeService : Service() {
         callCallback = callback
     }
 
+    private fun send(message: Message) {
+        val connection = connection ?: return
+        if (established) connection.send(Envelope(message))
+    }
+
     private fun sendCall(call: CallState) {
         Diagnostics.record(this, "Ligação ${call.direction}: ${call.state}")
-        val connection = connection ?: return
-        if (established) connection.send(Envelope(Message.CallStateMessage(call)))
+        send(Message.CallStateMessage(call))
     }
 
     private enum class CallControl { Answer, Decline, End }

@@ -83,6 +83,30 @@ data class PhotoRequest(val contact: String)
 data class ContactPhoto(val contact: String, val data: String)
 
 @Serializable
+data class PhoneNotification(
+    val key: String,
+    val app: String,
+    val appName: String,
+    val title: String? = null,
+    val text: String? = null,
+    val time: Long,
+    val actions: List<Action>,
+    val silent: Boolean,
+) {
+    @Serializable
+    data class Action(val id: Int, val title: String, val reply: Boolean)
+}
+
+@Serializable
+data class NotificationKey(val key: String)
+
+@Serializable
+data class NotificationKeys(val keys: List<String>)
+
+@Serializable
+data class NotificationAction(val key: String, val action: Int, val reply: String? = null)
+
+@Serializable
 data class BridgeError(val code: String, val message: String)
 
 sealed interface Message {
@@ -103,6 +127,11 @@ sealed interface Message {
     data class ContactsResultsMessage(val body: ContactResults) : Message { override val type get() = "contacts.results" }
     data class PhotoRequestMessage(val body: PhotoRequest) : Message { override val type get() = "photo.request" }
     data class PhotoMessage(val body: ContactPhoto) : Message { override val type get() = "photo" }
+    data class NotificationPostedMessage(val body: PhoneNotification) : Message { override val type get() = "notification.posted" }
+    data class NotificationRemovedMessage(val body: NotificationKey) : Message { override val type get() = "notification.removed" }
+    data class NotificationActiveMessage(val body: NotificationKeys) : Message { override val type get() = "notification.active" }
+    data class NotificationActionMessage(val body: NotificationAction) : Message { override val type get() = "notification.action" }
+    data class NotificationDismissMessage(val body: NotificationKey) : Message { override val type get() = "notification.dismiss" }
     data class ErrorMessage(val body: BridgeError) : Message { override val type get() = "error" }
     data object Ping : Message { override val type get() = "ping" }
     data object Pong : Message { override val type get() = "pong" }
@@ -147,6 +176,11 @@ object Codec {
             "contacts.results" -> Message.ContactsResultsMessage(body(ContactResults.serializer()))
             "photo.request" -> Message.PhotoRequestMessage(body(PhotoRequest.serializer()))
             "photo" -> Message.PhotoMessage(body(ContactPhoto.serializer()))
+            "notification.posted" -> Message.NotificationPostedMessage(body(PhoneNotification.serializer()))
+            "notification.removed" -> Message.NotificationRemovedMessage(body(NotificationKey.serializer()))
+            "notification.active" -> Message.NotificationActiveMessage(body(NotificationKeys.serializer()))
+            "notification.action" -> Message.NotificationActionMessage(body(NotificationAction.serializer()))
+            "notification.dismiss" -> Message.NotificationDismissMessage(body(NotificationKey.serializer()))
             "error" -> Message.ErrorMessage(body(BridgeError.serializer()))
             "ping" -> Message.Ping
             "pong" -> Message.Pong
@@ -174,6 +208,11 @@ object Codec {
         is Message.ContactsResultsMessage -> json.encodeToJsonElement(ContactResults.serializer(), message.body)
         is Message.PhotoRequestMessage -> json.encodeToJsonElement(PhotoRequest.serializer(), message.body)
         is Message.PhotoMessage -> json.encodeToJsonElement(ContactPhoto.serializer(), message.body)
+        is Message.NotificationPostedMessage -> json.encodeToJsonElement(PhoneNotification.serializer(), message.body)
+        is Message.NotificationRemovedMessage -> json.encodeToJsonElement(NotificationKey.serializer(), message.body)
+        is Message.NotificationActiveMessage -> json.encodeToJsonElement(NotificationKeys.serializer(), message.body)
+        is Message.NotificationActionMessage -> json.encodeToJsonElement(NotificationAction.serializer(), message.body)
+        is Message.NotificationDismissMessage -> json.encodeToJsonElement(NotificationKey.serializer(), message.body)
         is Message.ErrorMessage -> json.encodeToJsonElement(BridgeError.serializer(), message.body)
         Message.Unpair, Message.Ping, Message.Pong, is Message.Unknown -> null
     }

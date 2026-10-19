@@ -30,6 +30,11 @@ public enum Message: Equatable, Sendable {
     case contactsResults(ContactResults)
     case photoRequest(PhotoRequest)
     case photo(ContactPhoto)
+    case notificationPosted(PhoneNotification)
+    case notificationRemoved(NotificationKey)
+    case notificationActive(NotificationKeys)
+    case notificationAction(NotificationAction)
+    case notificationDismiss(NotificationKey)
     case error(BridgeError)
     case ping
     case pong
@@ -52,6 +57,11 @@ public enum Message: Equatable, Sendable {
         case .contactsResults: "contacts.results"
         case .photoRequest: "photo.request"
         case .photo: "photo"
+        case .notificationPosted: "notification.posted"
+        case .notificationRemoved: "notification.removed"
+        case .notificationActive: "notification.active"
+        case .notificationAction: "notification.action"
+        case .notificationDismiss: "notification.dismiss"
         case .error: "error"
         case .ping: "ping"
         case .pong: "pong"
@@ -235,6 +245,68 @@ public struct ContactPhoto: Codable, Equatable, Sendable {
     }
 }
 
+public struct PhoneNotification: Codable, Equatable, Sendable {
+    public struct Action: Codable, Equatable, Sendable {
+        public var id: Int
+        public var title: String
+        public var reply: Bool
+
+        public init(id: Int, title: String, reply: Bool) {
+            self.id = id
+            self.title = title
+            self.reply = reply
+        }
+    }
+
+    public var key: String
+    public var app: String
+    public var appName: String
+    public var title: String?
+    public var text: String?
+    public var time: Int64
+    public var actions: [Action]
+    public var silent: Bool
+
+    public init(key: String, app: String, appName: String, title: String?, text: String?, time: Int64, actions: [Action], silent: Bool) {
+        self.key = key
+        self.app = app
+        self.appName = appName
+        self.title = title
+        self.text = text
+        self.time = time
+        self.actions = actions
+        self.silent = silent
+    }
+}
+
+public struct NotificationKey: Codable, Equatable, Sendable {
+    public var key: String
+
+    public init(key: String) {
+        self.key = key
+    }
+}
+
+public struct NotificationKeys: Codable, Equatable, Sendable {
+    public var keys: [String]
+
+    public init(keys: [String]) {
+        self.keys = keys
+    }
+}
+
+public struct NotificationAction: Codable, Equatable, Sendable {
+    public var key: String
+    public var action: Int
+    public var reply: String?
+
+    public init(key: String, action: Int, reply: String? = nil) {
+        self.key = key
+        self.action = action
+        self.reply = reply
+    }
+}
+
 public struct BridgeError: Codable, Equatable, Sendable, Error {
     public enum Code: String, Codable, Sendable {
         case version
@@ -277,6 +349,11 @@ extension Envelope: Codable {
         case "contacts.results": .contactsResults(try container.decode(ContactResults.self, forKey: .body))
         case "photo.request": .photoRequest(try container.decode(PhotoRequest.self, forKey: .body))
         case "photo": .photo(try container.decode(ContactPhoto.self, forKey: .body))
+        case "notification.posted": .notificationPosted(try container.decode(PhoneNotification.self, forKey: .body))
+        case "notification.removed": .notificationRemoved(try container.decode(NotificationKey.self, forKey: .body))
+        case "notification.active": .notificationActive(try container.decode(NotificationKeys.self, forKey: .body))
+        case "notification.action": .notificationAction(try container.decode(NotificationAction.self, forKey: .body))
+        case "notification.dismiss": .notificationDismiss(try container.decode(NotificationKey.self, forKey: .body))
         case "error": .error(try container.decode(BridgeError.self, forKey: .body))
         case "ping": .ping
         case "pong": .pong
@@ -302,6 +379,10 @@ extension Envelope: Codable {
         case .contactsResults(let body): try container.encode(body, forKey: .body)
         case .photoRequest(let body): try container.encode(body, forKey: .body)
         case .photo(let body): try container.encode(body, forKey: .body)
+        case .notificationPosted(let body): try container.encode(body, forKey: .body)
+        case .notificationRemoved(let body), .notificationDismiss(let body): try container.encode(body, forKey: .body)
+        case .notificationActive(let body): try container.encode(body, forKey: .body)
+        case .notificationAction(let body): try container.encode(body, forKey: .body)
         case .error(let body): try container.encode(body, forKey: .body)
         case .unpair, .ping, .pong, .unknown: break
         }

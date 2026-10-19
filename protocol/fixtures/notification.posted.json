@@ -1,0 +1,1 @@
+{"type":"notification.posted","body":{"key":"0|com.whatsapp|1|xyz|10123","app":"com.whatsapp","appName":"WhatsApp","title":"Maria","text":"Chego às 8","time":1792360000000,"actions":[{"id":0,"title":"Responder","reply":true},{"id":1,"title":"Marcar como lida","reply":false}],"silent":false}}

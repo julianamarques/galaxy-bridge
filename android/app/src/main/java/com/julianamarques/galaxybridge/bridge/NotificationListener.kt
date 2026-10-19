@@ -11,10 +11,30 @@ import com.julianamarques.galaxybridge.Diagnostics
 
 class NotificationListener : NotificationListenerService() {
     override fun onListenerConnected() {
-        runCatching { activeNotifications }.getOrNull()?.forEach(::read)
+        instance = this
+        runCatching { activeNotifications }.getOrNull()?.forEach {
+            read(it)
+            NotificationRelay.posted(this, it, ranking(it), announce = false)
+        }
     }
 
-    override fun onNotificationPosted(notification: StatusBarNotification) = read(notification)
+    override fun onListenerDisconnected() {
+        instance = null
+    }
+
+    override fun onNotificationPosted(notification: StatusBarNotification, rankingMap: RankingMap?) {
+        read(notification)
+        NotificationRelay.posted(this, notification, rankingMap?.let { ranking(notification, it) }, announce = true)
+    }
+
+    override fun onNotificationRemoved(notification: StatusBarNotification) {
+        NotificationRelay.removed(notification.key)
+    }
+
+    private fun ranking(notification: StatusBarNotification, map: RankingMap? = runCatching { currentRanking }.getOrNull()): Ranking? {
+        val ranking = Ranking()
+        return if (map?.getRanking(notification.key, ranking) == true) ranking else null
+    }
 
     private fun read(notification: StatusBarNotification) {
         if (!isCallNotification(notification)) return
@@ -52,6 +72,12 @@ class NotificationListener : NotificationListenerService() {
     }
 
     companion object {
+        @Volatile private var instance: NotificationListener? = null
+
+        fun dismiss(key: String) {
+            instance?.let { runCatching { it.cancelNotification(key) } }
+        }
+
         private const val VOICEMAIL_FLAG = "android.ongoingActivityNoti.nowbarCallChronometerWithText"
         private val VOICEMAIL_TEXTS = setOf("Correio de voz direto")
         private val CALL_UI_PACKAGES = setOf(

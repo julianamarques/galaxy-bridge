@@ -283,6 +283,12 @@ Galaxy S25, 2026-10-18, a dozen calls from another phone:
 
 `NotificationRelay`, icons, replies, removal on both sides, and a per-app filter in the settings of both apps.
 
+### Phase 3 results so far
+
+- **The relay** (`NotificationRelay`, fed by the same `NotificationListener` as the calls) keeps each mirrored notification by key, so the Mac's button presses and replies run the original `PendingIntent`s, with replies filled into the action's `RemoteInput`. Tested with replies and actions from the Mac on the S25.
+- **The Mac** (`Notifier`, which also posts missed calls) shows each one in Notification Center with the app's name as subtitle and the phone's buttons as notification actions (a text field for replies). macOS folds the buttons into an "Options" menu, as with calls; here that's acceptable, since nothing is time-critical. Categories are made on the fly for each set of buttons. `customDismissAction` tells the phone when one is dismissed on the Mac.
+- Still to do: the sending app's icon, and the per-app filter.
+
 ### Phase 4 — Files and clipboard
 
 "Send to Galaxy" from the Finder's Services menu, files from the phone's share sheet to the Mac, and clipboard sync with an explicit action (no background sync of what the user copies).

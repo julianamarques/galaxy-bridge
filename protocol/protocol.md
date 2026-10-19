@@ -135,6 +135,34 @@ Searches the phone's contacts by name or number, up to `limit` contacts, those w
 
 The contact's thumbnail, base64 (JPEG or PNG, a few KB). No answer when the contact has no photo. The Mac asks once per contact and connection.
 
+### `notification.posted` — phone → Mac
+
+```json
+{ "type": "notification.posted", "body": { "key": "0|com.whatsapp|1|xyz|10123", "app": "com.whatsapp", "appName": "WhatsApp", "title": "Maria", "text": "Chego às 8", "time": 1792360000000, "actions": [ { "id": 0, "title": "Responder", "reply": true }, { "id": 1, "title": "Marcar como lida", "reply": false } ], "silent": false } }
+```
+
+A new or updated notification on the phone. `key` is Android's notification key: an update carries the same key and replaces the Mac's copy. `time` is in milliseconds since 1970. `actions` are the notification's buttons, `id` being the button's position; `reply` marks the ones that take text. `silent` is set on updates the app asked not to alert for.
+
+The phone leaves out ongoing notifications (music, downloads, its own), group summaries, notifications that can't be dismissed, low-importance ones, calls (shown by `call.state`), and those the app marked as local to the phone.
+
+### `notification.removed` / `notification.active` — phone → Mac
+
+```json
+{ "type": "notification.removed", "body": { "key": "0|com.whatsapp|1|xyz|10123" } }
+{ "type": "notification.active", "body": { "keys": [ "0|com.whatsapp|1|xyz|10123" ] } }
+```
+
+`notification.removed` when a notification leaves the phone. `notification.active` once after `hello`, with the keys still on the phone, so the Mac drops the copies of notifications removed while they were apart. Notifications posted while apart are not sent later.
+
+### `notification.action` / `notification.dismiss` — Mac → phone
+
+```json
+{ "type": "notification.action", "id": "n4", "body": { "key": "0|com.whatsapp|1|xyz|10123", "action": 0, "reply": "Ok, até já" } }
+{ "type": "notification.dismiss", "body": { "key": "0|com.whatsapp|1|xyz|10123" } }
+```
+
+Press a notification's button, with `reply` for the ones that take text, or dismiss the notification on the phone.
+
 ### `error` — both directions
 
 ```json
