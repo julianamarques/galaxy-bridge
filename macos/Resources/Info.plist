@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>pt-BR</string>
+	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>Galaxy Bridge</string>
 	<key>CFBundleExecutable</key>
@@ -12,6 +12,11 @@
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.julianamarques.GalaxyBridge</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>pt-BR</string>
+	</array>
 	<key>CFBundleName</key>
 	<string>Galaxy Bridge</string>
 	<key>CFBundlePackageType</key>
@@ -37,6 +42,18 @@
 	<string>14.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_adb-tls-pairing._tcp</string>
+		<string>_adb-tls-connect._tcp</string>
+		<string>_galaxybridge._tcp</string>
+	</array>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>O Galaxy Bridge procura seu celular na rede Wi-Fi para se conectar a ele.</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
 	<key>NSServices</key>
 	<array>
 		<dict>
@@ -57,17 +74,5 @@
 			</array>
 		</dict>
 	</array>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_adb-tls-pairing._tcp</string>
-		<string>_adb-tls-connect._tcp</string>
-		<string>_galaxybridge._tcp</string>
-	</array>
-	<key>NSHighResolutionCapable</key>
-	<true/>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>O Galaxy Bridge procura seu celular na rede Wi-Fi para se conectar a ele.</string>
-	<key>NSPrincipalClass</key>
-	<string>NSApplication</string>
 </dict>
 </plist>

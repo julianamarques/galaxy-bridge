@@ -83,7 +83,11 @@ struct SetupFlowView: View {
         SetupPage(title: "\(name) encontrado") {
             DevicesIllustration(status: .connected)
         } content: {
-            Text("Este Galaxy já está conectado a este Mac \(ADBOutputParser.isUSBSerial(serial) ? "pelo cabo USB" : "pelo Wi-Fi"), por exemplo pelo Galaxy Mirror. Você pode usá-lo sem parear de novo.")
+            if ADBOutputParser.isUSBSerial(serial) {
+                Text("Este Galaxy já está conectado a este Mac pelo cabo USB, por exemplo pelo Galaxy Mirror. Você pode usá-lo sem parear de novo.")
+            } else {
+                Text("Este Galaxy já está conectado a este Mac pelo Wi-Fi, por exemplo pelo Galaxy Mirror. Você pode usá-lo sem parear de novo.")
+            }
         } buttons: {
             PillButton("Configurar Outro") { setup.step = .prepare }
             Spacer()

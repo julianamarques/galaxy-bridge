@@ -53,21 +53,21 @@ class Transfers(private val context: Context) {
     private fun upload(uri: Uri) {
         val notification = nextNotification.getAndIncrement()
         val source = runCatching { describe(uri) }.getOrNull()
-        if (source == null) return finished(notification, uri.lastPathSegment ?: "Arquivo", "Não foi possível ler o arquivo.")
+        if (source == null) return finished(notification, uri.lastPathSegment ?: context.getString(R.string.transfer_file), context.getString(R.string.transfer_unreadable))
         progress(notification, R.string.transfer_sending, source.name, 0)
-        val error = runCatching { send(uri, source, notification) }.getOrElse { "A conexão com o Mac caiu (${it.javaClass.simpleName})." }
+        val error = runCatching { send(uri, source, notification) }.getOrElse { context.getString(R.string.transfer_connection_lost, it.javaClass.simpleName) }
         Diagnostics.record(context, "Envio para o Mac: ${if (error == null) "concluído" else "falhou"}, ${source.size} bytes")
         finished(notification, source.name, error)
     }
 
     private fun download(file: TransferFile, notification: Int) {
-        val name = file.name.substringAfterLast('/').ifBlank { "Arquivo do Mac" }
+        val name = file.name.substringAfterLast('/').ifBlank { context.getString(R.string.transfer_file_from_mac) }
         progress(notification, R.string.transfer_receiving, name, 0)
         val result = runCatching { receive(file, name, notification) }
         Diagnostics.record(context, "Recebimento do Mac: ${if (result.isSuccess) "concluído" else "falhou"}, ${file.size} bytes")
         result.fold(
             onSuccess = { received(notification, name, it) },
-            onFailure = { finished(notification, name, "A conexão com o Mac caiu (${it.javaClass.simpleName}).", R.string.transfer_receive_failed) },
+            onFailure = { finished(notification, name, context.getString(R.string.transfer_connection_lost, it.javaClass.simpleName), R.string.transfer_receive_failed) },
         )
     }
 
@@ -132,21 +132,21 @@ class Transfers(private val context: Context) {
     }
 
     private fun send(uri: Uri, source: Source, notification: Int): String? {
-        val mac = PairingStore.current(context) ?: return "Este celular não está pareado com um Mac."
+        val mac = PairingStore.current(context) ?: return context.getString(R.string.transfer_not_paired)
         val connection = BridgeConnection.openPinned(context, mac.host, mac.port, mac.fingerprint, DISCOVERY_TIMEOUT_MS)
-            ?: return "O Mac não foi encontrado. Confira se ele está ligado e na mesma rede Wi-Fi."
+            ?: return context.getString(R.string.transfer_mac_not_found)
         connection.use {
             it.receiveTimeoutMs = RESULT_TIMEOUT_MS
             val id = UUID.randomUUID().toString()
             it.sendNow(Envelope(Message.TransferUploadMessage(TransferFile(id, source.name, source.size, source.mime))))
-            val input = context.contentResolver.openInputStream(uri) ?: return "Não foi possível ler o arquivo."
+            val input = context.contentResolver.openInputStream(uri) ?: return context.getString(R.string.transfer_unreadable)
             input.use { stream ->
                 val buffer = ByteArray(CHUNK_SIZE)
                 var sent = 0L
                 var shown = 0
                 while (sent < source.size) {
                     val read = fill(stream, buffer, minOf(CHUNK_SIZE.toLong(), source.size - sent).toInt())
-                    if (read <= 0) return "O arquivo mudou durante o envio."
+                    if (read <= 0) return context.getString(R.string.transfer_file_changed)
                     it.sendNow(Envelope(Message.TransferChunkMessage(TransferChunk(id, Base64.encodeToString(buffer, 0, read, Base64.NO_WRAP)))))
                     sent += read
                     val percent = (sent * 100 / source.size).toInt()
@@ -157,7 +157,7 @@ class Transfers(private val context: Context) {
                 }
             }
             val result = (it.receive().message as? Message.TransferResultMessage)?.body
-            return if (result?.ok == true) null else result?.message ?: "O Mac não confirmou o recebimento."
+            return if (result?.ok == true) null else result?.message ?: context.getString(R.string.transfer_not_confirmed)
         }
     }
 

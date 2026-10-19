@@ -49,6 +49,13 @@ Install it with `adb` while developing. A plain APK opened on the phone is block
 
 To pair: on the Mac, **Settings › Usar o App no Galaxy…** shows a QR code. On the phone, open Galaxy Bridge, grant the permissions and scan the code.
 
+## Languages
+
+Both apps are in English and Brazilian Portuguese, following the system language (other languages get English). On Android 13 and later the app's language can also be picked in **Settings › Apps › Galaxy Bridge › Language**.
+
+- **Mac:** the code keeps the Portuguese text as keys (`String(localized:)`, `Text("…")`), and `macos/Resources/en.lproj` holds the English: `Localizable.strings`, `InfoPlist.strings` (the Local Network prompt) and `ServicesMenu.strings` (the Finder's "Send to Galaxy"). `scripts/check-translations.sh` asks the Swift compiler for every localizable text and lists the ones without an English translation; run it after changing any text.
+- **Android:** `res/values/strings.xml` is English and `res/values-pt/strings.xml` Portuguese. Texts shown to the user belong there, not in the code.
+
 ## Structure
 
 ```
@@ -64,7 +71,7 @@ macos/                    the Mac app (Swift package)
 │       └── Extensions/   default tel: handler, launch at login, links
 ├── Tests/                BridgeProtocolTests, GalaxyKitTests
 ├── Resources/            Info.plist, icon, bundled adb
-└── scripts/              build, adb download, icon
+└── scripts/              build, adb download, icon, translation check
 android/                  the Android app (Kotlin, Jetpack Compose)
 └── app/src/main/java/com/julianamarques/galaxybridge/
     ├── bridge/           BridgeService, TLS connection, Keystore identity, Mac discovery, calls, contacts, notification relay

@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
+import com.julianamarques.galaxybridge.R
 import com.julianamarques.galaxybridge.bridge.BridgeConnection
 import com.julianamarques.galaxybridge.bridge.BridgeService
 import com.julianamarques.galaxybridge.bridge.Identity
@@ -47,9 +48,9 @@ class PairingController(context: Context, private val scope: CoroutineScope) {
             .addOnSuccessListener { barcode ->
                 val link = barcode.rawValue?.let(PairingLink::parse)
                 if (link != null) pair(link)
-                else step = PairingStep.Failed("Este não é um código do Galaxy Bridge. Escaneie o código que aparece no Mac.")
+                else step = PairingStep.Failed(context.getString(R.string.pairing_not_our_code))
             }
-            .addOnFailureListener { step = PairingStep.Failed("Não foi possível abrir o leitor de códigos: ${it.message}") }
+            .addOnFailureListener { step = PairingStep.Failed(context.getString(R.string.pairing_scanner_failed, it.message.orEmpty())) }
     }
 
     fun pair(link: PairingLink) {
@@ -92,7 +93,7 @@ class PairingController(context: Context, private val scope: CoroutineScope) {
             step = if (connection != null) {
                 PairingStep.Confirm(connection, Identity.display(connection.macFingerprint), current.code)
             } else {
-                current.copy(connecting = false, error = "Não foi possível conectar ao ${mac.name}.")
+                current.copy(connecting = false, error = context.getString(R.string.pairing_connect_failed_named, mac.name))
             }
         }
     }

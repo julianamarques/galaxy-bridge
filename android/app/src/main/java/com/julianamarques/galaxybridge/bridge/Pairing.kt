@@ -1,6 +1,7 @@
 package com.julianamarques.galaxybridge.bridge
 
 import android.content.Context
+import com.julianamarques.galaxybridge.R
 import com.julianamarques.galaxybridge.protocol.Envelope
 import com.julianamarques.galaxybridge.protocol.Message
 import com.julianamarques.galaxybridge.protocol.PairRequest
@@ -14,7 +15,7 @@ object Pairing {
 
     fun pair(context: Context, link: PairingLink): Result {
         val connection = BridgeConnection.openPinned(context, link.host, link.port, link.fingerprint, discoveryMs = 8_000)
-            ?: return Result.Failed("Não foi possível conectar ao Mac. Confira se os dois estão na mesma rede Wi-Fi.")
+            ?: return Result.Failed(context.getString(R.string.pairing_connect_failed))
         return connection.use { request(context, it, link.token) }
     }
 
@@ -39,15 +40,14 @@ object Pairing {
                         return Result.Paired
                     }
                     is Message.PairRejectedMessage -> return Result.Failed(
-                        if (message.body.reason == "invalid") "Código incorreto. Confira o código no Mac."
-                        else "O código venceu. Use o código novo que o Mac está mostrando."
+                        context.getString(if (message.body.reason == "invalid") R.string.pairing_wrong_code else R.string.pairing_code_expired)
                     )
                     is Message.ErrorMessage -> return Result.Failed(message.body.message)
                     else -> Unit
                 }
             }
         } catch (e: Exception) {
-            return Result.Failed("O Mac recusou o pareamento. Abra a tela de configuração no Mac e tente de novo.")
+            return Result.Failed(context.getString(R.string.pairing_refused))
         }
     }
 }

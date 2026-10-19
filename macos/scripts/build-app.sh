@@ -32,6 +32,7 @@ cp Resources/adb-NOTICE.txt "$APP/Contents/Resources/adb-NOTICE.txt"
 cp ../LICENSE ../NOTICE "$APP/Contents/Resources/"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+cp -R Resources/*.lproj "$APP/Contents/Resources/"
 codesign --force --sign - "$APP"
 
 echo "Pronto: $APP"

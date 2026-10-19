@@ -133,7 +133,7 @@ struct MenuView: View {
             MenuSectionTitle("Ligar pelo Galaxy")
             HStack(spacing: 8) {
                 PhoneField(
-                    placeholder: String(localized: app.appPhone == nil ? "Número de telefone" : "Nome ou número"),
+                    placeholder: app.appPhone == nil ? String(localized: "Número de telefone") : String(localized: "Nome ou número"),
                     text: $number,
                     country: app.dialCountry,
                     onSubmit: call,

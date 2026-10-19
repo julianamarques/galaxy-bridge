@@ -49,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -97,22 +98,22 @@ private fun Header(title: String, subtitle: String) {
 fun SetupScreen(pairing: PairingController, refresh: Int) {
     val activity = LocalContext.current as Activity
     Page {
-        Header("Galaxy Bridge", "Conecte este Galaxy ao Mac para ver a bateria e fazer ligações pelo Mac, pela rede Wi-Fi.")
+        Header(stringResource(R.string.app_name), stringResource(R.string.setup_intro))
         PermissionCard(refresh)
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = { pairing.scan(activity) },
                 enabled = pairing.step !is PairingStep.Working,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Escanear código do Mac") }
+            ) { Text(stringResource(R.string.scan_mac_code)) }
             OutlinedButton(
                 onClick = pairing::startCode,
                 enabled = pairing.step !is PairingStep.Working,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Digitar código") }
+            ) { Text(stringResource(R.string.type_code)) }
         }
         Text(
-            "No Mac, abra o Galaxy Bridge e clique em Continuar para ver o código.",
+            stringResource(R.string.code_hint),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -120,7 +121,7 @@ fun SetupScreen(pairing: PairingController, refresh: Int) {
             PairingStep.Working -> Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                 Spacer(Modifier.width(12.dp))
-                Text("Pareando…")
+                Text(stringResource(R.string.pairing))
             }
             is PairingStep.Failed -> Text(step.message, color = MaterialTheme.colorScheme.error)
             else -> Unit
@@ -130,19 +131,19 @@ fun SetupScreen(pairing: PairingController, refresh: Int) {
         is PairingStep.CodeEntry -> CodeDialog(step, pairing)
         is PairingStep.Confirm -> AlertDialog(
             onDismissRequest = pairing::cancel,
-            title = { Text("Confira o Mac") },
+            title = { Text(stringResource(R.string.check_mac)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("O Mac mostra estes caracteres embaixo do código?")
+                    Text(stringResource(R.string.check_mac_question))
                     Text(step.fingerprint, style = MaterialTheme.typography.headlineSmall, fontFamily = FontFamily.Monospace)
                     Text(
-                        "Se não forem iguais, outro aparelho está se passando pelo Mac. Cancele.",
+                        stringResource(R.string.check_mac_warning),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
             },
-            confirmButton = { TextButton(onClick = pairing::confirm) { Text("São iguais") } },
-            dismissButton = { TextButton(onClick = pairing::cancel) { Text("Cancelar") } },
+            confirmButton = { TextButton(onClick = pairing::confirm) { Text(stringResource(R.string.check_mac_match)) } },
+            dismissButton = { TextButton(onClick = pairing::cancel) { Text(stringResource(R.string.cancel)) } },
         )
         else -> Unit
     }
@@ -152,19 +153,19 @@ fun SetupScreen(pairing: PairingController, refresh: Int) {
 private fun CodeDialog(step: PairingStep.CodeEntry, pairing: PairingController) {
     AlertDialog(
         onDismissRequest = pairing::cancel,
-        title = { Text("Digitar código") },
+        title = { Text(stringResource(R.string.type_code)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when {
                     step.searching -> Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(8.dp))
-                        Text("Procurando o Mac na rede…")
+                        Text(stringResource(R.string.searching_mac))
                     }
                     step.macs.isEmpty() -> Text(
-                        "Nenhum Mac encontrado. Confira se o Mac está na mesma rede Wi-Fi, com a tela do código aberta.",
+                        stringResource(R.string.no_mac_found),
                     )
-                    step.macs.size == 1 -> Text("Mac: ${step.macs.first().name}")
+                    step.macs.size == 1 -> Text(stringResource(R.string.mac_named, step.macs.first().name))
                     else -> step.macs.forEach { mac ->
                         Row(
                             Modifier.fillMaxWidth().selectable(selected = mac == step.selected, onClick = { pairing.select(mac) }),
@@ -178,7 +179,7 @@ private fun CodeDialog(step: PairingStep.CodeEntry, pairing: PairingController) 
                 OutlinedTextField(
                     value = step.code,
                     onValueChange = pairing::updateCode,
-                    label = { Text("Código de seis dígitos") },
+                    label = { Text(stringResource(R.string.six_digit_code)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     textStyle = MaterialTheme.typography.headlineSmall.copy(fontFamily = FontFamily.Monospace),
@@ -188,15 +189,15 @@ private fun CodeDialog(step: PairingStep.CodeEntry, pairing: PairingController) 
         },
         confirmButton = {
             if (!step.searching && step.macs.isEmpty()) {
-                TextButton(onClick = pairing::startCode) { Text("Procurar de novo") }
+                TextButton(onClick = pairing::startCode) { Text(stringResource(R.string.search_again)) }
             } else {
                 TextButton(
                     onClick = pairing::submitCode,
                     enabled = step.selected != null && step.code.length == 6 && !step.connecting,
-                ) { Text(if (step.connecting) "Conectando…" else "Continuar") }
+                ) { Text(if (step.connecting) stringResource(R.string.connecting) else stringResource(R.string.continue_label)) }
             }
         },
-        dismissButton = { TextButton(onClick = pairing::cancel) { Text("Cancelar") } },
+        dismissButton = { TextButton(onClick = pairing::cancel) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -205,36 +206,36 @@ fun HomeScreen(mac: PairedMac, connection: BridgeState.Connection, refresh: Int)
     val context = LocalContext.current
     var confirmingForget by remember { mutableStateOf(false) }
     val status = when (connection) {
-        is BridgeState.Connection.Connected -> "Conectado pela rede Wi-Fi."
+        is BridgeState.Connection.Connected -> stringResource(R.string.status_connected)
         BridgeState.Connection.Refused ->
-            "O ${mac.name} não reconhece mais este celular. Esqueça o Mac aqui e pareie de novo."
-        else -> "Procurando o Mac. Ele precisa estar ligado, na mesma rede Wi-Fi e com o Galaxy Bridge aberto."
+            stringResource(R.string.status_refused, mac.name)
+        else -> stringResource(R.string.status_searching)
     }
     Page {
         Header(mac.name, status)
         val missing = remember(refresh) { Permission.missing(context).isNotEmpty() }
         if (missing) PermissionCard(refresh)
         Text(
-            "Pode fechar este app: a conexão continua em segundo plano e volta sozinha quando o celular reinicia.",
+            stringResource(R.string.background_hint),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         TextButton(onClick = { confirmingForget = true }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-            Text("Esquecer este Mac", color = MaterialTheme.colorScheme.error)
+            Text(stringResource(R.string.forget_mac), color = MaterialTheme.colorScheme.error)
         }
     }
     if (confirmingForget) {
         AlertDialog(
             onDismissRequest = { confirmingForget = false },
-            title = { Text("Esquecer o ${mac.name}?") },
-            text = { Text("O Mac também esquece este celular. Para usá-los juntos de novo, será preciso parear outra vez.") },
+            title = { Text(stringResource(R.string.forget_mac_title, mac.name)) },
+            text = { Text(stringResource(R.string.forget_mac_message)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmingForget = false
                     BridgeService.forget(context)
-                }) { Text("Esquecer", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.forget), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { confirmingForget = false }) { Text("Cancelar") } },
+            dismissButton = { TextButton(onClick = { confirmingForget = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -267,14 +268,14 @@ private fun PermissionRow(permission: Permission, isGranted: Boolean, onRequest:
         Icon(permission.icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
-            Text(permission.title, style = MaterialTheme.typography.titleSmall)
-            Text(permission.reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(permission.title), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(permission.reason), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.width(8.dp))
         if (isGranted) {
-            Icon(Icons.Filled.CheckCircle, contentDescription = "Permitido", tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Filled.CheckCircle, contentDescription = stringResource(R.string.allowed), tint = MaterialTheme.colorScheme.primary)
         } else {
-            FilledTonalButton(onClick = onRequest) { Text("Permitir") }
+            FilledTonalButton(onClick = onRequest) { Text(stringResource(R.string.allow)) }
         }
     }
 }

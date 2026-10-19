@@ -230,7 +230,7 @@ class BridgeService : Service() {
             }
             is Message.ContactsSearchMessage -> connection.send(
                 if (!PhoneContacts.canRead(this)) {
-                    Envelope(Message.ErrorMessage(CONTACTS_PERMISSION), replyTo = envelope.id)
+                    Envelope(Message.ErrorMessage(BridgeError("permission", getString(R.string.error_contacts_permission))), replyTo = envelope.id)
                 } else {
                     val contacts = PhoneContacts.search(this, message.body.query, message.body.limit)
                     Envelope(Message.ContactsResultsMessage(ContactResults(contacts)), replyTo = envelope.id)
@@ -318,7 +318,7 @@ class BridgeService : Service() {
         val call = CallTracker.current
         if (call == null || call.call != id) return null
         if (!Permission.has(this, Manifest.permission.ANSWER_PHONE_CALLS)) {
-            return BridgeError("permission", "O Galaxy Bridge não tem permissão para atender ligações. Abra o app no Galaxy para permitir.")
+            return BridgeError("permission", getString(R.string.error_answer_permission))
         }
         val telecom = getSystemService(TelecomManager::class.java)
         Diagnostics.record(this, "Mac pediu: $control")
@@ -330,13 +330,13 @@ class BridgeService : Service() {
             }
             null
         } catch (e: SecurityException) {
-            BridgeError("permission", "O Galaxy recusou o pedido: ${e.message}")
+            BridgeError("permission", getString(R.string.error_request_refused, e.message.orEmpty()))
         }
     }
 
     private fun placeCall(number: String): BridgeError? {
         if (!Permission.has(this, Manifest.permission.CALL_PHONE)) {
-            return BridgeError("permission", "O Galaxy Bridge não tem permissão para fazer ligações. Abra o app no Galaxy para permitir.")
+            return BridgeError("permission", getString(R.string.error_call_permission))
         }
         CallTracker.placing(number, PhoneContacts.lookup(this, number))
         return try {
@@ -344,9 +344,9 @@ class BridgeService : Service() {
             Log.i(TAG, "Ligação pedida pelo Mac")
             null
         } catch (e: SecurityException) {
-            BridgeError("permission", "O Galaxy recusou a ligação: ${e.message}")
+            BridgeError("permission", getString(R.string.error_call_refused, e.message.orEmpty()))
         } catch (e: Exception) {
-            BridgeError("failed", "Não foi possível ligar: ${e.message}")
+            BridgeError("failed", getString(R.string.error_call_failed, e.message.orEmpty()))
         }
     }
 
@@ -383,7 +383,6 @@ class BridgeService : Service() {
         private const val RECEIVE_TIMEOUT_MS = 6 * 60_000
         private const val DISCOVERY_TIMEOUT_MS = 10_000L
         private const val SHUTDOWN_CLOSE_MS = 1_000L
-        private val CONTACTS_PERMISSION = BridgeError("permission", "O Galaxy Bridge não tem permissão para ler os contatos. Abra o app no Galaxy para permitir.")
         private val RETRY_DELAYS = listOf(2_000L, 5_000L, 15_000L, 30_000L, 60_000L, 120_000L, 300_000L)
 
         @Volatile private var instance: BridgeService? = null

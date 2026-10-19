@@ -81,7 +81,7 @@ private struct CallCard: View {
     @ViewBuilder
     private var subtitle: some View {
         if call.state == .ringing {
-            Text(call.name == nil ? "Ligação no \(app.deviceName)" : app.callerNumber ?? "Ligação no \(app.deviceName)")
+            Text(call.name == nil ? String(localized: "Ligação no \(app.deviceName)") : app.callerNumber ?? String(localized: "Ligação no \(app.deviceName)"))
         } else if let answeredAt = app.callAnsweredAt {
             TimelineView(.periodic(from: answeredAt, by: 1)) { context in
                 Text(Self.duration(from: answeredAt, to: context.date) + " · " + app.deviceName)

@@ -2,6 +2,7 @@ package com.julianamarques.galaxybridge
 
 import android.Manifest
 import android.annotation.SuppressLint
+import androidx.annotation.StringRes
 import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Context
@@ -13,12 +14,12 @@ import android.os.PowerManager
 import android.provider.Settings
 import com.julianamarques.galaxybridge.bridge.NotificationListener
 
-enum class Permission(val title: String, val reason: String) {
-    Notifications("Notificações", "Mostra quando o Galaxy está conectado ao Mac."),
-    Calls("Ligações", "Para fazer, atender e recusar ligações pelo Mac."),
-    CallerName("Nome de quem liga", "Lê o aviso de ligação do Galaxy para mostrar no Mac quem está ligando."),
-    Contacts("Contatos", "Para buscar contatos e mostrar as fotos deles no Mac. Os contatos ficam no Galaxy."),
-    Battery("Bateria sem restrições", "Para a conexão continuar com a tela apagada.");
+enum class Permission(@StringRes val title: Int, @StringRes val reason: Int) {
+    Notifications(R.string.permission_notifications, R.string.permission_notifications_reason),
+    Calls(R.string.permission_calls, R.string.permission_calls_reason),
+    CallerName(R.string.permission_caller_name, R.string.permission_caller_name_reason),
+    Contacts(R.string.permission_contacts, R.string.permission_contacts_reason),
+    Battery(R.string.permission_battery, R.string.permission_battery_reason);
 
     val manifestPermissions: List<String>
         get() = when (this) {
