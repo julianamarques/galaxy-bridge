@@ -22,6 +22,7 @@ import com.julianamarques.galaxybridge.protocol.TransferID
 import com.julianamarques.galaxybridge.protocol.TransferResult
 import java.io.IOException
 import java.io.InputStream
+import java.text.NumberFormat
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -77,7 +78,10 @@ class Transfers(private val context: Context) {
     private fun openMac(): BridgeConnection {
         val mac = PairingStore.current(context) ?: throw Failure(context.getString(R.string.transfer_not_paired))
         val connection = BridgeConnection.open(context, mac) ?: throw Failure(context.getString(R.string.transfer_mac_not_found))
-        return connection.apply { receiveTimeoutMs = RESULT_TIMEOUT_MS }
+        return connection.apply {
+            receiveTimeoutMs = RESULT_TIMEOUT_MS
+            sendBufferBytes = SEND_BUFFER_BYTES
+        }
     }
 
     private inner class Progress(private val notification: Int, private val title: Int, private val name: String, private val total: Long) {
@@ -190,6 +194,7 @@ class Transfers(private val context: Context) {
             notification,
             builder(title, name)
                 .setProgress(100, percent, percent == 0)
+                .setSubText(NumberFormat.getPercentInstance().format(percent / 100.0))
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .build(),
@@ -220,9 +225,10 @@ class Transfers(private val context: Context) {
 
     companion object {
         private const val CHANNEL_ID = "transfers"
-        private const val CHUNK_SIZE = 256 * 1024
+        private const val CHUNK_SIZE = 64 * 1024
         private const val FIRST_NOTIFICATION = 100
         private const val PROGRESS_STEP = 5
+        private const val SEND_BUFFER_BYTES = 64 * 1024
         private const val RESULT_TIMEOUT_MS = 5 * 60_000
         private const val DOWNLOAD_FOLDER = "Download/Galaxy Bridge"
     }

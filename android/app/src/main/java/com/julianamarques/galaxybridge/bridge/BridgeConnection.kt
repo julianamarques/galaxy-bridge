@@ -31,6 +31,10 @@ class BridgeConnection private constructor(
         get() = socket.soTimeout
         set(value) { socket.soTimeout = value }
 
+    var sendBufferBytes: Int
+        get() = socket.sendBufferSize
+        set(value) { socket.sendBufferSize = value }
+
     fun receive(): Envelope = Frames.read(input)
 
     fun send(envelope: Envelope) {
