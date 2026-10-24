@@ -1,75 +1,88 @@
 import Foundation
+import Network
 
 public final class DeviceMonitor: @unchecked Sendable {
-    private let lock = NSLock()
-    private var process: Process?
-    private var isRunning = false
+    private static let serverPort: NWEndpoint.Port = 5037
+    private static let request = Data((String(format: "%04x", "host:track-devices".utf8.count) + "host:track-devices").utf8)
+    private static let okay = Array("OKAY".utf8)
+    private static let retryDelay: TimeInterval = 2
+
+    private let queue = DispatchQueue(label: "com.julianamarques.GalaxyBridge.devices")
+    private var onChange: (@Sendable ([ADBDevice]) -> Void)?
+    private var connection: NWConnection?
+    private var buffer: [UInt8] = []
+    private var acknowledged = false
 
     public init() {}
 
     public func start(onChange: @escaping @Sendable ([ADBDevice]) -> Void) {
-        lock.lock()
-        isRunning = true
-        lock.unlock()
-        launch(onChange: onChange)
+        guard Tools.find("adb") != nil else { return }
+        queue.async {
+            self.onChange = onChange
+            self.connect()
+        }
     }
 
     public func stop() {
-        lock.lock()
-        isRunning = false
-        let process = process
-        lock.unlock()
-        process?.terminate()
+        queue.async {
+            self.onChange = nil
+            self.connection?.cancel()
+            self.connection = nil
+        }
     }
 
-    private func launch(onChange: @escaping @Sendable ([ADBDevice]) -> Void) {
-        guard let adb = Tools.find("adb") else { return }
-        let process = Tools.makeProcess(adb, ["track-devices"])
-        let output = Pipe()
-        process.standardOutput = output
-        process.standardError = FileHandle.nullDevice
+    private func connect() {
+        Task {
+            await ADB.startServer()
+            self.queue.async { self.open() }
+        }
+    }
 
-        let buffer = ByteBuffer()
-        output.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            guard !data.isEmpty else {
-                handle.readabilityHandler = nil
-                return
+    private func open() {
+        guard onChange != nil, connection == nil else { return }
+        let connection = NWConnection(host: .ipv4(.loopback), port: Self.serverPort, using: .tcp)
+        self.connection = connection
+        buffer = []
+        acknowledged = false
+        connection.stateUpdateHandler = { [weak self] state in
+            guard let self else { return }
+            switch state {
+            case .ready:
+                connection.send(content: Self.request, completion: .contentProcessed { _ in })
+                self.receive(on: connection)
+            case .failed, .waiting:
+                self.dropped(connection)
+            default:
+                break
             }
-            buffer.append(data).forEach(onChange)
         }
-        process.terminationHandler = { [weak self] _ in
-            self?.relaunch(onChange: onChange)
-        }
-
-        lock.lock()
-        self.process = process
-        lock.unlock()
-        try? process.run()
+        connection.start(queue: queue)
     }
 
-    private func relaunch(onChange: @escaping @Sendable ([ADBDevice]) -> Void) {
-        DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
-            guard self.isMonitoring else { return }
-            self.launch(onChange: onChange)
+    private func receive(on connection: NWConnection) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] data, _, isComplete, error in
+            guard let self, connection === self.connection else { return }
+            if let data { buffer.append(contentsOf: data) }
+            if !acknowledged, buffer.count >= Self.okay.count {
+                guard buffer.starts(with: Self.okay) else { return dropped(connection) }
+                buffer.removeFirst(Self.okay.count)
+                acknowledged = true
+            }
+            if acknowledged {
+                ADBOutputParser.trackedDeviceLists(consuming: &buffer).forEach { self.onChange?($0) }
+            }
+            if isComplete || error != nil { return dropped(connection) }
+            receive(on: connection)
         }
     }
 
-    private var isMonitoring: Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return isRunning
-    }
-
-    private final class ByteBuffer: @unchecked Sendable {
-        private let lock = NSLock()
-        private var bytes: [UInt8] = []
-
-        func append(_ data: Data) -> [[ADBDevice]] {
-            lock.lock()
-            defer { lock.unlock() }
-            bytes.append(contentsOf: data)
-            return ADBOutputParser.trackedDeviceLists(consuming: &bytes)
+    private func dropped(_ connection: NWConnection) {
+        guard connection === self.connection else { return }
+        connection.cancel()
+        self.connection = nil
+        queue.asyncAfter(deadline: .now() + Self.retryDelay) {
+            guard self.onChange != nil, self.connection == nil else { return }
+            self.connect()
         }
     }
 }
