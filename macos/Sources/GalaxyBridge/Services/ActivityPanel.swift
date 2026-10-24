@@ -10,6 +10,7 @@ final class ActivityPanel: ObservableObject {
     private let app: AppModel
     private var panel: NSPanel?
     private var isShowing = false
+    private var layout: [String] = []
     private var subscriptions: Set<AnyCancellable> = []
 
     init(app: AppModel) {
@@ -45,6 +46,9 @@ final class ActivityPanel: ObservableObject {
         self.panel = panel
         isShowing = true
         let appearing = !panel.isVisible || panel.alphaValue == 0
+        let layout = [visibleCall.map { "\($0.call) \($0.state)" }].compactMap { $0 } + visibleTransfers.map(\.id)
+        guard appearing || layout != self.layout else { return }
+        self.layout = layout
         if appearing { panel.alphaValue = 0 }
         DispatchQueue.main.async { [weak self] in self?.position(panel) }
         panel.orderFrontRegardless()

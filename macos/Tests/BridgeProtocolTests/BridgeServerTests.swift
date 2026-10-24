@@ -159,9 +159,11 @@ struct BridgeServerTests {
             upload.send(Envelope(.transferChunk(TransferChunk(id: "t1", data: Data(chunk)))))
         }
         #expect(try await upload.next() == .transferResult(TransferResult(id: "t1", ok: true)))
-        try await until { events.contains { if case .fileReceived = $0 { true } else { false } } }
-        guard case .fileReceived(let file, let name) = events.events.last(where: { if case .fileReceived = $0 { true } else { false } }) else { return }
+        try await until { events.contains { if case .transferEnded(_, .received) = $0 { true } else { false } } }
+        guard case .transferEnded(_, .received(let file, let name)) = events.events.last(where: { if case .transferEnded(_, .received) = $0 { true } else { false } }) else { return }
         #expect(name == "../foto.jpg")
+        let reported = events.events.compactMap { if case .transferProgress(let progress) = $0 { progress.done } else { nil } }
+        #expect(reported == [0, 262_144, 524_288, 600_000])
         #expect(try Data(contentsOf: file) == content)
         #expect(server.phone != nil)
         try? FileManager.default.removeItem(at: file)
@@ -195,7 +197,7 @@ struct BridgeServerTests {
         }
         #expect(received == content)
         download.send(Envelope(.transferResult(TransferResult(id: id, ok: true))))
-        try await until { events.contains { if case .fileSent(name: "Relatório.pdf", ok: true) = $0 { true } else { false } } }
+        try await until { events.contains { if case .transferEnded(id, .sent(name: "Relatório.pdf", ok: true)) = $0 { true } else { false } } }
         control.close()
     }
 

@@ -201,14 +201,14 @@ struct MenuView: View {
                 HStack(spacing: 8) {
                     Image(systemName: transfer.direction == .toPhone ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
                         .foregroundStyle(.secondary)
-                        .help(transfer.direction == .toPhone ? "Enviando para o \(app.deviceName)" : "Recebendo do \(app.deviceName)")
+                        .help(transfer.label(device: app.deviceName))
                     VStack(alignment: .leading, spacing: 3) {
                         HStack {
                             Text(transfer.name)
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                             Spacer(minLength: 4)
-                            Text(transfer.done == 0 && transfer.direction == .toPhone ? String(localized: "Aguardando…") : transfer.fraction.formatted(.percent.precision(.fractionLength(0))))
+                            Text(transfer.status)
                                 .monospacedDigit()
                                 .foregroundStyle(.secondary)
                         }

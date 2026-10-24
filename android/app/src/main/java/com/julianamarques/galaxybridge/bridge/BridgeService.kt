@@ -104,7 +104,8 @@ class BridgeService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_SEND_FILES) intent.extras?.parcelables<Uri>(EXTRA_FILES)?.let(transfers::upload)
+        val shared = intent?.clipData?.takeIf { intent.action == ACTION_SEND_FILES }
+        shared?.let { clip -> transfers.upload((0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }) }
         monitorCalls()
         wake()
         return START_STICKY
@@ -148,7 +149,7 @@ class BridgeService : Service() {
     }
 
     private fun session(mac: PairedMac): Boolean {
-        val connection = open(mac) ?: run {
+        val connection = BridgeConnection.open(this, mac) ?: run {
             Diagnostics.record(this, "Não foi possível conectar ao Mac")
             return false
         }
@@ -200,9 +201,6 @@ class BridgeService : Service() {
         }
         return greeted
     }
-
-    private fun open(mac: PairedMac): BridgeConnection? =
-        BridgeConnection.openPinned(this, mac.host, mac.port, mac.fingerprint, DISCOVERY_TIMEOUT_MS)
 
     private fun isOnWiFi(): Boolean {
         val connectivity = getSystemService(ConnectivityManager::class.java)
@@ -378,10 +376,8 @@ class BridgeService : Service() {
     companion object {
         private const val CHANNEL_ID = "connection"
         private const val ACTION_SEND_FILES = "com.julianamarques.galaxybridge.SEND_FILES"
-        private const val EXTRA_FILES = "files"
         private const val NOTIFICATION_ID = 1
         private const val RECEIVE_TIMEOUT_MS = 6 * 60_000
-        private const val DISCOVERY_TIMEOUT_MS = 10_000L
         private const val SHUTDOWN_CLOSE_MS = 1_000L
         private val RETRY_DELAYS = listOf(2_000L, 5_000L, 15_000L, 30_000L, 60_000L, 120_000L, 300_000L)
 
@@ -396,7 +392,6 @@ class BridgeService : Service() {
             val clip = ClipData.newRawUri(null, files.first()).apply { files.drop(1).forEach { addItem(ClipData.Item(it)) } }
             val intent = Intent(context, BridgeService::class.java)
                 .setAction(ACTION_SEND_FILES)
-                .putParcelableArrayListExtra(EXTRA_FILES, ArrayList(files))
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             intent.clipData = clip
             context.startForegroundService(intent)

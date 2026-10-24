@@ -1,7 +1,6 @@
 package com.julianamarques.galaxybridge.ui
 
 import android.app.Activity
-import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
@@ -70,9 +69,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -81,6 +81,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.julianamarques.galaxybridge.Permission
 import com.julianamarques.galaxybridge.R
@@ -110,13 +111,7 @@ private fun Hero(title: String, subtitle: @Composable () -> Unit) {
         Modifier.fillMaxWidth().padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            Modifier
-                .size(132.dp)
-                .clip(MaterialShapes.Cookie9Sided.toShape())
-                .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center,
-        ) {
+        IconBadge(132.dp, MaterialShapes.Cookie9Sided.toShape(), MaterialTheme.colorScheme.primaryContainer) {
             Icon(
                 painterResource(R.drawable.ic_laptop_phone),
                 contentDescription = null,
@@ -134,6 +129,11 @@ private fun Hero(title: String, subtitle: @Composable () -> Unit) {
         Spacer(Modifier.height(10.dp))
         subtitle()
     }
+}
+
+@Composable
+private fun IconBadge(size: Dp, shape: Shape, container: Color, content: @Composable () -> Unit) {
+    Box(Modifier.size(size).clip(shape).background(container), contentAlignment = Alignment.Center) { content() }
 }
 
 @Composable
@@ -294,13 +294,9 @@ fun HomeScreen(mac: PairedMac, connection: BridgeState.Connection, refresh: Int)
     val context = LocalContext.current
     var confirmingForget by remember { mutableStateOf(false) }
     Page {
-        Hero(mac.name) { StatusChip(connection) }
-        val detail = when (connection) {
-            is BridgeState.Connection.Connected -> null
-            BridgeState.Connection.Refused -> stringResource(R.string.status_refused, mac.name)
-            else -> stringResource(R.string.status_searching)
-        }
-        detail?.let {
+        val look = look(connection, mac.name)
+        Hero(mac.name) { StatusChip(look) }
+        look.detail?.let {
             Text(
                 it,
                 style = MaterialTheme.typography.bodyMedium,
@@ -345,26 +341,43 @@ fun HomeScreen(mac: PairedMac, connection: BridgeState.Connection, refresh: Int)
     }
 }
 
+private data class ConnectionLook(val label: String, val color: Color, val detail: String?, val pulsing: Boolean)
+
 @Composable
-private fun StatusChip(connection: BridgeState.Connection) {
-    val searching = connection !is BridgeState.Connection.Connected && connection != BridgeState.Connection.Refused
-    val (label, color) = when (connection) {
-        is BridgeState.Connection.Connected -> stringResource(R.string.status_chip_connected) to Ready
-        BridgeState.Connection.Refused -> stringResource(R.string.status_chip_refused) to MaterialTheme.colorScheme.error
-        else -> stringResource(R.string.status_chip_searching) to MaterialTheme.colorScheme.tertiary
-    }
-    val dotColor by animateColorAsState(color, label = "status")
-    val alpha by rememberInfiniteTransition(label = "pulse").animateFloat(
-        initialValue = 1f,
-        targetValue = if (searching) 0.25f else 1f,
-        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
-        label = "alpha",
+private fun look(connection: BridgeState.Connection, macName: String): ConnectionLook = when (connection) {
+    is BridgeState.Connection.Connected -> ConnectionLook(stringResource(R.string.status_chip_connected), Ready, null, pulsing = false)
+    BridgeState.Connection.Refused -> ConnectionLook(
+        stringResource(R.string.status_chip_refused),
+        MaterialTheme.colorScheme.error,
+        stringResource(R.string.status_refused, macName),
+        pulsing = false,
     )
+    else -> ConnectionLook(
+        stringResource(R.string.status_chip_searching),
+        MaterialTheme.colorScheme.tertiary,
+        stringResource(R.string.status_searching),
+        pulsing = true,
+    )
+}
+
+@Composable
+private fun StatusChip(look: ConnectionLook) {
+    val dotColor by animateColorAsState(look.color, label = "status")
+    val pulse = if (look.pulsing) {
+        rememberInfiniteTransition(label = "pulse").animateFloat(
+            initialValue = 1f,
+            targetValue = 0.25f,
+            animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
+            label = "alpha",
+        )
+    } else {
+        null
+    }
     Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(10.dp).alpha(alpha).clip(CircleShape).background(dotColor))
+            Box(Modifier.size(10.dp).graphicsLayer { alpha = pulse?.value ?: 1f }.clip(CircleShape).background(dotColor))
             Spacer(Modifier.width(8.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge)
+            Text(look.label, style = MaterialTheme.typography.labelLarge)
         }
     }
 }
@@ -381,21 +394,28 @@ private val features = listOf(
 )
 
 @Composable
-private fun FeatureGrid(refresh: Int) {
+private fun rememberPermissions(refresh: Int): Pair<Map<Permission, Boolean>, (Permission) -> Unit> {
     val context = LocalContext.current
-    val needed = remember { Permission.needed() }
-    fun read() = needed.associateWith { it.isGranted(context) }
+    fun read() = Permission.needed().associateWith { it.isGranted(context) }
     var granted by remember(refresh) { mutableStateOf(read()) }
-    val request = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted = read() }
-    val shown = features.filter { it.permission == null || it.permission in needed }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted = read() }
+    return granted to { permission ->
+        val manifestPermissions = permission.manifestPermissions
+        if (manifestPermissions.isNotEmpty()) launcher.launch(manifestPermissions.toTypedArray())
+        else permission.settingsIntent(context)?.let(context::startActivity)
+    }
+}
+
+@Composable
+private fun FeatureGrid(refresh: Int) {
+    val (granted, request) = rememberPermissions(refresh)
+    val shown = features.filter { it.permission == null || it.permission in granted }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         shown.chunked(2).forEach { row ->
             Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 row.forEach { feature ->
                     val ready = feature.permission == null || granted[feature.permission] == true
-                    FeatureTile(feature, ready, Modifier.weight(1f).fillMaxHeight()) {
-                        feature.permission?.let { requestPermission(it, context, request::launch) }
-                    }
+                    FeatureTile(feature, ready, Modifier.weight(1f).fillMaxHeight()) { feature.permission?.let(request) }
                 }
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }
@@ -405,7 +425,12 @@ private fun FeatureGrid(refresh: Int) {
 
 @Composable
 private fun FeatureTile(feature: Feature, ready: Boolean, modifier: Modifier, onRequest: () -> Unit) {
-    val container = if (ready) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.errorContainer
+    val colors = MaterialTheme.colorScheme
+    val (container, badge, onBadge, title, detail) = if (ready) {
+        listOf(colors.surfaceContainer, colors.primaryContainer, colors.onPrimaryContainer, colors.onSurface, colors.onSurfaceVariant)
+    } else {
+        listOf(colors.errorContainer, colors.error, colors.onError, colors.onErrorContainer, colors.onErrorContainer)
+    }
     Card(
         onClick = onRequest,
         enabled = !ready,
@@ -414,52 +439,27 @@ private fun FeatureTile(feature: Feature, ready: Boolean, modifier: Modifier, on
         colors = CardDefaults.cardColors(containerColor = container, disabledContainerColor = container),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(
-                Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(if (ready) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.error),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    feature.icon,
-                    contentDescription = null,
-                    tint = if (ready) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onError,
-                )
+            IconBadge(44.dp, RoundedCornerShape(14.dp), badge) {
+                Icon(feature.icon, contentDescription = null, tint = onBadge)
             }
-            Text(
-                stringResource(feature.title),
-                style = MaterialTheme.typography.titleMedium,
-                color = if (ready) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onErrorContainer,
-            )
+            Text(stringResource(feature.title), style = MaterialTheme.typography.titleMedium, color = title)
             Text(
                 stringResource(if (ready) feature.detail else R.string.feature_needs_permission),
                 style = MaterialTheme.typography.bodySmall,
-                color = if (ready) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onErrorContainer,
+                color = detail,
                 minLines = 2,
             )
         }
     }
 }
 
-private fun requestPermission(permission: Permission, context: Context, launch: (Array<String>) -> Unit) {
-    val manifestPermissions = permission.manifestPermissions
-    if (manifestPermissions.isNotEmpty()) launch(manifestPermissions.toTypedArray())
-    else permission.settingsIntent(context)?.let(context::startActivity)
-}
-
 @Composable
 private fun PermissionCard(refresh: Int) {
-    val context = LocalContext.current
-    fun read() = Permission.needed().associateWith { it.isGranted(context) }
-    var granted by remember(refresh) { mutableStateOf(read()) }
-    val request = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted = read() }
+    val (granted, request) = rememberPermissions(refresh)
     PanelCard {
         Column(Modifier.padding(vertical = 8.dp)) {
-            Permission.needed().forEach { permission ->
-                PermissionRow(permission, isGranted = granted[permission] == true) {
-                    requestPermission(permission, context, request::launch)
-                }
+            granted.forEach { (permission, isGranted) ->
+                PermissionRow(permission, isGranted) { request(permission) }
             }
         }
     }
@@ -471,10 +471,7 @@ private fun PermissionRow(permission: Permission, isGranted: Boolean, onRequest:
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
-            contentAlignment = Alignment.Center,
-        ) {
+        IconBadge(40.dp, CircleShape, MaterialTheme.colorScheme.secondaryContainer) {
             Icon(permission.icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
         }
         Spacer(Modifier.width(14.dp))

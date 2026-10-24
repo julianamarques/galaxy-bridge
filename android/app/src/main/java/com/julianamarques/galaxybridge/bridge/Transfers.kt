@@ -53,28 +53,53 @@ class Transfers(private val context: Context) {
     private fun upload(uri: Uri) {
         val notification = nextNotification.getAndIncrement()
         val source = runCatching { describe(uri) }.getOrNull()
-        if (source == null) return finished(notification, uri.lastPathSegment ?: context.getString(R.string.transfer_file), context.getString(R.string.transfer_unreadable))
-        progress(notification, R.string.transfer_sending, source.name, 0)
-        val error = runCatching { send(uri, source, notification) }.getOrElse { context.getString(R.string.transfer_connection_lost, it.javaClass.simpleName) }
+        if (source == null) return finished(notification, nameOf(uri), context.getString(R.string.transfer_unreadable))
+        val error = runCatching { send(uri, source, Progress(notification, R.string.transfer_sending, source.name, source.size)) }.getOrElse(::describeError)
         Diagnostics.record(context, "Envio para o Mac: ${if (error == null) "concluído" else "falhou"}, ${source.size} bytes")
         finished(notification, source.name, error)
     }
 
     private fun download(file: TransferFile, notification: Int) {
         val name = file.name.substringAfterLast('/').ifBlank { context.getString(R.string.transfer_file_from_mac) }
-        progress(notification, R.string.transfer_receiving, name, 0)
-        val result = runCatching { receive(file, name, notification) }
+        val result = runCatching { receive(file, name, Progress(notification, R.string.transfer_receiving, name, file.size)) }
         Diagnostics.record(context, "Recebimento do Mac: ${if (result.isSuccess) "concluído" else "falhou"}, ${file.size} bytes")
         result.fold(
             onSuccess = { received(notification, name, it) },
-            onFailure = { finished(notification, name, context.getString(R.string.transfer_connection_lost, it.javaClass.simpleName), R.string.transfer_receive_failed) },
+            onFailure = { finished(notification, name, describeError(it), R.string.transfer_receive_failed) },
         )
     }
 
-    private fun receive(file: TransferFile, name: String, notification: Int): Uri {
-        val mac = PairingStore.current(context) ?: throw IOException("sem Mac pareado")
-        val connection = BridgeConnection.openPinned(context, mac.host, mac.port, mac.fingerprint, DISCOVERY_TIMEOUT_MS)
-            ?: throw IOException("Mac não encontrado")
+    private class Failure(message: String) : IOException(message)
+
+    private fun describeError(error: Throwable): String =
+        (error as? Failure)?.message ?: context.getString(R.string.transfer_connection_lost, error.javaClass.simpleName)
+
+    private fun openMac(): BridgeConnection {
+        val mac = PairingStore.current(context) ?: throw Failure(context.getString(R.string.transfer_not_paired))
+        val connection = BridgeConnection.open(context, mac) ?: throw Failure(context.getString(R.string.transfer_mac_not_found))
+        return connection.apply { receiveTimeoutMs = RESULT_TIMEOUT_MS }
+    }
+
+    private inner class Progress(private val notification: Int, private val title: Int, private val name: String, private val total: Long) {
+        var done = 0L
+            private set
+        private var shown = 0
+
+        init {
+            progress(notification, title, name, 0)
+        }
+
+        fun advance(bytes: Int) {
+            done += bytes
+            val percent = (done * 100 / total).toInt()
+            if (percent < shown + PROGRESS_STEP) return
+            shown = percent
+            progress(notification, title, name, percent)
+        }
+    }
+
+    private fun receive(file: TransferFile, name: String, progress: Progress): Uri {
+        val connection = openMac()
         val resolver = context.contentResolver
         val values = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, name)
@@ -85,21 +110,13 @@ class Transfers(private val context: Context) {
         val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: throw IOException("sem espaço")
         connection.use {
             try {
-                it.receiveTimeoutMs = RESULT_TIMEOUT_MS
                 it.sendNow(Envelope(Message.TransferDownloadMessage(TransferID(file.id))))
                 resolver.openOutputStream(uri)!!.use { output ->
-                    var received = 0L
-                    var shown = 0
-                    while (received < file.size) {
+                    while (progress.done < file.size) {
                         val chunk = (it.receive().message as? Message.TransferChunkMessage)?.body ?: throw IOException("mensagem inesperada")
                         val bytes = Base64.decode(chunk.data, Base64.NO_WRAP)
                         output.write(bytes)
-                        received += bytes.size
-                        val percent = (received * 100 / file.size).toInt()
-                        if (percent >= shown + PROGRESS_STEP) {
-                            shown = percent
-                            progress(notification, R.string.transfer_receiving, name, percent)
-                        }
+                        progress.advance(bytes.size)
                     }
                 }
                 resolver.update(uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
@@ -128,32 +145,23 @@ class Transfers(private val context: Context) {
         }
         if (size < 0) size = resolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1
         if (size < 0) return null
-        return Source(name ?: uri.lastPathSegment ?: "Arquivo", size, resolver.getType(uri))
+        return Source(name ?: nameOf(uri), size, resolver.getType(uri))
     }
 
-    private fun send(uri: Uri, source: Source, notification: Int): String? {
-        val mac = PairingStore.current(context) ?: return context.getString(R.string.transfer_not_paired)
-        val connection = BridgeConnection.openPinned(context, mac.host, mac.port, mac.fingerprint, DISCOVERY_TIMEOUT_MS)
-            ?: return context.getString(R.string.transfer_mac_not_found)
-        connection.use {
-            it.receiveTimeoutMs = RESULT_TIMEOUT_MS
+    private fun nameOf(uri: Uri): String = uri.lastPathSegment ?: context.getString(R.string.transfer_file)
+
+    private fun send(uri: Uri, source: Source, progress: Progress): String? {
+        openMac().use {
             val id = UUID.randomUUID().toString()
             it.sendNow(Envelope(Message.TransferUploadMessage(TransferFile(id, source.name, source.size, source.mime))))
             val input = context.contentResolver.openInputStream(uri) ?: return context.getString(R.string.transfer_unreadable)
             input.use { stream ->
                 val buffer = ByteArray(CHUNK_SIZE)
-                var sent = 0L
-                var shown = 0
-                while (sent < source.size) {
-                    val read = fill(stream, buffer, minOf(CHUNK_SIZE.toLong(), source.size - sent).toInt())
+                while (progress.done < source.size) {
+                    val read = fill(stream, buffer, minOf(CHUNK_SIZE.toLong(), source.size - progress.done).toInt())
                     if (read <= 0) return context.getString(R.string.transfer_file_changed)
                     it.sendNow(Envelope(Message.TransferChunkMessage(TransferChunk(id, Base64.encodeToString(buffer, 0, read, Base64.NO_WRAP)))))
-                    sent += read
-                    val percent = (sent * 100 / source.size).toInt()
-                    if (percent >= shown + PROGRESS_STEP) {
-                        shown = percent
-                        progress(notification, R.string.transfer_sending, source.name, percent)
-                    }
+                    progress.advance(read)
                 }
             }
             val result = (it.receive().message as? Message.TransferResultMessage)?.body
@@ -171,13 +179,16 @@ class Transfers(private val context: Context) {
         return total
     }
 
+    private fun builder(title: Int, name: String): Notification.Builder =
+        Notification.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(context.getString(title))
+            .setContentText(name)
+
     private fun progress(notification: Int, title: Int, name: String, percent: Int) {
         notifications.notify(
             notification,
-            Notification.Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(context.getString(title))
-                .setContentText(name)
+            builder(title, name)
                 .setProgress(100, percent, percent == 0)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
@@ -190,10 +201,7 @@ class Transfers(private val context: Context) {
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
         notifications.notify(
             notification,
-            Notification.Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(context.getString(R.string.transfer_received))
-                .setContentText(name)
+            builder(R.string.transfer_received, name)
                 .setContentIntent(PendingIntent.getActivity(context, notification, open, PendingIntent.FLAG_IMMUTABLE))
                 .setAutoCancel(true)
                 .build(),
@@ -203,10 +211,7 @@ class Transfers(private val context: Context) {
     private fun finished(notification: Int, name: String, error: String?, failure: Int = R.string.transfer_failed) {
         notifications.notify(
             notification,
-            Notification.Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(context.getString(if (error == null) R.string.transfer_sent else failure))
-                .setContentText(if (error == null) name else "$name: $error")
+            builder(if (error == null) R.string.transfer_sent else failure, if (error == null) name else "$name: $error")
                 .setStyle(Notification.BigTextStyle().bigText(if (error == null) name else "$name\n$error"))
                 .setAutoCancel(true)
                 .build(),
@@ -218,7 +223,6 @@ class Transfers(private val context: Context) {
         private const val CHUNK_SIZE = 256 * 1024
         private const val FIRST_NOTIFICATION = 100
         private const val PROGRESS_STEP = 5
-        private const val DISCOVERY_TIMEOUT_MS = 10_000L
         private const val RESULT_TIMEOUT_MS = 5 * 60_000
         private const val DOWNLOAD_FOLDER = "Download/Galaxy Bridge"
     }

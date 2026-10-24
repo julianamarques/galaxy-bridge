@@ -29,34 +29,30 @@ final class Notifier: NSObject {
     }
 
     func missed(call: String, caller: String, toVoicemail: Bool) {
-        let content = UNMutableNotificationContent()
-        content.title = String(localized: "Ligação perdida")
-        content.body = toVoicemail ? String(localized: "\(caller) · correio de voz") : caller
-        content.sound = .default
-        center.add(UNNotificationRequest(identifier: "missed-\(call)", content: content, trigger: nil))
+        let body = toVoicemail ? String(localized: "\(caller) · correio de voz") : caller
+        post("missed-\(call)", title: String(localized: "Ligação perdida"), body: body, sound: true)
     }
 
     func fileReceived(_ file: URL) {
-        let content = UNMutableNotificationContent()
-        content.title = String(localized: "Recebido do Galaxy")
-        content.body = file.lastPathComponent
-        content.userInfo = [Self.fileInfo: file.path]
-        content.sound = .default
-        center.add(UNNotificationRequest(identifier: Self.filePrefix + UUID().uuidString, content: content, trigger: nil))
+        post(Self.filePrefix + UUID().uuidString, title: String(localized: "Recebido do Galaxy"), body: file.lastPathComponent, sound: true, userInfo: [Self.fileInfo: file.path])
     }
 
     func fileSent(_ name: String, ok: Bool) {
-        let content = UNMutableNotificationContent()
-        content.title = ok ? String(localized: "Enviado para o Galaxy") : String(localized: "Não foi possível enviar para o Galaxy")
-        content.body = name
-        center.add(UNNotificationRequest(identifier: Self.filePrefix + UUID().uuidString, content: content, trigger: nil))
+        let title = ok ? String(localized: "Enviado para o Galaxy") : String(localized: "Não foi possível enviar para o Galaxy")
+        post(Self.filePrefix + UUID().uuidString, title: title, body: name)
     }
 
     func clipboard(_ title: String, text: String) {
+        post("clipboard", title: title, body: String(text.prefix(Self.clipboardPreview)))
+    }
+
+    private func post(_ id: String, title: String, body: String, sound: Bool = false, userInfo: [AnyHashable: Any] = [:]) {
         let content = UNMutableNotificationContent()
         content.title = title
-        content.body = String(text.prefix(Self.clipboardPreview))
-        center.add(UNNotificationRequest(identifier: "clipboard", content: content, trigger: nil))
+        content.body = body
+        content.userInfo = userInfo
+        if sound { content.sound = .default }
+        center.add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
     }
 
     func show(_ notification: PhoneNotification, icon: URL?) {

@@ -430,8 +430,8 @@ final class AppModel: ObservableObject {
                 handle(.transferProgress(TransferProgress(id: "preview-down", name: "20261017_111110.mp4", direction: .fromPhone, done: total * Int64(step) / 40, total: total)))
                 try? await Task.sleep(for: .milliseconds(700))
             }
-            handle(.transferEnded("preview-up"))
-            handle(.transferEnded("preview-down"))
+            handle(.transferEnded("preview-up", .interrupted))
+            handle(.transferEnded("preview-down", .interrupted))
         }
     }
 
@@ -568,18 +568,19 @@ extension AppModel {
                 contact.numbers.map { ContactSuggestion(contact: contact, number: $0, country: self.dialCountry) }
             }.prefix(Self.maxSuggestions))
             for contact in results.contacts where contact.hasPhoto { requestPhoto(contact.id) }
-        case .fileReceived(let file, let name):
-            fileReceived(file, name: name)
-        case .fileSent(let name, let ok):
-            notifier.fileSent(name, ok: ok)
         case .transferProgress(let progress):
             if let index = transfers.firstIndex(where: { $0.id == progress.id }) {
-                transfers[index] = progress
+                if transfers[index].status != progress.status { transfers[index] = progress }
             } else {
                 transfers.append(progress)
             }
-        case .transferEnded(let id):
+        case .transferEnded(let id, let outcome):
             transfers.removeAll { $0.id == id }
+            switch outcome {
+            case .received(let file, let name): fileReceived(file, name: name)
+            case .sent(let name, let ok): notifier.fileSent(name, ok: ok)
+            case .interrupted: break
+            }
         case .clipboard(let text):
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)

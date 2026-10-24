@@ -26,6 +26,12 @@ public enum Transfer {
     }
 }
 
+public enum TransferOutcome: Sendable {
+    case received(URL, name: String)
+    case sent(name: String, ok: Bool)
+    case interrupted
+}
+
 public struct TransferProgress: Identifiable, Equatable, Sendable {
     public enum Direction: Sendable {
         case toPhone
@@ -39,6 +45,7 @@ public struct TransferProgress: Identifiable, Equatable, Sendable {
     public let total: Int64
 
     public var fraction: Double { total > 0 ? Double(done) / Double(total) : 0 }
+    public var percent: Int { Int(fraction * 100) }
 
     public init(id: String, name: String, direction: Direction, done: Int64, total: Int64) {
         self.id = id
@@ -46,6 +53,27 @@ public struct TransferProgress: Identifiable, Equatable, Sendable {
         self.direction = direction
         self.done = done
         self.total = total
+    }
+
+    public init(_ file: TransferFile, direction: Direction, done: Int64) {
+        self.init(id: file.id, name: file.name, direction: direction, done: done, total: file.size)
+    }
+}
+
+final class TransferSession {
+    enum Kind {
+        case receiving(IncomingTransfer)
+        case sending(OutgoingTransfer)
+    }
+
+    var kind: Kind?
+    private let activity = ProcessInfo.processInfo.beginActivity(
+        options: [.userInitiated, .idleSystemSleepDisabled],
+        reason: "Transferindo um arquivo com o celular"
+    )
+
+    func end() {
+        ProcessInfo.processInfo.endActivity(activity)
     }
 }
 
@@ -83,6 +111,7 @@ final class IncomingTransfer {
 final class OutgoingTransfer {
     let file: TransferFile
     let url: URL
+    private(set) var started = false
 
     init(file: TransferFile, url: URL) {
         self.file = file
@@ -91,6 +120,7 @@ final class OutgoingTransfer {
 
     @MainActor
     func stream(on connection: BridgeConnection, progress: @escaping @MainActor (Int64) -> Void) {
+        started = true
         guard let handle = try? FileHandle(forReadingFrom: url) else { return connection.close() }
         let id = file.id
         var sent: Int64 = 0

@@ -119,10 +119,10 @@ private struct TransferCard: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 HStack {
-                    Text(transfer.direction == .toPhone ? "Enviando para o \(app.deviceName)" : "Recebendo do \(app.deviceName)")
+                    Text(transfer.label(device: app.deviceName))
                         .lineLimit(1)
                     Spacer(minLength: 4)
-                    Text(status)
+                    Text(transfer.status)
                         .monospacedDigit()
                 }
                 .font(.subheadline)
@@ -132,11 +132,6 @@ private struct TransferCard: View {
                     .controlSize(.small)
             }
         }
-    }
-
-    private var status: String {
-        if transfer.done == 0, transfer.direction == .toPhone { return String(localized: "Aguardando…") }
-        return transfer.fraction.formatted(.percent.precision(.fractionLength(0)))
     }
 }
 

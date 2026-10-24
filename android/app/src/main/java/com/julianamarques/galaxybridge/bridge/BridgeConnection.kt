@@ -56,7 +56,11 @@ class BridgeConnection private constructor(
     }
 
     companion object {
+        private const val DISCOVERY_TIMEOUT_MS = 10_000L
         private const val CONNECT_TIMEOUT_MS = 5_000
+
+        fun open(context: Context, mac: PairedMac): BridgeConnection? =
+            openPinned(context, mac.host, mac.port, mac.fingerprint, DISCOVERY_TIMEOUT_MS)
 
         fun openPinned(context: Context, host: String?, port: Int?, fingerprint: String, discoveryMs: Long): BridgeConnection? {
             if (host != null && port != null) {
