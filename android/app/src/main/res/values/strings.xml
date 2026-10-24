@@ -78,4 +78,23 @@
     <string name="error_call_refused">The Galaxy refused the call: %1$s</string>
     <string name="error_call_failed">Couldn\'t call: %1$s</string>
     <string name="error_contacts_permission">Galaxy Bridge doesn\'t have permission to read contacts. Open the app on the Galaxy to allow it.</string>
+    <string name="section_permissions">Permissions</string>
+    <string name="section_pair">Pair with your Mac</string>
+    <string name="section_features">Features</string>
+    <string name="status_chip_connected">Connected · Wi-Fi</string>
+    <string name="status_chip_searching">Searching for the Mac…</string>
+    <string name="status_chip_refused">Not recognized</string>
+    <string name="feature_battery">Battery</string>
+    <string name="feature_battery_on">Shown on the Mac</string>
+    <string name="feature_calls">Calls</string>
+    <string name="feature_calls_on">Answer and call from the Mac</string>
+    <string name="feature_notifications">Notifications</string>
+    <string name="feature_notifications_on">Mirrored on the Mac</string>
+    <string name="feature_contacts">Contacts</string>
+    <string name="feature_contacts_on">Searched from the Mac</string>
+    <string name="feature_files">Files</string>
+    <string name="feature_files_on">Share › Send to Mac</string>
+    <string name="feature_clipboard">Clipboard</string>
+    <string name="feature_clipboard_on">Share text to copy it on the Mac</string>
+    <string name="feature_needs_permission">Tap to allow</string>
 </resources>

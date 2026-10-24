@@ -77,4 +77,23 @@
     <string name="error_call_refused">O Galaxy recusou a ligação: %1$s</string>
     <string name="error_call_failed">Não foi possível ligar: %1$s</string>
     <string name="error_contacts_permission">O Galaxy Bridge não tem permissão para ler os contatos. Abra o app no Galaxy para permitir.</string>
+    <string name="section_permissions">Permissões</string>
+    <string name="section_pair">Parear com o Mac</string>
+    <string name="section_features">Recursos</string>
+    <string name="status_chip_connected">Conectado · Wi-Fi</string>
+    <string name="status_chip_searching">Procurando o Mac…</string>
+    <string name="status_chip_refused">Não reconhecido</string>
+    <string name="feature_battery">Bateria</string>
+    <string name="feature_battery_on">Aparece no Mac</string>
+    <string name="feature_calls">Ligações</string>
+    <string name="feature_calls_on">Atenda e ligue pelo Mac</string>
+    <string name="feature_notifications">Notificações</string>
+    <string name="feature_notifications_on">Espelhadas no Mac</string>
+    <string name="feature_contacts">Contatos</string>
+    <string name="feature_contacts_on">Busca pelo Mac</string>
+    <string name="feature_files">Arquivos</string>
+    <string name="feature_files_on">Compartilhar › Enviar para o Mac</string>
+    <string name="feature_clipboard">Área de transferência</string>
+    <string name="feature_clipboard_on">Compartilhe um texto para copiá-lo no Mac</string>
+    <string name="feature_needs_permission">Toque para permitir</string>
 </resources>
