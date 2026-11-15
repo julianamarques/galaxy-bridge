@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var activityPanel: ActivityPanel?
     private var sendService: SendToGalaxyService?
     private var terminationSignal: DispatchSourceSignal?
+    private let dockPresence = DockPresence()
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if app.mirror.isActive { app.mirror.showWindow() }
@@ -16,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         app.launched()
         quitGracefullyOnSIGTERM()
+        dockPresence.start()
         activityPanel = ActivityPanel(app: app)
         sendService = SendToGalaxyService(app: app)
         NSApp.servicesProvider = sendService

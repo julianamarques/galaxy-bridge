@@ -26,6 +26,7 @@ public final class BridgeServer {
         case ring(Bool)
         case recentCalls([RecentCall])
         case gallery([GalleryPhoto], replyTo: String?)
+        case galleryAlbums([GalleryAlbum], replyTo: String?)
         case link(String)
         case media(MediaState)
         case files(FilesListing, replyTo: String?)
@@ -308,6 +309,8 @@ public final class BridgeServer {
             onEvent?(.recentCalls(recent.calls))
         case .galleryResults(let results) where connection === active:
             onEvent?(.gallery(results.photos, replyTo: envelope.replyTo))
+        case .galleryAlbumList(let list) where connection === active:
+            onEvent?(.galleryAlbums(list.albums, replyTo: envelope.replyTo))
         case .link(let link) where connection === active:
             onEvent?(.link(link.url))
         case .mediaState(let media) where connection === active:
@@ -462,7 +465,7 @@ public final class BridgeServer {
 
     private func finish(_ transfer: IncomingTransfer, on connection: BridgeConnection) {
         connection.send(Envelope(.transferResult(TransferResult(id: transfer.file.id, ok: true))))
-        onEvent?(.transferEnded(transfer.file.id, .received(transfer.url, name: transfer.file.name)))
+        onEvent?(.transferEnded(transfer.file.id, .received(transfer.url, name: transfer.file.name, capture: transfer.file.capture == true)))
     }
 
     private func report(_ transfer: IncomingTransfer) {

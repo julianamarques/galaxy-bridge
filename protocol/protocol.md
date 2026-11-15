@@ -219,7 +219,23 @@ The phone's latest calls, newest first, up to 8. Sent after `hello` and whenever
 { "type": "gallery.import", "body": { "id": "1000012345" } }
 ```
 
-The latest photos on the phone, newest first, up to `limit` (at most 24), each with a JPEG thumbnail of about 200 pixels in base64. The Mac asks each time its menu opens. `gallery.import` asks the phone to send that photo, which it does as a regular phone-to-Mac file transfer. Without the photos permission the phone answers `error` (`permission`).
+The latest photos on the phone, newest first, up to `limit` (at most 40), each with a JPEG thumbnail of about 200 pixels in base64. The Mac's photo window pages through everything with `offset`, filters by `album` (a `gallery.albumList` id) and adds videos with `"videos": true`. A video's `id` starts with `video:` and it has a `duration` in seconds.
+
+```json
+{ "type": "gallery.request", "id": "g2", "body": { "limit": 30, "offset": 60, "album": "-1739773001", "videos": true } }
+{ "type": "gallery.albums", "id": "a1" }
+{ "type": "gallery.albumList", "replyTo": "a1", "body": { "albums": [ { "id": "-1739773001", "name": "Camera", "count": 1532 } ] } }
+```
+
+`gallery.albums` (Mac → phone) asks for the albums (Android's media buckets: Camera, Screenshots, WhatsApp Images…) with how many photos and videos each has, largest first. `gallery.import` asks the phone to send that photo, which it does as a regular phone-to-Mac file transfer. Without the photos permission the phone answers `error` (`permission`).
+
+### `camera.capture` — Mac → phone
+
+```json
+{ "type": "camera.capture", "id": "c9" }
+```
+
+Opens the phone's camera to take one photo for the Mac (on the lock screen too, with Android's secure capture). The phone shows a notification that opens the camera, and also opens it right away when the accessibility service is on, since Android lets such an app start an activity from the background. The photo arrives as a regular phone-to-Mac transfer whose `transfer.upload` has `"capture": true`, so the Mac copies it to its clipboard as well as saving it in Downloads.
 
 ### `link` — both directions
 

@@ -29,6 +29,12 @@ struct GalaxyBridgeApp: App {
         }
         .defaultSize(width: 720, height: 480)
 
+        Window(String(localized: "Fotos do Galaxy"), id: GalleryBrowser.windowID) {
+            GalleryView(browser: delegate.app.galleryBrowser)
+                .environmentObject(delegate.app)
+        }
+        .defaultSize(width: 900, height: 600)
+
         Settings {
             TabView {
                 SettingsView()

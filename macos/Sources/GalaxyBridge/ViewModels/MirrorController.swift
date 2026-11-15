@@ -63,7 +63,6 @@ final class MirrorController: ObservableObject {
             tearDownSession()
             window?.closeWithoutNotifying()
             window = nil
-            NSApp.setActivationPolicy(.accessory)
             hint = nil
             state = .idle
             task = nil
@@ -196,7 +195,7 @@ final class MirrorController: ObservableObject {
         let window = MirrorWindowController(title: deviceName(), alwaysOnTop: options.alwaysOnTop)
         window.onClose = { [weak self] in self?.stop() }
         self.window = window
-        NSApp.setActivationPolicy(.regular)
+
         return window
     }
 

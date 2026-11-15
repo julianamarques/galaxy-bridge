@@ -54,6 +54,10 @@ final class Notifier: NSObject {
         post(Self.filePrefix + UUID().uuidString, title: String(localized: "Recebido do Galaxy"), body: file.lastPathComponent, sound: true, userInfo: [Self.fileInfo: file.path])
     }
 
+    func photoCaptured(_ file: URL) {
+        post(Self.filePrefix + UUID().uuidString, title: String(localized: "Foto do Galaxy copiada"), body: String(localized: "Cole com ⌘V. Ela também está em Downloads."), sound: true, userInfo: [Self.fileInfo: file.path])
+    }
+
     func fileSent(_ name: String, ok: Bool) {
         let title = ok ? String(localized: "Enviado para o Galaxy") : String(localized: "Não foi possível enviar para o Galaxy")
         post(Self.filePrefix + UUID().uuidString, title: title, body: name)

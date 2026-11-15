@@ -36,9 +36,11 @@ enum class Permission(@StringRes val title: Int, @StringRes val reason: Int) {
                 Manifest.permission.READ_CALL_LOG,
             )
             Contacts -> listOf(Manifest.permission.READ_CONTACTS)
-            Photos -> listOf(
-                if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE,
-            )
+            Photos -> if (Build.VERSION.SDK_INT >= 33) {
+                listOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
+            } else {
+                listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
             CallerName, Battery, AllFiles, MirrorControl -> emptyList()
         }
 

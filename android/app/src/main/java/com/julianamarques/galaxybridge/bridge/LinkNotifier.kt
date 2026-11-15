@@ -36,7 +36,7 @@ class LinkNotifier(private val context: Context) {
     }
 
     companion object {
-        private const val CHANNEL_ID = "links"
+        const val CHANNEL_ID = "links"
         private const val TAG = "link"
         private val SCHEMES = setOf("http", "https")
     }

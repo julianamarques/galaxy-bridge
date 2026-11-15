@@ -26,10 +26,6 @@ struct MenuView: View {
                     MenuDivider()
                     MediaSection(media: media)
                 }
-                if app.isAppConnected, !app.gallery.isEmpty || app.galleryError != nil {
-                    MenuDivider()
-                    gallery
-                }
                 if !app.transfers.isEmpty {
                     MenuDivider()
                     transfers
@@ -41,7 +37,6 @@ struct MenuView: View {
         .padding(.horizontal, 6)
         .padding(.vertical, 10)
         .frame(width: 310)
-        .onMenuOpen { app.refreshGallery() }
     }
 
     private var notConfigured: some View {
@@ -226,25 +221,6 @@ struct MenuView: View {
         }
     }
 
-    private var gallery: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            MenuSectionTitle("Fotos Recentes")
-            if let error = app.galleryError {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
-                    ForEach(app.gallery) { photo in
-                        GalleryTile(photo: photo) { app.importPhoto(photo.id) }
-                    }
-                }
-            }
-        }
-        .padding(.horizontal, 8)
-    }
-
     private var transfers: some View {
         VStack(alignment: .leading, spacing: 8) {
             MenuSectionTitle("Transferências")
@@ -281,6 +257,15 @@ struct MenuView: View {
                     .buttonStyle(MenuRowStyle())
                     .disabled(!app.isAppConnected)
                 MirrorMenuItem(mirror: app.mirror, deviceName: app.deviceName)
+                Button("Fotos e Vídeos do \(app.deviceName)…") {
+                    openWindow(id: GalleryBrowser.windowID)
+                    NSApp.activate()
+                }
+                .buttonStyle(MenuRowStyle())
+                .disabled(!app.isAppConnected)
+                Button("Tirar Foto com o \(app.deviceName)") { app.takePhoto() }
+                    .buttonStyle(MenuRowStyle())
+                    .disabled(!app.isAppConnected)
                 Button("Arquivos do \(app.deviceName)…") {
                     openWindow(id: FileBrowser.windowID)
                     NSApp.activate()
@@ -471,38 +456,5 @@ private struct RecentCallRow: View {
             }
         }
         .buttonStyle(MenuRowStyle())
-    }
-}
-
-private struct GalleryTile: View {
-    let photo: GalleryItem
-    let action: () -> Void
-    @State private var isHovered = false
-
-    var body: some View {
-        Button(action: action) {
-            Color.clear
-                .aspectRatio(1, contentMode: .fit)
-                .overlay {
-                    Image(nsImage: photo.image)
-                        .resizable()
-                        .scaledToFill()
-                }
-                .overlay {
-                    if isHovered {
-                        ZStack {
-                            Color.black.opacity(0.35)
-                            Image(systemName: "square.and.arrow.down")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.white)
-                        }
-                    }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { isHovered = $0 }
-        .help("Importar \(photo.name) para Downloads")
     }
 }

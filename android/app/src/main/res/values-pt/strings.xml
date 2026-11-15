@@ -17,6 +17,9 @@
     <string name="mirror_control_label">Galaxy Bridge — controle pelo Mac</string>
     <string name="mirror_control_description">Permite que o Mac toque, role e digite neste celular enquanto a tela é espelhada. O Galaxy Bridge não lê nem guarda o que aparece na tela.</string>
     <string name="link_title">Link do Mac</string>
+    <string name="camera_request_title">Tirar foto para o Mac</string>
+    <string name="camera_request_text">Toque para abrir a câmera.</string>
+    <string name="camera_unavailable">Nenhum app de câmera consegue tirar a foto.</string>
     <string name="ringing_title">Tocando pelo Mac</string>
     <string name="ringing_text">Toque para parar.</string>
     <string name="ringing_stop">Parar</string>

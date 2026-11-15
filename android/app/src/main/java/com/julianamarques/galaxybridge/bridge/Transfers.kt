@@ -41,8 +41,8 @@ class Transfers(private val context: Context) {
         notifications.createNotificationChannel(channel)
     }
 
-    fun upload(uris: List<Uri>) {
-        uris.forEach { uri -> executor.execute { upload(uri) } }
+    fun upload(uris: List<Uri>, capture: Boolean = false) {
+        uris.forEach { uri -> executor.execute { upload(uri, capture) } }
     }
 
     fun download(file: TransferFile) {
@@ -53,11 +53,12 @@ class Transfers(private val context: Context) {
         executor.shutdownNow()
     }
 
-    private fun upload(uri: Uri) {
+    private fun upload(uri: Uri, capture: Boolean) {
         val notification = nextNotification.getAndIncrement()
         val source = runCatching { describe(uri) }.getOrNull()
         if (source == null) return finished(notification, nameOf(uri), context.getString(R.string.transfer_unreadable))
-        val error = runCatching { send(uri, source, Progress(notification, R.string.transfer_sending, source.name, source.size)) }.getOrElse(::describeError)
+        val error = runCatching { send(uri, source, Progress(notification, R.string.transfer_sending, source.name, source.size), capture) }.getOrElse(::describeError)
+        if (capture) uri.path?.let { java.io.File(it).delete() }
         Diagnostics.record(context, "Envio para o Mac: ${if (error == null) "concluído" else "falhou"}, ${source.size} bytes")
         finished(notification, source.name, error)
     }
@@ -175,10 +176,10 @@ class Transfers(private val context: Context) {
 
     private fun nameOf(uri: Uri): String = uri.lastPathSegment ?: context.getString(R.string.transfer_file)
 
-    private fun send(uri: Uri, source: Source, progress: Progress): String? {
+    private fun send(uri: Uri, source: Source, progress: Progress, capture: Boolean): String? {
         openMac().use {
             val id = UUID.randomUUID().toString()
-            it.sendNow(Envelope(Message.TransferUploadMessage(TransferFile(id, source.name, source.size, source.mime))))
+            it.sendNow(Envelope(Message.TransferUploadMessage(TransferFile(id, source.name, source.size, source.mime, capture = capture.takeIf { it }))))
             val input = context.contentResolver.openInputStream(uri) ?: return context.getString(R.string.transfer_unreadable)
             input.use { stream ->
                 val buffer = ByteArray(CHUNK_SIZE)

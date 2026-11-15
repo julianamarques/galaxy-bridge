@@ -27,7 +27,7 @@ public enum Transfer {
 }
 
 public enum TransferOutcome: Sendable {
-    case received(URL, name: String)
+    case received(URL, name: String, capture: Bool)
     case sent(name: String, ok: Bool)
     case interrupted
 }

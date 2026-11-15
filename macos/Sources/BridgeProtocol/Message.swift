@@ -61,6 +61,9 @@ public enum Message: Equatable, Sendable {
     case mirrorScroll(MirrorScroll)
     case mirrorKey(MirrorKey)
     case mirrorText(MirrorText)
+    case galleryAlbums
+    case galleryAlbumList(GalleryAlbums)
+    case cameraCapture
     case mirrorStop
     case mirrorSync
     case error(BridgeError)
@@ -116,6 +119,9 @@ public enum Message: Equatable, Sendable {
         case .mirrorScroll: "mirror.scroll"
         case .mirrorKey: "mirror.key"
         case .mirrorText: "mirror.text"
+        case .galleryAlbums: "gallery.albums"
+        case .galleryAlbumList: "gallery.albumList"
+        case .cameraCapture: "camera.capture"
         case .mirrorStop: "mirror.stop"
         case .mirrorSync: "mirror.sync"
         case .error: "error"
@@ -413,13 +419,15 @@ public struct TransferFile: Codable, Equatable, Sendable {
     public var size: Int64
     public var mime: String?
     public var folder: String?
+    public var capture: Bool?
 
-    public init(id: String, name: String, size: Int64, mime: String? = nil, folder: String? = nil) {
+    public init(id: String, name: String, size: Int64, mime: String? = nil, folder: String? = nil, capture: Bool? = nil) {
         self.id = id
         self.name = name
         self.size = size
         self.mime = mime
         self.folder = folder
+        self.capture = capture
     }
 }
 
@@ -508,9 +516,35 @@ public struct RecentCalls: Codable, Equatable, Sendable {
 
 public struct GalleryRequest: Codable, Equatable, Sendable {
     public var limit: Int
+    public var offset: Int?
+    public var album: String?
+    public var videos: Bool?
 
-    public init(limit: Int) {
+    public init(limit: Int, offset: Int? = nil, album: String? = nil, videos: Bool? = nil) {
         self.limit = limit
+        self.offset = offset
+        self.album = album
+        self.videos = videos
+    }
+}
+
+public struct GalleryAlbum: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var name: String
+    public var count: Int
+
+    public init(id: String, name: String, count: Int) {
+        self.id = id
+        self.name = name
+        self.count = count
+    }
+}
+
+public struct GalleryAlbums: Codable, Equatable, Sendable {
+    public var albums: [GalleryAlbum]
+
+    public init(albums: [GalleryAlbum]) {
+        self.albums = albums
     }
 }
 
@@ -519,12 +553,14 @@ public struct GalleryPhoto: Codable, Equatable, Identifiable, Sendable {
     public var name: String
     public var time: Int64
     public var thumbnail: Data
+    public var duration: Int?
 
-    public init(id: String, name: String, time: Int64, thumbnail: Data) {
+    public init(id: String, name: String, time: Int64, thumbnail: Data, duration: Int? = nil) {
         self.id = id
         self.name = name
         self.time = time
         self.thumbnail = thumbnail
+        self.duration = duration
     }
 }
 
@@ -805,6 +841,9 @@ extension Envelope: Codable {
         case "mirror.scroll": .mirrorScroll(try container.decode(MirrorScroll.self, forKey: .body))
         case "mirror.key": .mirrorKey(try container.decode(MirrorKey.self, forKey: .body))
         case "mirror.text": .mirrorText(try container.decode(MirrorText.self, forKey: .body))
+        case "gallery.albums": .galleryAlbums
+        case "gallery.albumList": .galleryAlbumList(try container.decode(GalleryAlbums.self, forKey: .body))
+        case "camera.capture": .cameraCapture
         case "mirror.stop": .mirrorStop
         case "mirror.sync": .mirrorSync
         case "error": .error(try container.decode(BridgeError.self, forKey: .body))
@@ -861,7 +900,8 @@ extension Envelope: Codable {
         case .mirrorKey(let body): try container.encode(body, forKey: .body)
         case .mirrorText(let body): try container.encode(body, forKey: .body)
         case .error(let body): try container.encode(body, forKey: .body)
-        case .unpair, .ping, .pong, .mirrorStop, .mirrorSync, .unknown: break
+        case .galleryAlbumList(let body): try container.encode(body, forKey: .body)
+        case .unpair, .ping, .pong, .mirrorStop, .mirrorSync, .galleryAlbums, .cameraCapture, .unknown: break
         }
     }
 }

@@ -160,7 +160,7 @@ struct BridgeServerTests {
         }
         #expect(try await upload.next() == .transferResult(TransferResult(id: "t1", ok: true)))
         try await until { events.contains { if case .transferEnded(_, .received) = $0 { true } else { false } } }
-        guard case .transferEnded(_, .received(let file, let name)) = events.events.last(where: { if case .transferEnded(_, .received) = $0 { true } else { false } }) else { return }
+        guard case .transferEnded(_, .received(let file, let name, _)) = events.events.last(where: { if case .transferEnded(_, .received) = $0 { true } else { false } }) else { return }
         #expect(name == "../foto.jpg")
         let reported = events.events.compactMap { if case .transferProgress(let progress) = $0 { progress.done } else { nil } }
         #expect(reported == [0, 262_144, 524_288, 600_000])

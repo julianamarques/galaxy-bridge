@@ -42,7 +42,9 @@ import com.julianamarques.galaxybridge.protocol.NotificationKey
 import com.julianamarques.galaxybridge.protocol.NotificationKeys
 import com.julianamarques.galaxybridge.protocol.Envelope
 import com.julianamarques.galaxybridge.protocol.GalleryResults
+import com.julianamarques.galaxybridge.protocol.GalleryAlbums
 import com.julianamarques.galaxybridge.protocol.Link
+import com.julianamarques.galaxybridge.CameraCaptureActivity
 import com.julianamarques.galaxybridge.protocol.MirrorStart
 import com.julianamarques.galaxybridge.protocol.MirrorState
 import com.julianamarques.galaxybridge.mirror.MirrorConsentActivity
@@ -214,9 +216,15 @@ class BridgeService : Service() {
     }
 
     private fun session(mac: PairedMac): Boolean {
+        val attemptAt = System.currentTimeMillis()
         val connection = BridgeConnection.open(this, mac) ?: run {
             Diagnostics.record(this, "Não foi possível conectar ao Mac")
             return false
+        }
+        if (!connection.isUsb && UsbTunnel.isActive && UsbTunnel.readyAt >= attemptAt) {
+            Diagnostics.record(this, "Cabo USB ficou pronto; trocando para ele")
+            connection.close()
+            return true
         }
         this.connection = connection
         var greeted = false
@@ -339,11 +347,24 @@ class BridgeService : Service() {
                     if (!PhoneGallery.canRead(this)) {
                         Envelope(Message.ErrorMessage(BridgeError("permission", getString(R.string.error_photos_permission))), replyTo = envelope.id)
                     } else {
-                        val photos = runCatching { PhoneGallery.recent(this, message.body.limit) }.getOrDefault(emptyList())
+                        val request = message.body
+                        val photos = runCatching {
+                            PhoneGallery.recent(this, request.limit, request.offset ?: 0, request.album, request.videos == true)
+                        }.getOrDefault(emptyList())
                         Envelope(Message.GalleryResultsMessage(GalleryResults(photos)), replyTo = envelope.id)
                     },
                 )
             }
+            Message.GalleryAlbumsRequest -> thread(name = "gallery-albums") {
+                connection.send(
+                    if (!PhoneGallery.canRead(this)) {
+                        Envelope(Message.ErrorMessage(BridgeError("permission", getString(R.string.error_photos_permission))), replyTo = envelope.id)
+                    } else {
+                        Envelope(Message.GalleryAlbumListMessage(GalleryAlbums(runCatching { PhoneGallery.albums(this) }.getOrDefault(emptyList()))), replyTo = envelope.id)
+                    },
+                )
+            }
+            Message.CameraCapture -> openCamera()
             is Message.GalleryImportMessage -> PhoneGallery.uri(message.body.id)?.let { transfers.upload(listOf(it)) }
             is Message.PhotoRequestMessage -> PhoneContacts.photo(this, message.body.contact)?.let {
                 connection.send(Envelope(Message.PhotoMessage(ContactPhoto(message.body.contact, it)), replyTo = envelope.id))
@@ -450,6 +471,25 @@ class BridgeService : Service() {
         send(Message.MirrorStateMessage(MirrorState(MirrorState.WAITING, control = MirrorControlService.isEnabled(this))))
     }
 
+    private fun openCamera() {
+        val camera = Intent(this, CameraCaptureActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val notification = Notification.Builder(this, LinkNotifier.CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(getString(R.string.camera_request_title))
+            .setContentText(getString(R.string.camera_request_text))
+            .setContentIntent(PendingIntent.getActivity(this, CAMERA_REQUEST_ID, camera, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+            .setAutoCancel(true)
+            .setTimeoutAfter(MIRROR_REQUEST_TIMEOUT_MS)
+            .build()
+        getSystemService(NotificationManager::class.java).notify(CAMERA_REQUEST_ID, notification)
+        if (MirrorControlService.isEnabled(this)) runCatching { startActivity(camera) }
+    }
+
+    fun sendCapture(photo: Uri) {
+        getSystemService(NotificationManager::class.java).cancel(CAMERA_REQUEST_ID)
+        transfers.upload(listOf(photo), capture = true)
+    }
+
     private fun cancelMirrorRequest() {
         getSystemService(NotificationManager::class.java).cancel(MIRROR_REQUEST_ID)
     }
@@ -530,6 +570,7 @@ class BridgeService : Service() {
         private const val CALL_LOG_SETTLE_MS = 1_000L
         private const val NOTIFICATION_ID = 1
         private const val MIRROR_REQUEST_ID = 4
+        const val CAMERA_REQUEST_ID = 5
         private const val MIRROR_REQUEST_TIMEOUT_MS = 120_000L
         private const val RECEIVE_TIMEOUT_MS = 6 * 60_000
         private const val SHUTDOWN_CLOSE_MS = 1_000L
@@ -549,6 +590,12 @@ class BridgeService : Service() {
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             intent.clipData = clip
             context.startForegroundService(intent)
+        }
+
+        fun captured(photo: Uri): Boolean {
+            val service = instance ?: return false
+            service.sendCapture(photo)
+            return true
         }
 
         fun mirrorStarted(control: Boolean) {

@@ -121,7 +121,14 @@ data class NotificationAction(val key: String, val action: Int, val reply: Strin
 data class NotificationFilter(val muted: List<String>)
 
 @Serializable
-data class TransferFile(val id: String, val name: String, val size: Long, val mime: String? = null, val folder: String? = null)
+data class TransferFile(
+    val id: String,
+    val name: String,
+    val size: Long,
+    val mime: String? = null,
+    val folder: String? = null,
+    val capture: Boolean? = null,
+)
 
 @Serializable
 data class TransferID(val id: String)
@@ -163,10 +170,16 @@ data class RecentCall(
 data class RecentCalls(val calls: List<RecentCall>)
 
 @Serializable
-data class GalleryRequest(val limit: Int)
+data class GalleryRequest(val limit: Int, val offset: Int? = null, val album: String? = null, val videos: Boolean? = null)
 
 @Serializable
-data class GalleryPhoto(val id: String, val name: String, val time: Long, val thumbnail: String)
+data class GalleryPhoto(val id: String, val name: String, val time: Long, val thumbnail: String, val duration: Int? = null)
+
+@Serializable
+data class GalleryAlbum(val id: String, val name: String, val count: Int)
+
+@Serializable
+data class GalleryAlbums(val albums: List<GalleryAlbum>)
 
 @Serializable
 data class GalleryResults(val photos: List<GalleryPhoto>)
@@ -306,6 +319,9 @@ sealed interface Message {
     data class MirrorKeyMessage(val body: MirrorKey) : Message { override val type get() = "mirror.key" }
     data class MirrorTextMessage(val body: MirrorText) : Message { override val type get() = "mirror.text" }
     data object MirrorStop : Message { override val type get() = "mirror.stop" }
+    data object GalleryAlbumsRequest : Message { override val type get() = "gallery.albums" }
+    data object CameraCapture : Message { override val type get() = "camera.capture" }
+    data class GalleryAlbumListMessage(val body: GalleryAlbums) : Message { override val type get() = "gallery.albumList" }
     data object MirrorSync : Message { override val type get() = "mirror.sync" }
     data class ErrorMessage(val body: BridgeError) : Message { override val type get() = "error" }
     data object Ping : Message { override val type get() = "ping" }
@@ -383,6 +399,9 @@ object Codec {
             "mirror.key" -> Message.MirrorKeyMessage(body(MirrorKey.serializer()))
             "mirror.text" -> Message.MirrorTextMessage(body(MirrorText.serializer()))
             "mirror.stop" -> Message.MirrorStop
+            "gallery.albums" -> Message.GalleryAlbumsRequest
+            "camera.capture" -> Message.CameraCapture
+            "gallery.albumList" -> Message.GalleryAlbumListMessage(body(GalleryAlbums.serializer()))
             "mirror.sync" -> Message.MirrorSync
             "error" -> Message.ErrorMessage(body(BridgeError.serializer()))
             "ping" -> Message.Ping
@@ -443,6 +462,8 @@ object Codec {
         is Message.MirrorKeyMessage -> json.encodeToJsonElement(MirrorKey.serializer(), message.body)
         is Message.MirrorTextMessage -> json.encodeToJsonElement(MirrorText.serializer(), message.body)
         is Message.ErrorMessage -> json.encodeToJsonElement(BridgeError.serializer(), message.body)
-        Message.Unpair, Message.Ping, Message.Pong, Message.MirrorStop, Message.MirrorSync, is Message.Unknown -> null
+        is Message.GalleryAlbumListMessage -> json.encodeToJsonElement(GalleryAlbums.serializer(), message.body)
+        Message.Unpair, Message.Ping, Message.Pong, Message.MirrorStop, Message.MirrorSync,
+        Message.GalleryAlbumsRequest, Message.CameraCapture, is Message.Unknown -> null
     }
 }

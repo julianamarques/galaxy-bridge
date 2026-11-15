@@ -159,8 +159,6 @@
 "Avisar quando a bateria do Galaxy estiver fraca ou carregada" = "Notify when the Galaxy's battery is low or charged";
 "Bateria fraca no %@" = "%@ battery low";
 "Feita" = "Outgoing";
-"Fotos Recentes" = "Recent Photos";
-"Importar %@ para Downloads" = "Import %@ to Downloads";
 "Ontem" = "Yesterday";
 "Parar de Tocar o %@" = "Stop Ringing %@";
 "Perdida" = "Missed";
@@ -231,3 +229,15 @@
 "Sobre" = "About";
 "Ver no GitHub" = "View on GitHub";
 "Versão %@" = "Version %@";
+"Cole com ⌘V. Ela também está em Downloads." = "Paste it with ⌘V. It's also in Downloads.";
+"Ela chega no Mac copiada, pronta para colar." = "It arrives on the Mac copied, ready to paste.";
+"Foto do Galaxy copiada" = "Galaxy photo copied";
+"Fotos do %@" = "%@ Photos";
+"Fotos do Galaxy" = "Galaxy Photos";
+"Fotos e Vídeos do %@…" = "%@ Photos and Videos…";
+"Nenhuma foto" = "No photos";
+"Não foi possível abrir as fotos" = "Couldn't open the photos";
+"Tirar Foto com o %@" = "Take Photo with the %@";
+"Tire a foto no %@" = "Take the photo on the %@";
+"Todas" = "All";
+"Álbuns" = "Albums";

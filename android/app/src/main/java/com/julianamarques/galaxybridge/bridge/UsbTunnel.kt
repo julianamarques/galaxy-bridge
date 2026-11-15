@@ -36,6 +36,9 @@ object UsbTunnel {
 
     @Volatile var onChange: (() -> Unit)? = null
 
+    @Volatile var readyAt = 0L
+        private set
+
     private var accessory: UsbAccessory? = null
     private var descriptor: ParcelFileDescriptor? = null
     private var server: ServerSocket? = null
@@ -66,6 +69,7 @@ object UsbTunnel {
         this.output = output
         this.server = server
         port = server.localPort
+        readyAt = System.currentTimeMillis()
         Diagnostics.record(context, "Cabo USB conectado ao Mac")
         thread(name = "usb-read") { readUsb(input, context) }
         thread(name = "usb-accept") { accept(server) }
@@ -127,6 +131,8 @@ object UsbTunnel {
                 if (type == RESET) {
                     channels.values.forEach { runCatching { it.close() } }
                     channels.clear()
+                    readyAt = System.currentTimeMillis()
+                    onChange?.invoke()
                     continue
                 }
                 val socket = channels[channel] ?: continue

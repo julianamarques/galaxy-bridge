@@ -44,11 +44,10 @@ final class AppModel: ObservableObject {
     @Published private(set) var media: MediaState?
     @Published private(set) var phoneStatus: PhoneStatus?
     let fileBrowser = FileBrowser()
+    let galleryBrowser = GalleryBrowser()
     let mirror = MirrorController()
     let usb = AccessoryUSB()
     @Published private(set) var isAppOverUSB = false
-    @Published private(set) var gallery: [GalleryItem] = []
-    @Published private(set) var galleryError: String?
     @Published var setupRequested = false
 
     lazy var setup = SetupModel(app: self)
@@ -60,8 +59,6 @@ final class AppModel: ObservableObject {
     private var searchRequest: String?
     private var searchTask: Task<Void, Never>?
     private var requestedPhotos: Set<String> = []
-    private var galleryRequest: String?
-    private static let galleryLimit = 8
     private static let lowBatteryLevels = [10, 20]
     static let batteryAlertsKey = "batteryAlerts"
     private static let searchDelay: Duration = .milliseconds(150)
@@ -84,6 +81,7 @@ final class AppModel: ObservableObject {
         notifier.send = { [weak self] in self?.bridge?.send($0) }
         notifier.callBack = { [weak self] number in PhoneNumber(number).map { self?.call($0) } }
         fileBrowser.send = { [weak self] in self?.bridge?.send($0) }
+        galleryBrowser.send = { [weak self] in self?.bridge?.send($0) }
         mirror.findDevice = { [weak self] in await self?.mirrorDevice() }
         usb.isEnabled = { [weak self] in self?.appPhone != nil }
         mirror.sendFiles = { [weak self] urls in
@@ -446,11 +444,17 @@ final class AppModel: ObservableObject {
         sendFiles(panel.urls)
     }
 
-    private func fileReceived(_ file: URL, name: String) {
+    private func fileReceived(_ file: URL, name: String, capture: Bool) {
         let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
         do {
             let saved = try Transfer.place(file, named: name, in: downloads)
             Log.phone.info("Arquivo recebido do Galaxy salvo em Downloads")
+            if capture, let image = NSImage(contentsOf: saved) {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.writeObjects([image, saved as NSURL])
+                notifier.photoCaptured(saved)
+                return
+            }
             notifier.fileReceived(saved)
         } catch {
             Log.phone.error("Não foi possível salvar o arquivo recebido: \(error.localizedDescription, privacy: .public)")
@@ -485,13 +489,9 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func refreshGallery() {
-        guard isAppConnected else { return }
-        galleryRequest = bridge?.send(.galleryRequest(GalleryRequest(limit: Self.galleryLimit)))
-    }
-
-    func importPhoto(_ id: String) {
-        bridge?.send(.galleryImport(GalleryID(id: id)))
+    func takePhoto() {
+        guard bridge?.send(.cameraCapture) != nil else { return }
+        notifier.clipboard(String(localized: "Tire a foto no \(deviceName)"), text: String(localized: "Ela chega no Mac copiada, pronta para colar."))
     }
 
     private func batteryChanged(from old: Battery?) {
@@ -670,9 +670,8 @@ extension AppModel {
             media = nil
             phoneStatus = nil
             fileBrowser.disconnected()
+            galleryBrowser.disconnected()
             mirror.appTransport?.streamEnded()
-            gallery = []
-            galleryError = nil
         case .paired(let phone):
             didPairApp(phone)
         case .pairingExpired:
@@ -704,7 +703,7 @@ extension AppModel {
         case .transferEnded(let id, let outcome):
             transfers.removeAll { $0.id == id }
             switch outcome {
-            case .received(let file, let name): fileReceived(file, name: name)
+            case .received(let file, let name, let capture): fileReceived(file, name: name, capture: capture)
             case .sent(let name, let ok):
                 notifier.fileSent(name, ok: ok)
                 fileBrowser.uploaded()
@@ -729,10 +728,10 @@ extension AppModel {
         case .recentCalls(let calls):
             recentCalls = calls
             for contact in calls.compactMap(\.contact) { requestPhoto(contact) }
+        case .galleryAlbums(let albums, let replyTo):
+            galleryBrowser.received(albums, replyTo: replyTo)
         case .gallery(let photos, let replyTo):
-            guard replyTo != nil, replyTo == galleryRequest else { return }
-            galleryError = nil
-            gallery = photos.compactMap(GalleryItem.init)
+            _ = galleryBrowser.received(photos, replyTo: replyTo)
         case .link(let link):
             openFromPhone(link)
         case .media(let state):
@@ -751,8 +750,8 @@ extension AppModel {
         case .error(let error, let replyTo):
             if replyTo != nil, replyTo == searchRequest {
                 contactsError = error.message
-            } else if replyTo != nil, replyTo == galleryRequest {
-                galleryError = error.message
+            } else if galleryBrowser.failed(error.message, replyTo: replyTo) {
+                break
             } else if fileBrowser.failed(error.message, replyTo: replyTo) {
                 break
             } else {
@@ -781,19 +780,6 @@ extension AppModel {
         var model = [CChar](repeating: 0, count: max(size, 1))
         sysctlbyname("hw.model", &model, &size, nil, 0)
         return String(decoding: model.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
-    }
-}
-
-struct GalleryItem: Identifiable {
-    let id: String
-    let name: String
-    let image: NSImage
-
-    init?(_ photo: GalleryPhoto) {
-        guard let image = NSImage(data: photo.thumbnail) else { return nil }
-        id = photo.id
-        name = photo.name
-        self.image = image
     }
 }
 
