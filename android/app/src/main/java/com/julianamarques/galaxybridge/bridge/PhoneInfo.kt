@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.BatteryManager
 import android.os.Build
+import android.os.Environment
+import android.os.StatFs
 import android.provider.Settings
 import android.telephony.TelephonyManager
 import com.julianamarques.galaxybridge.BuildConfig
@@ -17,7 +19,7 @@ object PhoneInfo {
 
     fun hello(context: Context) = Hello(appVersion = BuildConfig.VERSION_NAME, name = name(context), model = Build.MODEL)
 
-    fun status(context: Context, battery: Intent): PhoneStatus {
+    fun status(context: Context, battery: Intent, signals: PhoneSignals?): PhoneStatus {
         val level = battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = battery.getIntExtra(BatteryManager.EXTRA_SCALE, 100).takeIf { it > 0 } ?: 100
         val status = battery.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
@@ -29,6 +31,19 @@ object PhoneInfo {
             ),
             networkCountry = telephony?.networkCountryIso?.takeIf { it.isNotBlank() }?.uppercase(),
             simCountry = telephony?.simCountryIso?.takeIf { it.isNotBlank() }?.uppercase(),
+            carrier = (telephony?.networkOperatorName?.takeIf { it.isNotBlank() } ?: telephony?.simOperatorName)?.takeIf { it.isNotBlank() },
+            signal = signals?.signal,
+            network = signals?.network,
+            wifi = signals?.wifi,
+            storage = storage(),
+            dnd = NotificationListener.dnd,
         )
     }
+
+    private fun storage(): PhoneStatus.Storage? = runCatching {
+        val stat = StatFs(Environment.getDataDirectory().path)
+        PhoneStatus.Storage(free = stat.availableBytes / STORAGE_STEP * STORAGE_STEP, total = stat.totalBytes)
+    }.getOrNull()
+
+    private const val STORAGE_STEP = 100_000_000L
 }

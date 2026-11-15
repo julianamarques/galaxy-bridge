@@ -11,6 +11,8 @@ import com.julianamarques.galaxybridge.Diagnostics
 class NotificationListener : NotificationListenerService() {
     override fun onListenerConnected() {
         instance = this
+        onDndChanged?.invoke()
+        onConnected?.invoke()
         val rankings = runCatching { currentRanking }.getOrNull()
         runCatching { activeNotifications }.getOrNull()?.forEach {
             read(it)
@@ -26,6 +28,10 @@ class NotificationListener : NotificationListenerService() {
     override fun onNotificationPosted(notification: StatusBarNotification, rankingMap: RankingMap?) {
         read(notification)
         NotificationRelay.posted(this, notification, ranking(notification, rankingMap), announce = true)
+    }
+
+    override fun onInterruptionFilterChanged(interruptionFilter: Int) {
+        onDndChanged?.invoke()
     }
 
     override fun onNotificationRemoved(notification: StatusBarNotification) {
@@ -69,6 +75,19 @@ class NotificationListener : NotificationListenerService() {
 
     companion object {
         @Volatile private var instance: NotificationListener? = null
+        @Volatile var onDndChanged: (() -> Unit)? = null
+        @Volatile var onConnected: (() -> Unit)? = null
+
+        val dnd: Boolean?
+            get() = instance?.let { listener ->
+                runCatching { listener.currentInterruptionFilter }.getOrNull()
+                    ?.takeIf { it != INTERRUPTION_FILTER_UNKNOWN }
+                    ?.let { it != INTERRUPTION_FILTER_ALL }
+            }
+
+        fun setDnd(on: Boolean) {
+            instance?.let { runCatching { it.requestInterruptionFilter(if (on) INTERRUPTION_FILTER_PRIORITY else INTERRUPTION_FILTER_ALL) } }
+        }
 
         fun dismiss(key: String) {
             instance?.let { runCatching { it.cancelNotification(key) } }

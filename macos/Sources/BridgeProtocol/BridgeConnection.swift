@@ -15,7 +15,20 @@ final class BridgeConnection {
     private var whenCancelled: (@MainActor () -> Void)?
 
     var onMessage: ((Envelope) -> Void)?
+    var onRawFrame: ((Data) -> Void)?
     var onClose: (() -> Void)?
+
+    var host: String? {
+        guard case .hostPort(let host, _) = connection.endpoint else { return nil }
+        let text: String
+        switch host {
+        case .ipv4(let address): text = "\(address)"
+        case .ipv6(let address): text = "\(address)"
+        case .name(let name, _): text = name
+        @unknown default: return nil
+        }
+        return String(text.split(separator: "%").first ?? "").replacingOccurrences(of: "::ffff:", with: "")
+    }
 
     init(_ connection: NWConnection) {
         self.connection = connection
@@ -86,6 +99,10 @@ final class BridgeConnection {
                     self.awaitingPong = false
                     do {
                         for body in try self.decoder.append(data) {
+                            if let raw = self.onRawFrame {
+                                raw(body)
+                                continue
+                            }
                             guard let envelope = try? Frame.decoder.decode(Envelope.self, from: body) else { continue }
                             self.onMessage?(envelope)
                             if self.isClosed { return }

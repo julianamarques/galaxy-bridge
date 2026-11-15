@@ -17,8 +17,15 @@ struct MenuView: View {
                 if case .failed(let problem) = app.connection {
                     problemView(problem)
                 }
+                if app.isAppConnected, let status = app.phoneStatus {
+                    PhoneStatusBar(status: status)
+                }
                 MenuDivider()
                 dialer
+                if app.isAppConnected, let media = app.media {
+                    MenuDivider()
+                    MediaSection(media: media)
+                }
                 if app.isAppConnected, !app.gallery.isEmpty || app.galleryError != nil {
                     MenuDivider()
                     gallery
@@ -271,6 +278,13 @@ struct MenuView: View {
                 Button(app.isRinging ? "Parar de Tocar o \(app.deviceName)" : "Tocar o \(app.deviceName)") { app.toggleRing() }
                     .buttonStyle(MenuRowStyle())
                     .disabled(!app.isAppConnected)
+                MirrorMenuItem(mirror: app.mirror, deviceName: app.deviceName)
+                Button("Arquivos do \(app.deviceName)…") {
+                    openWindow(id: FileBrowser.windowID)
+                    NSApp.activate()
+                }
+                .buttonStyle(MenuRowStyle())
+                .disabled(!app.isAppConnected)
                 Button("Enviar Arquivo para o \(app.deviceName)…") { app.chooseFilesToSend() }
                     .buttonStyle(MenuRowStyle())
                     .disabled(!app.isAppConnected)
@@ -328,7 +342,7 @@ private struct DeviceBadge: View {
     }
 }
 
-private struct MenuSectionTitle: View {
+struct MenuSectionTitle: View {
     let title: LocalizedStringKey
 
     init(_ title: LocalizedStringKey) {

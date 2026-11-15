@@ -47,6 +47,22 @@ public enum Message: Equatable, Sendable {
     case galleryRequest(GalleryRequest)
     case galleryResults(GalleryResults)
     case galleryImport(GalleryID)
+    case link(Link)
+    case mediaState(MediaState)
+    case mediaControl(MediaControl)
+    case dnd(DoNotDisturb)
+    case filesList(FilesList)
+    case filesListing(FilesListing)
+    case filesGet(FilesList)
+    case mirrorStart(MirrorStart)
+    case mirrorState(MirrorState)
+    case mirrorStream(MirrorStream)
+    case mirrorTouch(MirrorTouch)
+    case mirrorScroll(MirrorScroll)
+    case mirrorKey(MirrorKey)
+    case mirrorText(MirrorText)
+    case mirrorStop
+    case mirrorSync
     case error(BridgeError)
     case ping
     case pong
@@ -86,6 +102,22 @@ public enum Message: Equatable, Sendable {
         case .galleryRequest: "gallery.request"
         case .galleryResults: "gallery.results"
         case .galleryImport: "gallery.import"
+        case .link: "link"
+        case .mediaState: "media.state"
+        case .mediaControl: "media.control"
+        case .dnd: "dnd"
+        case .filesList: "files.list"
+        case .filesListing: "files.listing"
+        case .filesGet: "files.get"
+        case .mirrorStart: "mirror.start"
+        case .mirrorState: "mirror.state"
+        case .mirrorStream: "mirror.stream"
+        case .mirrorTouch: "mirror.touch"
+        case .mirrorScroll: "mirror.scroll"
+        case .mirrorKey: "mirror.key"
+        case .mirrorText: "mirror.text"
+        case .mirrorStop: "mirror.stop"
+        case .mirrorSync: "mirror.sync"
         case .error: "error"
         case .ping: "ping"
         case .pong: "pong"
@@ -152,14 +184,46 @@ public struct PhoneStatus: Codable, Equatable, Sendable {
         }
     }
 
+    public struct Storage: Codable, Equatable, Sendable {
+        public var free: Int64
+        public var total: Int64
+
+        public init(free: Int64, total: Int64) {
+            self.free = free
+            self.total = total
+        }
+    }
+
     public var battery: Battery
     public var networkCountry: String?
     public var simCountry: String?
+    public var carrier: String?
+    public var signal: Int?
+    public var network: String?
+    public var wifi: Int?
+    public var storage: Storage?
+    public var dnd: Bool?
 
-    public init(battery: Battery, networkCountry: String? = nil, simCountry: String? = nil) {
+    public init(
+        battery: Battery,
+        networkCountry: String? = nil,
+        simCountry: String? = nil,
+        carrier: String? = nil,
+        signal: Int? = nil,
+        network: String? = nil,
+        wifi: Int? = nil,
+        storage: Storage? = nil,
+        dnd: Bool? = nil
+    ) {
         self.battery = battery
         self.networkCountry = networkCountry
         self.simCountry = simCountry
+        self.carrier = carrier
+        self.signal = signal
+        self.network = network
+        self.wifi = wifi
+        self.storage = storage
+        self.dnd = dnd
     }
 }
 
@@ -348,12 +412,14 @@ public struct TransferFile: Codable, Equatable, Sendable {
     public var name: String
     public var size: Int64
     public var mime: String?
+    public var folder: String?
 
-    public init(id: String, name: String, size: Int64, mime: String? = nil) {
+    public init(id: String, name: String, size: Int64, mime: String? = nil, folder: String? = nil) {
         self.id = id
         self.name = name
         self.size = size
         self.mime = mime
+        self.folder = folder
     }
 }
 
@@ -478,6 +544,190 @@ public struct GalleryID: Codable, Equatable, Sendable {
     }
 }
 
+public struct Link: Codable, Equatable, Sendable {
+    public var url: String
+
+    public init(url: String) {
+        self.url = url
+    }
+}
+
+public struct MediaState: Codable, Equatable, Sendable {
+    public var app: String?
+    public var appName: String?
+    public var title: String?
+    public var artist: String?
+    public var playing: Bool
+    public var artwork: Data?
+
+    public init(app: String? = nil, appName: String? = nil, title: String? = nil, artist: String? = nil, playing: Bool, artwork: Data? = nil) {
+        self.app = app
+        self.appName = appName
+        self.title = title
+        self.artist = artist
+        self.playing = playing
+        self.artwork = artwork
+    }
+}
+
+public struct MediaControl: Codable, Equatable, Sendable {
+    public enum Action: String, Codable, Sendable {
+        case play
+        case pause
+        case next
+        case previous
+    }
+
+    public var action: Action
+
+    public init(action: Action) {
+        self.action = action
+    }
+}
+
+public struct DoNotDisturb: Codable, Equatable, Sendable {
+    public var on: Bool
+
+    public init(on: Bool) {
+        self.on = on
+    }
+}
+
+public struct FilesList: Codable, Equatable, Sendable {
+    public var path: String
+
+    public init(path: String) {
+        self.path = path
+    }
+}
+
+public struct PhoneFile: Codable, Equatable, Identifiable, Sendable {
+    public var name: String
+    public var folder: Bool
+    public var size: Int64
+    public var modified: Int64
+
+    public var id: String { name }
+
+    public init(name: String, folder: Bool, size: Int64, modified: Int64) {
+        self.name = name
+        self.folder = folder
+        self.size = size
+        self.modified = modified
+    }
+}
+
+public struct FilesListing: Codable, Equatable, Sendable {
+    public var path: String
+    public var files: [PhoneFile]
+
+    public init(path: String, files: [PhoneFile]) {
+        self.path = path
+        self.files = files
+    }
+}
+
+public struct MirrorStart: Codable, Equatable, Sendable {
+    public var maxSize: Int?
+    public var bitRate: Int
+
+    public init(maxSize: Int?, bitRate: Int) {
+        self.maxSize = maxSize
+        self.bitRate = bitRate
+    }
+}
+
+public struct MirrorState: Codable, Equatable, Sendable {
+    public enum State: String, Codable, Sendable {
+        case waiting
+        case running
+        case stopped
+    }
+
+    public var state: State
+    public var control: Bool?
+    public var message: String?
+
+    public init(state: State, control: Bool? = nil, message: String? = nil) {
+        self.state = state
+        self.control = control
+        self.message = message
+    }
+}
+
+public struct MirrorStream: Codable, Equatable, Sendable {
+    public var codec: String
+
+    public init(codec: String) {
+        self.codec = codec
+    }
+}
+
+public struct MirrorTouch: Codable, Equatable, Sendable {
+    public enum Action: String, Codable, Sendable {
+        case down
+        case move
+        case up
+    }
+
+    public var action: Action
+    public var x: Int
+    public var y: Int
+    public var width: Int
+    public var height: Int
+
+    public init(action: Action, x: Int, y: Int, width: Int, height: Int) {
+        self.action = action
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+    }
+}
+
+public struct MirrorScroll: Codable, Equatable, Sendable {
+    public var x: Int
+    public var y: Int
+    public var width: Int
+    public var height: Int
+    public var dx: Double
+    public var dy: Double
+
+    public init(x: Int, y: Int, width: Int, height: Int, dx: Double, dy: Double) {
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.dx = dx
+        self.dy = dy
+    }
+}
+
+public struct MirrorKey: Codable, Equatable, Sendable {
+    public enum Key: String, Codable, Sendable {
+        case back
+        case home
+        case recents
+        case enter
+        case delete
+        case notifications
+    }
+
+    public var key: Key
+
+    public init(key: Key) {
+        self.key = key
+    }
+}
+
+public struct MirrorText: Codable, Equatable, Sendable {
+    public var text: String
+
+    public init(text: String) {
+        self.text = text
+    }
+}
+
 public struct BridgeError: Codable, Equatable, Sendable, Error {
     public enum Code: String, Codable, Sendable {
         case version
@@ -537,6 +787,22 @@ extension Envelope: Codable {
         case "gallery.request": .galleryRequest(try container.decode(GalleryRequest.self, forKey: .body))
         case "gallery.results": .galleryResults(try container.decode(GalleryResults.self, forKey: .body))
         case "gallery.import": .galleryImport(try container.decode(GalleryID.self, forKey: .body))
+        case "link": .link(try container.decode(Link.self, forKey: .body))
+        case "media.state": .mediaState(try container.decode(MediaState.self, forKey: .body))
+        case "media.control": .mediaControl(try container.decode(MediaControl.self, forKey: .body))
+        case "dnd": .dnd(try container.decode(DoNotDisturb.self, forKey: .body))
+        case "files.list": .filesList(try container.decode(FilesList.self, forKey: .body))
+        case "files.listing": .filesListing(try container.decode(FilesListing.self, forKey: .body))
+        case "files.get": .filesGet(try container.decode(FilesList.self, forKey: .body))
+        case "mirror.start": .mirrorStart(try container.decode(MirrorStart.self, forKey: .body))
+        case "mirror.state": .mirrorState(try container.decode(MirrorState.self, forKey: .body))
+        case "mirror.stream": .mirrorStream(try container.decode(MirrorStream.self, forKey: .body))
+        case "mirror.touch": .mirrorTouch(try container.decode(MirrorTouch.self, forKey: .body))
+        case "mirror.scroll": .mirrorScroll(try container.decode(MirrorScroll.self, forKey: .body))
+        case "mirror.key": .mirrorKey(try container.decode(MirrorKey.self, forKey: .body))
+        case "mirror.text": .mirrorText(try container.decode(MirrorText.self, forKey: .body))
+        case "mirror.stop": .mirrorStop
+        case "mirror.sync": .mirrorSync
         case "error": .error(try container.decode(BridgeError.self, forKey: .body))
         case "ping": .ping
         case "pong": .pong
@@ -577,8 +843,21 @@ extension Envelope: Codable {
         case .galleryRequest(let body): try container.encode(body, forKey: .body)
         case .galleryResults(let body): try container.encode(body, forKey: .body)
         case .galleryImport(let body): try container.encode(body, forKey: .body)
+        case .link(let body): try container.encode(body, forKey: .body)
+        case .mediaState(let body): try container.encode(body, forKey: .body)
+        case .mediaControl(let body): try container.encode(body, forKey: .body)
+        case .dnd(let body): try container.encode(body, forKey: .body)
+        case .filesList(let body), .filesGet(let body): try container.encode(body, forKey: .body)
+        case .filesListing(let body): try container.encode(body, forKey: .body)
+        case .mirrorStart(let body): try container.encode(body, forKey: .body)
+        case .mirrorState(let body): try container.encode(body, forKey: .body)
+        case .mirrorStream(let body): try container.encode(body, forKey: .body)
+        case .mirrorTouch(let body): try container.encode(body, forKey: .body)
+        case .mirrorScroll(let body): try container.encode(body, forKey: .body)
+        case .mirrorKey(let body): try container.encode(body, forKey: .body)
+        case .mirrorText(let body): try container.encode(body, forKey: .body)
         case .error(let body): try container.encode(body, forKey: .body)
-        case .unpair, .ping, .pong, .unknown: break
+        case .unpair, .ping, .pong, .mirrorStop, .mirrorSync, .unknown: break
         }
     }
 }

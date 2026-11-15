@@ -10,3 +10,6 @@ macos/Resources/adb.version
 .kotlin/
 local.properties
 spikes/phase0-tls/mac/identity/
+macos/Resources/scrcpy-server
+macos/Resources/scrcpy-LICENSE.txt
+macos/Resources/scrcpy.version

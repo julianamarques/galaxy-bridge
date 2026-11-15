@@ -16,4 +16,14 @@ final class SendToGalaxyService: NSObject {
         }
         app.sendFiles(urls)
     }
+
+    @objc func openOnGalaxy(_ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString?>) {
+        let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL] ?? []
+        let typed = pasteboard.string(forType: .string).flatMap { URL(string: $0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        guard let url = (urls + [typed].compactMap { $0 }).first(where: { ["http", "https"].contains($0.scheme?.lowercased()) }) else {
+            error.pointee = String(localized: "Nenhum link para abrir.") as NSString
+            return
+        }
+        app.openOnPhone(url)
+    }
 }

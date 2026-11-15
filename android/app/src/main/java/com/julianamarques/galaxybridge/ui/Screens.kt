@@ -40,6 +40,9 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Contacts
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.ScreenShare
 import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Person
@@ -393,6 +396,9 @@ private val features = listOf(
     Feature(Icons.Rounded.Contacts, R.string.feature_contacts, R.string.feature_contacts_on, Permission.Contacts),
     Feature(Icons.Rounded.Folder, R.string.feature_files, R.string.feature_files_on, Permission.Notifications),
     Feature(Icons.Rounded.PhotoLibrary, R.string.feature_photos, R.string.feature_photos_on, Permission.Photos),
+    Feature(Icons.Rounded.FolderOpen, R.string.feature_browse, R.string.feature_browse_on, Permission.AllFiles),
+    Feature(Icons.Rounded.MusicNote, R.string.feature_media, R.string.feature_media_on, Permission.CallerName),
+    Feature(Icons.Rounded.ScreenShare, R.string.feature_mirror, R.string.feature_mirror_on, Permission.MirrorControl),
     Feature(Icons.Rounded.ContentPaste, R.string.feature_clipboard, R.string.feature_clipboard_on, null),
     Feature(Icons.Rounded.Vibration, R.string.feature_find, R.string.feature_find_on, null),
 )
@@ -507,5 +513,7 @@ private val Permission.icon: ImageVector
         Permission.CallerName -> Icons.Rounded.Person
         Permission.Contacts -> Icons.Rounded.Contacts
         Permission.Photos -> Icons.Rounded.PhotoLibrary
+        Permission.AllFiles -> Icons.Rounded.FolderOpen
+        Permission.MirrorControl -> Icons.Rounded.ScreenShare
         Permission.Battery -> Icons.Rounded.BatteryChargingFull
     }

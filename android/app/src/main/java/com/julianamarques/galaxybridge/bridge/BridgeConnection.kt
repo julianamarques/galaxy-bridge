@@ -54,6 +54,10 @@ class BridgeConnection private constructor(
         synchronized(output) { Frames.write(output, envelope) }
     }
 
+    fun sendRaw(body: ByteArray, length: Int = body.size) {
+        synchronized(output) { Frames.writeRaw(output, body, length) }
+    }
+
     override fun close() {
         writer.shutdown()
         runCatching { socket.close() }

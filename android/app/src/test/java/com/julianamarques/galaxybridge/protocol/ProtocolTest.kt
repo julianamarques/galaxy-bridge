@@ -18,7 +18,7 @@ class ProtocolTest {
 
     @Test
     fun fixturesExist() {
-        assertTrue("Exemplos não encontrados em ${File("../../protocol/fixtures").absolutePath}", fixtures.size >= 40)
+        assertTrue("Exemplos não encontrados em ${File("../../protocol/fixtures").absolutePath}", fixtures.size >= 60)
     }
 
     @Test
@@ -35,7 +35,7 @@ class ProtocolTest {
     @Test
     fun ignoresUnknownTypesAndFields() {
         assertEquals(Message.Unknown("future.thing"), Codec.decode("""{"type":"future.thing","body":{"x":1}}""").message)
-        val status = Codec.decode("""{"type":"status","body":{"battery":{"level":5,"charging":true,"temp":30},"wifi":"x"}}""")
+        val status = Codec.decode("""{"type":"status","body":{"battery":{"level":5,"charging":true,"temp":30},"future":"x"}}""")
         assertEquals(Message.StatusMessage(PhoneStatus(PhoneStatus.Battery(5, true))), status.message)
     }
 

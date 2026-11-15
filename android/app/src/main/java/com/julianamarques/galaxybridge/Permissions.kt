@@ -10,9 +10,11 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.os.PowerManager
 import android.provider.Settings
 import com.julianamarques.galaxybridge.bridge.NotificationListener
+import com.julianamarques.galaxybridge.mirror.MirrorControlService
 
 enum class Permission(@StringRes val title: Int, @StringRes val reason: Int) {
     Notifications(R.string.permission_notifications, R.string.permission_notifications_reason),
@@ -20,6 +22,8 @@ enum class Permission(@StringRes val title: Int, @StringRes val reason: Int) {
     CallerName(R.string.permission_caller_name, R.string.permission_caller_name_reason),
     Contacts(R.string.permission_contacts, R.string.permission_contacts_reason),
     Photos(R.string.permission_photos, R.string.permission_photos_reason),
+    AllFiles(R.string.permission_all_files, R.string.permission_all_files_reason),
+    MirrorControl(R.string.permission_mirror_control, R.string.permission_mirror_control_reason),
     Battery(R.string.permission_battery, R.string.permission_battery_reason);
 
     val manifestPermissions: List<String>
@@ -35,11 +39,13 @@ enum class Permission(@StringRes val title: Int, @StringRes val reason: Int) {
             Photos -> listOf(
                 if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE,
             )
-            CallerName, Battery -> emptyList()
+            CallerName, Battery, AllFiles, MirrorControl -> emptyList()
         }
 
     fun isGranted(context: Context): Boolean = when (this) {
         Battery -> context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
+        AllFiles -> Environment.isExternalStorageManager()
+        MirrorControl -> MirrorControlService.isEnabled(context)
         CallerName -> context.getSystemService(NotificationManager::class.java)
             .isNotificationListenerAccessGranted(ComponentName(context, NotificationListener::class.java))
         else -> manifestPermissions.all { has(context, it) }
@@ -48,6 +54,8 @@ enum class Permission(@StringRes val title: Int, @StringRes val reason: Int) {
     @SuppressLint("BatteryLife")
     fun settingsIntent(context: Context): Intent? = when (this) {
         Battery -> Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}"))
+        AllFiles -> Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:${context.packageName}"))
+        MirrorControl -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
         CallerName -> Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS).putExtra(
             Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
             ComponentName(context, NotificationListener::class.java).flattenToString(),

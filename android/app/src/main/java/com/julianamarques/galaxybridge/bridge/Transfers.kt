@@ -21,7 +21,9 @@ import com.julianamarques.galaxybridge.protocol.TransferFile
 import com.julianamarques.galaxybridge.protocol.TransferID
 import com.julianamarques.galaxybridge.protocol.TransferResult
 import java.io.IOException
+import java.io.FileOutputStream
 import java.io.InputStream
+import java.io.OutputStream
 import java.text.NumberFormat
 import java.util.UUID
 import java.util.concurrent.Executors
@@ -102,8 +104,14 @@ class Transfers(private val context: Context) {
         }
     }
 
-    private fun receive(file: TransferFile, name: String, progress: Progress): Uri {
-        val connection = openMac()
+    private class Destination(val open: () -> OutputStream, val commit: () -> Uri?, val discard: () -> Unit)
+
+    private fun destination(file: TransferFile, name: String): Destination {
+        val folder = file.folder?.let(PhoneFiles::folder)
+        if (folder != null) {
+            val target = PhoneFiles.unique(folder, name)
+            return Destination({ FileOutputStream(target) }, { PhoneFiles.scan(context, target) }, { target.delete() })
+        }
         val resolver = context.contentResolver
         val values = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, name)
@@ -112,10 +120,23 @@ class Transfers(private val context: Context) {
             put(MediaStore.Downloads.IS_PENDING, 1)
         }
         val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: throw IOException("sem espaço")
+        return Destination(
+            open = { resolver.openOutputStream(uri)!! },
+            commit = {
+                resolver.update(uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
+                uri
+            },
+            discard = { resolver.delete(uri, null, null) },
+        )
+    }
+
+    private fun receive(file: TransferFile, name: String, progress: Progress): Uri? {
+        val connection = openMac()
+        val destination = destination(file, name)
         connection.use {
             try {
                 it.sendNow(Envelope(Message.TransferDownloadMessage(TransferID(file.id))))
-                resolver.openOutputStream(uri)!!.use { output ->
+                destination.open().use { output ->
                     while (progress.done < file.size) {
                         val chunk = (it.receive().message as? Message.TransferChunkMessage)?.body ?: throw IOException("mensagem inesperada")
                         val bytes = Base64.decode(chunk.data, Base64.NO_WRAP)
@@ -123,11 +144,11 @@ class Transfers(private val context: Context) {
                         progress.advance(bytes.size)
                     }
                 }
-                resolver.update(uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
+                val uri = destination.commit()
                 it.sendNow(Envelope(Message.TransferResultMessage(TransferResult(file.id, ok = true))))
                 return uri
             } catch (e: Exception) {
-                resolver.delete(uri, null, null)
+                destination.discard()
                 runCatching { it.sendNow(Envelope(Message.TransferResultMessage(TransferResult(file.id, ok = false, e.message)))) }
                 throw e
             }
@@ -201,16 +222,14 @@ class Transfers(private val context: Context) {
         )
     }
 
-    private fun received(notification: Int, name: String, file: Uri) {
-        val open = Intent(Intent.ACTION_VIEW).setDataAndType(file, context.contentResolver.getType(file))
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-        notifications.notify(
-            notification,
-            builder(R.string.transfer_received, name)
-                .setContentIntent(PendingIntent.getActivity(context, notification, open, PendingIntent.FLAG_IMMUTABLE))
-                .setAutoCancel(true)
-                .build(),
-        )
+    private fun received(notification: Int, name: String, file: Uri?) {
+        val builder = builder(R.string.transfer_received, name).setAutoCancel(true)
+        if (file != null) {
+            val open = Intent(Intent.ACTION_VIEW).setDataAndType(file, context.contentResolver.getType(file))
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            builder.setContentIntent(PendingIntent.getActivity(context, notification, open, PendingIntent.FLAG_IMMUTABLE))
+        }
+        notifications.notify(notification, builder.build())
     }
 
     private fun finished(notification: Int, name: String, error: String?, failure: Int = R.string.transfer_failed) {

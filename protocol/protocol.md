@@ -84,6 +84,20 @@ Sent when the user forgets the other device. The receiver forgets the sender too
 
 Countries are ISO 3166-1 alpha-2 codes in uppercase, left out when unknown (no signal, no SIM). The Mac uses them to format and dial numbers.
 
+```json
+{ "type": "status", "body": { "battery": { "level": 71, "charging": true }, "networkCountry": "BR", "simCountry": "BR", "carrier": "TIM", "signal": 3, "network": "5G", "wifi": 4, "storage": { "free": 61200000000, "total": 256000000000 }, "dnd": false } }
+```
+
+The other fields are optional and also left out when unknown. `carrier` is the network's name; `signal` (mobile) and `wifi` go from 0 to 4, and `wifi` is left out when the phone isn't on Wi-Fi; `network` is what the status bar shows (`2G`, `3G`, `4G`, `4G+`, `5G`); `storage` is the free and total space in bytes, the free space rounded down to 100 MB so it doesn't change all the time; `dnd` is whether Do Not Disturb is on. The phone sends `status` whenever any field changes.
+
+### `dnd` — Mac → phone
+
+```json
+{ "type": "dnd", "body": { "on": true } }
+```
+
+Turns Do Not Disturb on (priority only) or off. The phone answers with a new `status`. It works through the notification access, so without it nothing happens.
+
 ### `call.place` — Mac → phone
 
 ```json
@@ -206,6 +220,56 @@ The phone's latest calls, newest first, up to 8. Sent after `hello` and whenever
 ```
 
 The latest photos on the phone, newest first, up to `limit` (at most 24), each with a JPEG thumbnail of about 200 pixels in base64. The Mac asks each time its menu opens. `gallery.import` asks the phone to send that photo, which it does as a regular phone-to-Mac file transfer. Without the photos permission the phone answers `error` (`permission`).
+
+### `link` — both directions
+
+```json
+{ "type": "link", "body": { "url": "https://www.example.com/artigo?id=42" } }
+```
+
+A web address (`http` or `https`) to open on the other side. The Mac opens it in the default browser right away; the phone shows a notification that opens it with a tap, since Android doesn't let an app in the background open an activity. Sent only on an explicit action: sharing a link to "Enviar para o Mac" on the phone, or "Abrir no Galaxy" in the Mac's Services menu.
+
+### `media.state` / `media.control` — phone → Mac / Mac → phone
+
+```json
+{ "type": "media.state", "body": { "app": "com.spotify.music", "appName": "Spotify", "title": "Aquarela", "artist": "Toquinho", "playing": true, "artwork": "/9j/4AAQ…" } }
+{ "type": "media.state", "body": { "playing": false } }
+{ "type": "media.control", "body": { "action": "next" } }
+```
+
+`media.state` is what is playing on the phone, from its active media session (the one playing, or else the most recent). Sent after `hello` and on every change; without a `title` nothing is playing and the Mac hides the controls. `artwork` is a JPEG of up to 160 pixels in base64. `media.control` asks for `play`, `pause`, `next` or `previous`.
+
+### `files.list` / `files.listing` / `files.get` — Mac → phone / phone → Mac / Mac → phone
+
+```json
+{ "type": "files.list", "id": "f1", "body": { "path": "DCIM/Camera" } }
+{ "type": "files.listing", "replyTo": "f1", "body": { "path": "DCIM/Camera", "files": [ { "name": "20261017_111110.jpg", "folder": false, "size": 2578686, "modified": 1760700000000 } ] } }
+{ "type": "files.get", "body": { "path": "DCIM/Camera/20261017_111110.jpg" } }
+```
+
+Paths are relative to the phone's shared storage (`/storage/emulated/0`), `""` being its root; the phone refuses anything outside it. The listing leaves out hidden files and puts folders first. `files.get` asks the phone to send that file, as a regular phone-to-Mac transfer. Without the All files access the phone answers `error` (`permission`), and `failed` when the folder doesn't exist.
+
+To send a file into a folder, the Mac adds `folder` to `transfer.offer`; the phone saves it there (with a number added to the name if it exists) instead of `Download/Galaxy Bridge`.
+
+### `mirror.*` — screen mirroring
+
+```json
+{ "type": "mirror.start", "body": { "maxSize": 1920, "bitRate": 12000000 } }
+{ "type": "mirror.state", "body": { "state": "running", "control": true } }
+{ "type": "mirror.state", "body": { "state": "stopped", "message": "O espelhamento não foi permitido no Galaxy." } }
+{ "type": "mirror.stop" }
+{ "type": "mirror.sync" }
+{ "type": "mirror.touch", "body": { "action": "down", "x": 540, "y": 1170, "width": 1080, "height": 2340 } }
+{ "type": "mirror.scroll", "body": { "x": 540, "y": 1170, "width": 1080, "height": 2340, "dx": 1.5, "dy": -2.5 } }
+{ "type": "mirror.key", "body": { "key": "home" } }
+{ "type": "mirror.text", "body": { "text": "Olá" } }
+```
+
+`mirror.start` (Mac → phone) asks to mirror the screen, the video's longer side at most `maxSize` pixels (left out: the screen's own size) at `bitRate` bits per second. Android only lets the user start a screen recording, so the phone shows a notification and answers `mirror.state` `waiting`; tapping it opens Android's confirmation. Once the user confirms, the phone opens a second connection for the video (below) and sends `running`; `control` says whether the accessibility service that carries taps and keys is on. `stopped` ends it, with a `message` when it failed or was declined. `mirror.stop` (Mac → phone) stops it; `mirror.sync` asks for a key frame, after the Mac's decoder lost one.
+
+`mirror.touch`, `mirror.scroll`, `mirror.key` and `mirror.text` (Mac → phone) control the phone. Coordinates are in the video's pixels (`width` × `height`), so the phone scales them to its screen. `action` is `down`, `move` or `up`, for a single finger; `dx` and `dy` are the Mac's scroll amounts (positive moves the content right and down); `key` is `back`, `home`, `recents`, `notifications`, `enter` or `delete`; `text` is typed into the focused field.
+
+**The video** travels on its own TLS connection, opened by the phone like a file transfer: its first message is `{ "type": "mirror.stream", "body": { "codec": "h264" } }`. After that every frame (still 4-byte length + body) carries binary data instead of JSON: one byte for the kind, 8 bytes for the presentation time in microseconds (big-endian), then the payload. Kinds: `0` a new video size (the payload is two big-endian `u32`: width, height; sent at the start and when the phone rotates), `1` the codec configuration (H.264 SPS and PPS, Annex B), `2` a frame, `3` a key frame. Closing this connection ends the mirroring.
 
 ### File transfers
 

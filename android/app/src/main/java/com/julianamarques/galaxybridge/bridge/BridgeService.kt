@@ -18,7 +18,6 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.Uri
-import android.os.BatteryManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
@@ -42,6 +41,12 @@ import com.julianamarques.galaxybridge.protocol.NotificationKey
 import com.julianamarques.galaxybridge.protocol.NotificationKeys
 import com.julianamarques.galaxybridge.protocol.Envelope
 import com.julianamarques.galaxybridge.protocol.GalleryResults
+import com.julianamarques.galaxybridge.protocol.Link
+import com.julianamarques.galaxybridge.protocol.MirrorStart
+import com.julianamarques.galaxybridge.protocol.MirrorState
+import com.julianamarques.galaxybridge.mirror.MirrorConsentActivity
+import com.julianamarques.galaxybridge.mirror.MirrorControlService
+import com.julianamarques.galaxybridge.mirror.ScreenMirrorService
 import com.julianamarques.galaxybridge.protocol.Message
 import com.julianamarques.galaxybridge.protocol.PhoneStatus
 import com.julianamarques.galaxybridge.protocol.RecentCall
@@ -58,7 +63,7 @@ class BridgeService : Service() {
     @Volatile private var connection: BridgeConnection? = null
     @Volatile private var established = false
     @Volatile private var lastStatus: PhoneStatus? = null
-    @Volatile private var lastBattery: Pair<Int, Int>? = null
+    @Volatile private var batteryIntent: Intent? = null
     private var lastRecentCalls: List<RecentCall>? = null
     private var worker: Thread? = null
     private var callCallback: TelephonyCallback? = null
@@ -67,9 +72,15 @@ class BridgeService : Service() {
     private val recentCallsUpdate = Runnable { thread(name = "recent-calls") { sendRecentCalls() } }
     private lateinit var transfers: Transfers
     private lateinit var ringer: PhoneRinger
+    private lateinit var links: LinkNotifier
+    private lateinit var signals: PhoneSignals
+    private lateinit var media: MediaRelay
 
     private val batteryReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) = sendStatus(intent)
+        override fun onReceive(context: Context, intent: Intent) {
+            batteryIntent = intent
+            sendStatus()
+        }
     }
 
     private val shutdownReceiver = object : BroadcastReceiver() {
@@ -107,6 +118,11 @@ class BridgeService : Service() {
         running = true
         Diagnostics.record(this, "Serviço iniciado")
         transfers = Transfers(this)
+        links = LinkNotifier(this)
+        signals = PhoneSignals(this, ::sendStatus)
+        media = MediaRelay(this) { send(Message.MediaStateMessage(it)) }
+        NotificationListener.onDndChanged = ::sendStatus
+        NotificationListener.onConnected = media::start
         ringer = PhoneRinger(this, Intent(this, BridgeService::class.java).setAction(ACTION_STOP_RINGING)) {
             send(Message.RingMessage(Ring(it)))
         }
@@ -116,6 +132,8 @@ class BridgeService : Service() {
         NotificationRelay.onRemoved = { send(Message.NotificationRemovedMessage(NotificationKey(it))) }
         monitorCalls()
         watchCallLog()
+        signals.start()
+        media.start()
         registerReceiver(shutdownReceiver, IntentFilter(Intent.ACTION_SHUTDOWN))
         getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback)
         worker = thread(name = "bridge") { run() }
@@ -127,6 +145,8 @@ class BridgeService : Service() {
         if (intent?.action == ACTION_STOP_RINGING) ringer.stop()
         monitorCalls()
         watchCallLog()
+        signals.start()
+        media.start()
         wake()
         return START_STICKY
     }
@@ -135,6 +155,10 @@ class BridgeService : Service() {
         Diagnostics.record(this, "Serviço parado")
         transfers.shutdown()
         ringer.stop()
+        signals.stop()
+        media.stop()
+        NotificationListener.onDndChanged = null
+        NotificationListener.onConnected = null
         handler.removeCallbacks(recentCallsUpdate)
         callLogObserver?.let(contentResolver::unregisterContentObserver)
         callLogObserver = null
@@ -201,13 +225,13 @@ class BridgeService : Service() {
             }
             established = true
             lastStatus = null
-            lastBattery = null
             synchronized(handler) { lastRecentCalls = null }
             registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             CallTracker.current?.let(::sendCall)
             NotificationRelay.connected()
             connection.send(Envelope(Message.NotificationActiveMessage(NotificationKeys(NotificationRelay.activeKeys))))
             handler.post(recentCallsUpdate)
+            media.current.takeIf { it.title != null }?.let { connection.send(Envelope(Message.MediaStateMessage(it))) }
             connection.receiveTimeoutMs = RECEIVE_TIMEOUT_MS
             while (running) {
                 val envelope = connection.receive()
@@ -269,6 +293,30 @@ class BridgeService : Service() {
             is Message.NotificationFilterMessage -> NotificationRelay.muted = message.body.muted.toSet()
             is Message.TransferOfferMessage -> transfers.download(message.body)
             is Message.ClipboardMessage -> copy(message.body.text)
+            is Message.LinkMessage -> links.show(message.body.url)
+            is Message.MediaControlMessage -> media.control(message.body.action)
+            is Message.FilesListMessage -> thread(name = "files") {
+                val listing = if (PhoneFiles.canRead()) runCatching { PhoneFiles.list(message.body.path) }.getOrNull() else null
+                connection.send(
+                    when {
+                        listing != null -> Envelope(Message.FilesListingMessage(listing), replyTo = envelope.id)
+                        !PhoneFiles.canRead() -> Envelope(Message.ErrorMessage(BridgeError("permission", getString(R.string.error_files_permission))), replyTo = envelope.id)
+                        else -> Envelope(Message.ErrorMessage(BridgeError("failed", getString(R.string.error_files_missing))), replyTo = envelope.id)
+                    },
+                )
+            }
+            is Message.FilesGetMessage -> PhoneFiles.file(message.body.path)?.let { transfers.upload(listOf(Uri.fromFile(it))) }
+            is Message.DndMessage -> NotificationListener.setDnd(message.body.on)
+            is Message.MirrorStartMessage -> requestMirror(message.body)
+            Message.MirrorStop -> {
+                cancelMirrorRequest()
+                ScreenMirrorService.stop(this)
+            }
+            Message.MirrorSync -> ScreenMirrorService.instance?.requestKeyFrame()
+            is Message.MirrorTouchMessage -> MirrorControlService.instance?.touch(message.body)
+            is Message.MirrorScrollMessage -> MirrorControlService.instance?.scroll(message.body)
+            is Message.MirrorKeyMessage -> MirrorControlService.instance?.key(message.body.key)
+            is Message.MirrorTextMessage -> MirrorControlService.instance?.text(message.body.text)
             is Message.RingMessage -> if (message.body.on) ringer.start() else ringer.stop()
             is Message.GalleryRequestMessage -> thread(name = "gallery") {
                 connection.send(
@@ -308,15 +356,15 @@ class BridgeService : Service() {
         }
     }
 
-    private fun sendStatus(battery: Intent) {
+    private fun sendStatus() {
         val connection = connection ?: return
+        val battery = batteryIntent ?: return
         if (!established) return
-        val key = battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) to battery.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-        if (key == lastBattery) return
-        lastBattery = key
-        val status = PhoneInfo.status(this, battery)
-        if (status == lastStatus) return
-        lastStatus = status
+        val status = PhoneInfo.status(this, battery, signals)
+        synchronized(this) {
+            if (status == lastStatus) return
+            lastStatus = status
+        }
         connection.send(Envelope(Message.StatusMessage(status)))
     }
 
@@ -364,6 +412,29 @@ class BridgeService : Service() {
             getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText(getString(R.string.clipboard_label), text))
         }
         Diagnostics.record(this, "Texto copiado do Mac: ${text.length} caracteres")
+    }
+
+    private fun requestMirror(start: MirrorStart) {
+        ScreenMirrorService.createChannel(this)
+        val consent = Intent(this, MirrorConsentActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .putExtra(ScreenMirrorService.EXTRA_BIT_RATE, start.bitRate)
+        start.maxSize?.let { consent.putExtra(ScreenMirrorService.EXTRA_MAX_SIZE, it) }
+        val notification = Notification.Builder(this, ScreenMirrorService.CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(getString(R.string.mirror_request_title))
+            .setContentText(getString(R.string.mirror_request_text))
+            .setCategory(Notification.CATEGORY_RECOMMENDATION)
+            .setContentIntent(PendingIntent.getActivity(this, MIRROR_REQUEST_ID, consent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+            .setAutoCancel(true)
+            .setTimeoutAfter(MIRROR_REQUEST_TIMEOUT_MS)
+            .build()
+        getSystemService(NotificationManager::class.java).notify(MIRROR_REQUEST_ID, notification)
+        send(Message.MirrorStateMessage(MirrorState(MirrorState.WAITING, control = MirrorControlService.isEnabled(this))))
+    }
+
+    private fun cancelMirrorRequest() {
+        getSystemService(NotificationManager::class.java).cancel(MIRROR_REQUEST_ID)
     }
 
     private fun sendCall(call: CallState) {
@@ -441,6 +512,8 @@ class BridgeService : Service() {
         private const val ACTION_STOP_RINGING = "com.julianamarques.galaxybridge.STOP_RINGING"
         private const val CALL_LOG_SETTLE_MS = 1_000L
         private const val NOTIFICATION_ID = 1
+        private const val MIRROR_REQUEST_ID = 4
+        private const val MIRROR_REQUEST_TIMEOUT_MS = 120_000L
         private const val RECEIVE_TIMEOUT_MS = 6 * 60_000
         private const val SHUTDOWN_CLOSE_MS = 1_000L
         private val RETRY_DELAYS = listOf(2_000L, 5_000L, 15_000L, 30_000L, 60_000L, 120_000L, 300_000L)
@@ -460,6 +533,21 @@ class BridgeService : Service() {
             intent.clipData = clip
             context.startForegroundService(intent)
         }
+
+        fun mirrorStarted(control: Boolean) {
+            instance?.cancelMirrorRequest()
+            instance?.send(Message.MirrorStateMessage(MirrorState(MirrorState.RUNNING, control = control)))
+        }
+
+        fun mirrorStopped(failure: String?) {
+            instance?.send(Message.MirrorStateMessage(MirrorState(MirrorState.STOPPED, message = failure)))
+        }
+
+        fun mirrorDeclined(context: Context) {
+            instance?.send(Message.MirrorStateMessage(MirrorState(MirrorState.STOPPED, message = context.getString(R.string.mirror_declined))))
+        }
+
+        fun openOnMac(url: String): Boolean = instance?.send(Message.LinkMessage(Link(url))) == true
 
         fun copyToMac(text: String): Boolean =
             instance?.send(Message.ClipboardMessage(Clipboard(text.take(Clipboard.MAX_LENGTH)))) == true

@@ -73,6 +73,24 @@
 				<string>public.data</string>
 			</array>
 		</dict>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Abrir no Galaxy</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>openOnGalaxy</string>
+			<key>NSPortName</key>
+			<string>Galaxy Bridge</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendTypes</key>
+			<array>
+				<string>public.url</string>
+				<string>public.utf8-plain-text</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

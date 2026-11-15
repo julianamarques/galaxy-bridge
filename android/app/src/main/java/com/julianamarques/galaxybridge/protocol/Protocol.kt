@@ -34,9 +34,18 @@ data class PhoneStatus(
     val battery: Battery,
     val networkCountry: String? = null,
     val simCountry: String? = null,
+    val carrier: String? = null,
+    val signal: Int? = null,
+    val network: String? = null,
+    val wifi: Int? = null,
+    val storage: Storage? = null,
+    val dnd: Boolean? = null,
 ) {
     @Serializable
     data class Battery(val level: Int, val charging: Boolean)
+
+    @Serializable
+    data class Storage(val free: Long, val total: Long)
 }
 
 @Serializable
@@ -112,7 +121,7 @@ data class NotificationAction(val key: String, val action: Int, val reply: Strin
 data class NotificationFilter(val muted: List<String>)
 
 @Serializable
-data class TransferFile(val id: String, val name: String, val size: Long, val mime: String? = null)
+data class TransferFile(val id: String, val name: String, val size: Long, val mime: String? = null, val folder: String? = null)
 
 @Serializable
 data class TransferID(val id: String)
@@ -166,6 +175,83 @@ data class GalleryResults(val photos: List<GalleryPhoto>)
 data class GalleryID(val id: String)
 
 @Serializable
+data class Link(val url: String)
+
+@Serializable
+data class MediaState(
+    val app: String? = null,
+    val appName: String? = null,
+    val title: String? = null,
+    val artist: String? = null,
+    val playing: Boolean,
+    val artwork: String? = null,
+)
+
+@Serializable
+data class MediaControl(val action: String) {
+    companion object {
+        const val PLAY = "play"
+        const val PAUSE = "pause"
+        const val NEXT = "next"
+        const val PREVIOUS = "previous"
+    }
+}
+
+@Serializable
+data class DoNotDisturb(val on: Boolean)
+
+@Serializable
+data class FilesList(val path: String)
+
+@Serializable
+data class PhoneFile(val name: String, val folder: Boolean, val size: Long, val modified: Long)
+
+@Serializable
+data class FilesListing(val path: String, val files: List<PhoneFile>)
+
+@Serializable
+data class MirrorStart(val maxSize: Int? = null, val bitRate: Int)
+
+@Serializable
+data class MirrorState(val state: String, val control: Boolean? = null, val message: String? = null) {
+    companion object {
+        const val WAITING = "waiting"
+        const val RUNNING = "running"
+        const val STOPPED = "stopped"
+    }
+}
+
+@Serializable
+data class MirrorStream(val codec: String)
+
+@Serializable
+data class MirrorTouch(val action: String, val x: Int, val y: Int, val width: Int, val height: Int) {
+    companion object {
+        const val DOWN = "down"
+        const val MOVE = "move"
+        const val UP = "up"
+    }
+}
+
+@Serializable
+data class MirrorScroll(val x: Int, val y: Int, val width: Int, val height: Int, val dx: Double, val dy: Double)
+
+@Serializable
+data class MirrorKey(val key: String) {
+    companion object {
+        const val BACK = "back"
+        const val HOME = "home"
+        const val RECENTS = "recents"
+        const val ENTER = "enter"
+        const val DELETE = "delete"
+        const val NOTIFICATIONS = "notifications"
+    }
+}
+
+@Serializable
+data class MirrorText(val text: String)
+
+@Serializable
 data class BridgeError(val code: String, val message: String)
 
 sealed interface Message {
@@ -203,6 +289,22 @@ sealed interface Message {
     data class GalleryRequestMessage(val body: GalleryRequest) : Message { override val type get() = "gallery.request" }
     data class GalleryResultsMessage(val body: GalleryResults) : Message { override val type get() = "gallery.results" }
     data class GalleryImportMessage(val body: GalleryID) : Message { override val type get() = "gallery.import" }
+    data class LinkMessage(val body: Link) : Message { override val type get() = "link" }
+    data class MediaStateMessage(val body: MediaState) : Message { override val type get() = "media.state" }
+    data class MediaControlMessage(val body: MediaControl) : Message { override val type get() = "media.control" }
+    data class DndMessage(val body: DoNotDisturb) : Message { override val type get() = "dnd" }
+    data class FilesListMessage(val body: FilesList) : Message { override val type get() = "files.list" }
+    data class FilesListingMessage(val body: FilesListing) : Message { override val type get() = "files.listing" }
+    data class FilesGetMessage(val body: FilesList) : Message { override val type get() = "files.get" }
+    data class MirrorStartMessage(val body: MirrorStart) : Message { override val type get() = "mirror.start" }
+    data class MirrorStateMessage(val body: MirrorState) : Message { override val type get() = "mirror.state" }
+    data class MirrorStreamMessage(val body: MirrorStream) : Message { override val type get() = "mirror.stream" }
+    data class MirrorTouchMessage(val body: MirrorTouch) : Message { override val type get() = "mirror.touch" }
+    data class MirrorScrollMessage(val body: MirrorScroll) : Message { override val type get() = "mirror.scroll" }
+    data class MirrorKeyMessage(val body: MirrorKey) : Message { override val type get() = "mirror.key" }
+    data class MirrorTextMessage(val body: MirrorText) : Message { override val type get() = "mirror.text" }
+    data object MirrorStop : Message { override val type get() = "mirror.stop" }
+    data object MirrorSync : Message { override val type get() = "mirror.sync" }
     data class ErrorMessage(val body: BridgeError) : Message { override val type get() = "error" }
     data object Ping : Message { override val type get() = "ping" }
     data object Pong : Message { override val type get() = "pong" }
@@ -264,6 +366,22 @@ object Codec {
             "gallery.request" -> Message.GalleryRequestMessage(body(GalleryRequest.serializer()))
             "gallery.results" -> Message.GalleryResultsMessage(body(GalleryResults.serializer()))
             "gallery.import" -> Message.GalleryImportMessage(body(GalleryID.serializer()))
+            "link" -> Message.LinkMessage(body(Link.serializer()))
+            "media.state" -> Message.MediaStateMessage(body(MediaState.serializer()))
+            "media.control" -> Message.MediaControlMessage(body(MediaControl.serializer()))
+            "dnd" -> Message.DndMessage(body(DoNotDisturb.serializer()))
+            "files.list" -> Message.FilesListMessage(body(FilesList.serializer()))
+            "files.listing" -> Message.FilesListingMessage(body(FilesListing.serializer()))
+            "files.get" -> Message.FilesGetMessage(body(FilesList.serializer()))
+            "mirror.start" -> Message.MirrorStartMessage(body(MirrorStart.serializer()))
+            "mirror.state" -> Message.MirrorStateMessage(body(MirrorState.serializer()))
+            "mirror.stream" -> Message.MirrorStreamMessage(body(MirrorStream.serializer()))
+            "mirror.touch" -> Message.MirrorTouchMessage(body(MirrorTouch.serializer()))
+            "mirror.scroll" -> Message.MirrorScrollMessage(body(MirrorScroll.serializer()))
+            "mirror.key" -> Message.MirrorKeyMessage(body(MirrorKey.serializer()))
+            "mirror.text" -> Message.MirrorTextMessage(body(MirrorText.serializer()))
+            "mirror.stop" -> Message.MirrorStop
+            "mirror.sync" -> Message.MirrorSync
             "error" -> Message.ErrorMessage(body(BridgeError.serializer()))
             "ping" -> Message.Ping
             "pong" -> Message.Pong
@@ -308,7 +426,21 @@ object Codec {
         is Message.GalleryRequestMessage -> json.encodeToJsonElement(GalleryRequest.serializer(), message.body)
         is Message.GalleryResultsMessage -> json.encodeToJsonElement(GalleryResults.serializer(), message.body)
         is Message.GalleryImportMessage -> json.encodeToJsonElement(GalleryID.serializer(), message.body)
+        is Message.LinkMessage -> json.encodeToJsonElement(Link.serializer(), message.body)
+        is Message.MediaStateMessage -> json.encodeToJsonElement(MediaState.serializer(), message.body)
+        is Message.MediaControlMessage -> json.encodeToJsonElement(MediaControl.serializer(), message.body)
+        is Message.DndMessage -> json.encodeToJsonElement(DoNotDisturb.serializer(), message.body)
+        is Message.FilesListMessage -> json.encodeToJsonElement(FilesList.serializer(), message.body)
+        is Message.FilesListingMessage -> json.encodeToJsonElement(FilesListing.serializer(), message.body)
+        is Message.FilesGetMessage -> json.encodeToJsonElement(FilesList.serializer(), message.body)
+        is Message.MirrorStartMessage -> json.encodeToJsonElement(MirrorStart.serializer(), message.body)
+        is Message.MirrorStateMessage -> json.encodeToJsonElement(MirrorState.serializer(), message.body)
+        is Message.MirrorStreamMessage -> json.encodeToJsonElement(MirrorStream.serializer(), message.body)
+        is Message.MirrorTouchMessage -> json.encodeToJsonElement(MirrorTouch.serializer(), message.body)
+        is Message.MirrorScrollMessage -> json.encodeToJsonElement(MirrorScroll.serializer(), message.body)
+        is Message.MirrorKeyMessage -> json.encodeToJsonElement(MirrorKey.serializer(), message.body)
+        is Message.MirrorTextMessage -> json.encodeToJsonElement(MirrorText.serializer(), message.body)
         is Message.ErrorMessage -> json.encodeToJsonElement(BridgeError.serializer(), message.body)
-        Message.Unpair, Message.Ping, Message.Pong, is Message.Unknown -> null
+        Message.Unpair, Message.Ping, Message.Pong, Message.MirrorStop, Message.MirrorSync, is Message.Unknown -> null
     }
 }

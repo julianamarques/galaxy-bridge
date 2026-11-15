@@ -26,6 +26,12 @@ public final class BridgeServer {
         case ring(Bool)
         case recentCalls([RecentCall])
         case gallery([GalleryPhoto], replyTo: String?)
+        case link(String)
+        case media(MediaState)
+        case files(FilesListing, replyTo: String?)
+        case mirrorState(MirrorState)
+        case mirrorFrame(Data)
+        case mirrorStreamEnded
         case error(BridgeError, replyTo: String?)
     }
 
@@ -47,6 +53,7 @@ public final class BridgeServer {
     private var listener: NWListener?
     private var connections: [ObjectIdentifier: BridgeConnection] = [:]
     private var active: BridgeConnection?
+    private var mirrorStream: BridgeConnection?
     private var timer: Timer?
     private var pairingTimer: Timer?
     private var wakeMonitor: NWPathMonitor?
@@ -226,7 +233,7 @@ public final class BridgeServer {
         bridge.start()
         Timer.scheduledTimer(withTimeInterval: Self.setupTimeout, repeats: false) { [weak bridge] _ in
             MainActor.assumeIsolated {
-                guard let bridge, bridge.phone == nil, bridge.transfer == nil else { return }
+                guard let bridge, bridge.phone == nil, bridge.transfer == nil, bridge.onRawFrame == nil else { return }
                 bridge.close()
             }
         }
@@ -234,6 +241,11 @@ public final class BridgeServer {
 
     private func closed(_ connection: BridgeConnection) {
         connections[ObjectIdentifier(connection)] = nil
+        if connection === mirrorStream {
+            mirrorStream = nil
+            onEvent?(.mirrorStreamEnded)
+            return
+        }
         if let session = connection.transfer {
             session.end()
             switch session.kind {
@@ -267,6 +279,10 @@ public final class BridgeServer {
             send(transfer.id, on: connection)
         case .transferChunk(let chunk):
             received(chunk, on: connection)
+        case .mirrorStream:
+            startMirrorStream(on: connection)
+        case .mirrorState(let state) where connection === active:
+            onEvent?(.mirrorState(state))
         case .transferResult(let result) where connection.transfer != nil:
             if let transfer = offered.removeValue(forKey: result.id) {
                 onEvent?(.transferEnded(result.id, .sent(name: transfer.file.name, ok: result.ok)))
@@ -292,6 +308,12 @@ public final class BridgeServer {
             onEvent?(.recentCalls(recent.calls))
         case .galleryResults(let results) where connection === active:
             onEvent?(.gallery(results.photos, replyTo: envelope.replyTo))
+        case .link(let link) where connection === active:
+            onEvent?(.link(link.url))
+        case .mediaState(let media) where connection === active:
+            onEvent?(.media(media))
+        case .filesListing(let listing) where connection === active:
+            onEvent?(.files(listing, replyTo: envelope.replyTo))
         case .notificationActive(let notifications) where connection === active:
             onEvent?(.notificationsActive(notifications.keys))
         case .error(let error) where connection === active:
@@ -369,10 +391,11 @@ public final class BridgeServer {
     }
 
     @discardableResult
-    public func offer(_ url: URL) -> String? {
+    public func offer(_ url: URL, folder: String? = nil) -> String? {
         guard let active, let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize else { return nil }
         nextID += 1
-        let file = TransferFile(id: "f\(nextID)", name: url.lastPathComponent, size: Int64(size), mime: UTType(filenameExtension: url.pathExtension)?.preferredMIMEType)
+        let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType
+        let file = TransferFile(id: "f\(nextID)", name: url.lastPathComponent, size: Int64(size), mime: mime, folder: folder)
         offered[file.id] = OutgoingTransfer(file: file, url: url)
         active.send(Envelope(.transferOffer(file)))
         onEvent?(.transferProgress(TransferProgress(file, direction: .toPhone, done: 0)))
@@ -387,6 +410,20 @@ public final class BridgeServer {
     private func failOffer(_ id: String) {
         guard let transfer = offered.removeValue(forKey: id) else { return }
         onEvent?(.transferEnded(id, .sent(name: transfer.file.name, ok: false)))
+    }
+
+    private func startMirrorStream(on connection: BridgeConnection) {
+        guard connection.hello == nil, connection.transfer == nil,
+              let fingerprint = connection.fingerprint, store.phone(withFingerprint: fingerprint) != nil
+        else { return connection.close() }
+        mirrorStream?.close()
+        mirrorStream = connection
+        log.info("Recebendo o vídeo do espelhamento")
+        connection.onRawFrame = { [weak self] body in self?.onEvent?(.mirrorFrame(body)) }
+    }
+
+    public func stopMirrorStream() {
+        mirrorStream?.close()
     }
 
     private func startTransfer(on connection: BridgeConnection) -> TransferSession? {
@@ -442,6 +479,8 @@ public final class BridgeServer {
             self?.onEvent?(.transferProgress(TransferProgress(file, direction: .toPhone, done: sent)))
         }
     }
+
+    public var phoneHost: String? { active?.host }
 
     @discardableResult
     public func send(_ message: Message) -> String? {

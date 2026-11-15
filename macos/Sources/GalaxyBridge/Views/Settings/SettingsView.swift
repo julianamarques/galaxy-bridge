@@ -9,6 +9,10 @@ struct SettingsView: View {
     @State private var error: String?
     @State private var confirmingForget = false
     @AppStorage(AppModel.batteryAlertsKey) private var batteryAlerts = true
+    @AppStorage(MirrorOptions.Key.quality) private var mirrorQuality = Quality.high
+    @AppStorage(MirrorOptions.Key.audio) private var mirrorAudio = true
+    @AppStorage(MirrorOptions.Key.turnScreenOff) private var mirrorTurnScreenOff = false
+    @AppStorage(MirrorOptions.Key.alwaysOnTop) private var mirrorAlwaysOnTop = false
 
     var body: some View {
         Form {
@@ -58,6 +62,15 @@ struct SettingsView: View {
                 NotificationAppsSection(apps: app.phoneApps)
             }
 
+            Section("Espelhamento") {
+                Picker("Qualidade", selection: $mirrorQuality) {
+                    ForEach(Quality.allCases) { Text($0.title).tag($0) }
+                }
+                Toggle("Tocar o som do Galaxy no Mac", isOn: $mirrorAudio)
+                Toggle("Apagar a tela do Galaxy durante o espelhamento", isOn: $mirrorTurnScreenOff)
+                Toggle("Manter a janela sempre na frente", isOn: $mirrorAlwaysOnTop)
+            }
+
             Section("Geral") {
                 Toggle("Avisar quando a bateria do Galaxy estiver fraca ou carregada", isOn: $batteryAlerts)
                 Toggle("Abrir ao iniciar sessão", isOn: $launchAtLogin)
@@ -79,7 +92,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: app.appPhone != nil ? 600 : 450)
+        .frame(width: 460, height: app.appPhone != nil ? 720 : 570)
         .onAppear { isCallHandler = CallLinks.isDefault }
         .confirmationDialog("Esquecer o \(app.deviceName)?", isPresented: $confirmingForget) {
             Button("Esquecer", role: .destructive) { app.forget() }

@@ -23,6 +23,12 @@ struct GalaxyBridgeApp: App {
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
 
+        Window(String(localized: "Arquivos do Galaxy"), id: FileBrowser.windowID) {
+            FileBrowserView(browser: delegate.app.fileBrowser)
+                .environmentObject(delegate.app)
+        }
+        .defaultSize(width: 720, height: 480)
+
         Settings {
             SettingsView()
                 .environmentObject(delegate.app)

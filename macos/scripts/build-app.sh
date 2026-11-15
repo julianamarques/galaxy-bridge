@@ -18,6 +18,7 @@ BIN="$(swift build -c "$CONFIG" --show-bin-path ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]
 
 [ -f Resources/AppIcon.icns ] || swift scripts/make-icon.swift
 ./scripts/fetch-adb.sh
+./scripts/fetch-scrcpy.sh
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -29,6 +30,7 @@ xcrun vtool -set-build-version macos "$MIN_MACOS" "$(xcrun --show-sdk-version)" 
 cp -R "$(dirname "$BIN")"/*.bundle "$APP/Contents/Resources/"
 cp Resources/adb "$APP/Contents/MacOS/adb"
 cp Resources/adb-NOTICE.txt "$APP/Contents/Resources/adb-NOTICE.txt"
+cp Resources/scrcpy-server Resources/scrcpy-LICENSE.txt "$APP/Contents/Resources/"
 cp ../LICENSE ../NOTICE "$APP/Contents/Resources/"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"

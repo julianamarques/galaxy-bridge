@@ -7,12 +7,16 @@ import UserNotifications
 @MainActor
 final class Notifier: NSObject {
     var send: ((Message) -> Void)?
+    var callBack: ((String) -> Void)?
 
     private let center = UNUserNotificationCenter.current()
     private var categories: [String: UNNotificationCategory] = [:]
     nonisolated private static let phonePrefix = "phone-"
     nonisolated private static let filePrefix = "file-"
     nonisolated private static let fileInfo = "path"
+    nonisolated private static let numberInfo = "number"
+    nonisolated private static let callBackAction = "call-back"
+    private static let missedCategory = "missed"
     private static let clipboardPreview = 120
     private static let actionPrefix = "action-"
 
@@ -28,9 +32,22 @@ final class Notifier: NSObject {
         }
     }
 
-    func missed(call: String, caller: String, toVoicemail: Bool) {
+    func missed(call: String, caller: String, number: String?, toVoicemail: Bool) {
         let body = toVoicemail ? String(localized: "\(caller) · correio de voz") : caller
-        post("missed-\(call)", title: String(localized: "Ligação perdida"), body: body, sound: true)
+        let content = content(title: String(localized: "Ligação perdida"), body: body, sound: true)
+        if let number {
+            registerMissedCategory()
+            content.categoryIdentifier = Self.missedCategory
+            content.userInfo = [Self.numberInfo: number]
+        }
+        center.add(UNNotificationRequest(identifier: "missed-\(call)", content: content, trigger: nil))
+    }
+
+    private func registerMissedCategory() {
+        guard categories[Self.missedCategory] == nil else { return }
+        let action = UNNotificationAction(identifier: Self.callBackAction, title: String(localized: "Ligar de Volta"), options: [])
+        categories[Self.missedCategory] = UNNotificationCategory(identifier: Self.missedCategory, actions: [action], intentIdentifiers: [], options: [])
+        center.setNotificationCategories(Set(categories.values))
     }
 
     func fileReceived(_ file: URL) {
@@ -51,12 +68,17 @@ final class Notifier: NSObject {
     }
 
     private func post(_ id: String, title: String, body: String, sound: Bool = false, userInfo: [AnyHashable: Any] = [:]) {
+        let content = content(title: title, body: body, sound: sound)
+        content.userInfo = userInfo
+        center.add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
+    }
+
+    private func content(title: String, body: String, sound: Bool) -> UNMutableNotificationContent {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
-        content.userInfo = userInfo
         if sound { content.sound = .default }
-        center.add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
+        return content
     }
 
     func show(_ notification: PhoneNotification, icon: URL?) {
@@ -130,6 +152,12 @@ extension Notifier: UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse
     ) async {
         let identifier = response.notification.request.identifier
+        let userInfo = response.notification.request.content.userInfo
+        if response.actionIdentifier == Self.callBackAction {
+            guard let number = userInfo[Self.numberInfo] as? String else { return }
+            await MainActor.run { callBack?(number) }
+            return
+        }
         if identifier.hasPrefix(Self.filePrefix), response.actionIdentifier == UNNotificationDefaultActionIdentifier,
            let path = response.notification.request.content.userInfo[Self.fileInfo] as? String {
             await MainActor.run { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }

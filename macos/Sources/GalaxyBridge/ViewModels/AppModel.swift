@@ -41,6 +41,10 @@ final class AppModel: ObservableObject {
     @Published private(set) var photos: [String: NSImage] = [:]
     @Published private(set) var isRinging = false
     @Published private(set) var recentCalls: [RecentCall] = []
+    @Published private(set) var media: MediaState?
+    @Published private(set) var phoneStatus: PhoneStatus?
+    let fileBrowser = FileBrowser()
+    let mirror = MirrorController()
     @Published private(set) var gallery: [GalleryItem] = []
     @Published private(set) var galleryError: String?
     @Published var setupRequested = false
@@ -76,6 +80,15 @@ final class AppModel: ObservableObject {
         pairedDevice = UserDefaults.standard.data(forKey: Self.deviceKey)
             .flatMap { try? JSONDecoder().decode(PairedDevice.self, from: $0) }
         notifier.send = { [weak self] in self?.bridge?.send($0) }
+        notifier.callBack = { [weak self] number in PhoneNumber(number).map { self?.call($0) } }
+        fileBrowser.send = { [weak self] in self?.bridge?.send($0) }
+        mirror.findDevice = { [weak self] in await self?.mirrorDevice() }
+        mirror.makeAppTransport = { [weak self] in
+            guard let self, self.isAppConnected, let bridge = self.bridge else { return nil }
+            return AppTransport(send: { [weak bridge] in bridge?.send($0) }, stopStream: { [weak bridge] in bridge?.stopMirrorStream() })
+        }
+        mirror.deviceName = { [weak self] in self?.deviceName ?? "Galaxy" }
+        fileBrowser.offer = { [weak self] url, folder in self?.bridge?.offer(url, folder: folder) != nil }
         phoneApps.onMutedChange = { [weak self] muted in
             self?.bridge?.send(.notificationFilter(NotificationFilter(muted: muted.sorted())))
         }
@@ -371,6 +384,48 @@ final class AppModel: ObservableObject {
         notifier.clipboard(String(localized: "Copiado no \(deviceName)"), text: text)
     }
 
+    private func mirrorStateChanged(_ state: MirrorState) {
+        switch state.state {
+        case .waiting:
+            mirror.hint = MirrorController.consentHint
+        case .running:
+            mirror.hint = state.control == false
+                ? String(localized: "Para usar o mouse e o teclado, ative \"Controle pelo Mac\" no app do Galaxy.")
+                : nil
+        case .stopped:
+            break
+        }
+        mirror.appTransport?.stateChanged(state)
+    }
+
+    private func mirrorDevice() async -> String? {
+        let ready = await ADB.devices().filter(\.isReady)
+        let host = bridge?.phoneHost
+        if let device = pairedDevice, let match = ready.first(where: { device.matches($0.serial) }) { return match.serial }
+        if let usb = ready.first(where: \.isUSB) { return usb.serial }
+        if let host, let wifi = ready.first(where: { ADBOutputParser.host(of: $0.serial) == host }) { return wifi.serial }
+        if ready.count == 1 { return ready[0].serial }
+        return try? await ADB.waitForConnection(
+            guid: pairedDevice?.guid,
+            host: host,
+            lastAddress: pairedDevice?.lastAddress,
+            acceptsUSB: { @Sendable _ in true },
+            timeout: 12
+        )
+    }
+
+    func openOnPhone(_ url: URL) {
+        guard bridge?.send(.link(Link(url: url.absoluteString))) != nil else {
+            return notifier.clipboard(String(localized: "O \(deviceName) não está conectado"), text: url.absoluteString)
+        }
+        notifier.clipboard(String(localized: "Link enviado para o \(deviceName)"), text: String(localized: "Toque na notificação do celular para abrir."))
+    }
+
+    private func openFromPhone(_ link: String) {
+        guard let url = URL(string: link), ["http", "https"].contains(url.scheme?.lowercased()) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
     func chooseFilesToSend() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
@@ -405,6 +460,20 @@ final class AppModel: ObservableObject {
         let ring = !isRinging
         guard bridge?.send(.ring(Ring(on: ring))) != nil else { return }
         isRinging = ring
+    }
+
+    func setDoNotDisturb(_ on: Bool) {
+        guard bridge?.send(.dnd(DoNotDisturb(on: on))) != nil else { return }
+        phoneStatus?.dnd = on
+    }
+
+    func controlMedia(_ action: MediaControl.Action) {
+        guard bridge?.send(.mediaControl(MediaControl(action: action))) != nil else { return }
+        switch action {
+        case .play: media?.playing = true
+        case .pause: media?.playing = false
+        case .next, .previous: break
+        }
     }
 
     func refreshGallery() {
@@ -449,7 +518,7 @@ final class AppModel: ObservableObject {
         case .ended:
             let caller = previous == nil || callerName.isEmpty ? (state.name ?? state.number ?? "") : callerName
             if state.direction == .incoming, !wasAnswered, declinedCall != state.call, state.declined != true {
-                notifier.missed(call: state.call, caller: caller, toVoicemail: previous?.state == .voicemail)
+                notifier.missed(call: state.call, caller: caller, number: state.number, toVoicemail: previous?.state == .voicemail)
             }
             if declinedCall == state.call { declinedCall = nil }
             guard previous != nil || call == nil else { return }
@@ -586,6 +655,10 @@ extension AppModel {
             contactSuggestions = []
             isRinging = false
             recentCalls = []
+            media = nil
+            phoneStatus = nil
+            fileBrowser.disconnected()
+            mirror.appTransport?.streamEnded()
             gallery = []
             galleryError = nil
         case .paired(let phone):
@@ -595,6 +668,7 @@ extension AppModel {
         case .unpaired:
             clearAppPhone()
         case .status(let status):
+            if status != phoneStatus { phoneStatus = status }
             let battery = Battery(level: status.battery.level, isCharging: status.battery.charging)
             if battery != self.battery { self.battery = battery }
             if let country = (status.networkCountry ?? status.simCountry)?.lowercased(), country != phoneCountry {
@@ -619,7 +693,9 @@ extension AppModel {
             transfers.removeAll { $0.id == id }
             switch outcome {
             case .received(let file, let name): fileReceived(file, name: name)
-            case .sent(let name, let ok): notifier.fileSent(name, ok: ok)
+            case .sent(let name, let ok):
+                notifier.fileSent(name, ok: ok)
+                fileBrowser.uploaded()
             case .interrupted: break
             }
         case .clipboard(let text):
@@ -641,6 +717,18 @@ extension AppModel {
             guard replyTo != nil, replyTo == galleryRequest else { return }
             galleryError = nil
             gallery = photos.compactMap(GalleryItem.init)
+        case .link(let link):
+            openFromPhone(link)
+        case .media(let state):
+            media = state.title == nil ? nil : state
+        case .files(let listing, let replyTo):
+            fileBrowser.received(listing, replyTo: replyTo)
+        case .mirrorFrame(let body):
+            mirror.appTransport?.received(body)
+        case .mirrorStreamEnded:
+            mirror.appTransport?.streamEnded()
+        case .mirrorState(let state):
+            mirrorStateChanged(state)
         case .photo(let photo):
             if let image = NSImage(data: photo.data) { photos[photo.contact] = image }
         case .error(let error, let replyTo):
@@ -648,6 +736,8 @@ extension AppModel {
                 contactsError = error.message
             } else if replyTo != nil, replyTo == galleryRequest {
                 galleryError = error.message
+            } else if fileBrowser.failed(error.message, replyTo: replyTo) {
+                break
             } else {
                 callError = error.message
             }

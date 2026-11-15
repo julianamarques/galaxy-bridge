@@ -12,7 +12,7 @@ struct FixtureTests {
     }
 
     @Test func fixturesExist() {
-        #expect(Self.fixtures.count >= 40)
+        #expect(Self.fixtures.count >= 60)
     }
 
     @Test(arguments: fixtures)
@@ -33,7 +33,7 @@ struct MessageTests {
         let json = #"{"type":"future.thing","body":{"x":1}}"#
         #expect(try JSONDecoder().decode(Envelope.self, from: Data(json.utf8)).message == .unknown(type: "future.thing"))
 
-        let status = #"{"type":"status","body":{"battery":{"level":5,"charging":true,"temperature":30},"wifi":"x"}}"#
+        let status = #"{"type":"status","body":{"battery":{"level":5,"charging":true,"temperature":30},"future":"x"}}"#
         let envelope = try JSONDecoder().decode(Envelope.self, from: Data(status.utf8))
         #expect(envelope.message == .status(PhoneStatus(battery: .init(level: 5, charging: true))))
     }

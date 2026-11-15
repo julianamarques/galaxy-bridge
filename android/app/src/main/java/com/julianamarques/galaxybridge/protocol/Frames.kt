@@ -15,6 +15,13 @@ object Frames {
         output.flush()
     }
 
+    fun writeRaw(output: DataOutputStream, body: ByteArray, length: Int = body.size) {
+        if (length > MAX_LENGTH) throw IOException("Quadro grande demais: $length bytes")
+        output.writeInt(length)
+        output.write(body, 0, length)
+        output.flush()
+    }
+
     fun read(input: DataInputStream): Envelope {
         val length = input.readInt()
         if (length < 0 || length > MAX_LENGTH) throw IOException("Tamanho de mensagem inválido: $length")

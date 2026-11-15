@@ -6,9 +6,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let app = AppModel()
     private var activityPanel: ActivityPanel?
     private var sendService: SendToGalaxyService?
+    private var terminationSignal: DispatchSourceSignal?
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if app.mirror.isActive { app.mirror.showWindow() }
+        return true
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         app.launched()
+        quitGracefullyOnSIGTERM()
         activityPanel = ActivityPanel(app: app)
         sendService = SendToGalaxyService(app: app)
         NSApp.servicesProvider = sendService
@@ -20,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if ProcessInfo.processInfo.environment["GALAXY_PREVIEW_MENU"] != nil { showMenuPreview() }
         if ProcessInfo.processInfo.environment["GALAXY_PREVIEW_CALL"] != nil { app.previewIncomingCall() }
         if ProcessInfo.processInfo.environment["GALAXY_PREVIEW_TRANSFER"] != nil { app.previewTransfer() }
+        if ProcessInfo.processInfo.environment["GALAXY_START_MIRROR"] != nil { app.mirror.start() }
         #endif
     }
 
@@ -45,6 +53,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func application(_ application: NSApplication, open urls: [URL]) {
         app.open(urls)
+    }
+
+    private func quitGracefullyOnSIGTERM() {
+        signal(SIGTERM, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        source.setEventHandler { NSApp.perform(#selector(NSApplication.terminate(_:)), with: nil, afterDelay: 0) }
+        source.resume()
+        terminationSignal = source
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
