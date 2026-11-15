@@ -13,6 +13,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.hardware.usb.UsbManager
 import android.database.ContentObserver
 import android.net.ConnectivityManager
 import android.net.Network
@@ -83,6 +84,16 @@ class BridgeService : Service() {
         }
     }
 
+    private val usbDetached = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) = UsbTunnel.stop()
+    }
+
+    private fun usbChanged() {
+        val current = connection
+        if (UsbTunnel.isActive && current != null && !current.isUsb) current.close()
+        wake()
+    }
+
     private val shutdownReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             running = false
@@ -100,7 +111,7 @@ class BridgeService : Service() {
 
         override fun onLost(network: Network) {
             Diagnostics.record(this@BridgeService, "Rede perdida")
-            connection?.close()
+            if (connection?.isUsb != true) connection?.close()
         }
 
         override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
@@ -135,6 +146,9 @@ class BridgeService : Service() {
         signals.start()
         media.start()
         registerReceiver(shutdownReceiver, IntentFilter(Intent.ACTION_SHUTDOWN))
+        registerReceiver(usbDetached, IntentFilter(UsbManager.ACTION_USB_ACCESSORY_DETACHED), RECEIVER_NOT_EXPORTED)
+        UsbTunnel.onChange = ::usbChanged
+        UsbTunnel.attachIfPresent(this)
         getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback)
         worker = thread(name = "bridge") { run() }
     }
@@ -167,6 +181,8 @@ class BridgeService : Service() {
         connection?.close()
         wake()
         runCatching { unregisterReceiver(shutdownReceiver) }
+        runCatching { unregisterReceiver(usbDetached) }
+        UsbTunnel.onChange = null
         CallTracker.onChange = null
         CallTracker.wasDeclined = null
         NotificationRelay.onPosted = null
@@ -183,7 +199,7 @@ class BridgeService : Service() {
         while (running) {
             val mac = PairingStore.current(this) ?: break
             if (BridgeState.connection.value != BridgeState.Connection.Refused) setState(BridgeState.Connection.Searching)
-            if (!isOnWiFi()) {
+            if (!isOnWiFi() && !UsbTunnel.isActive) {
                 Diagnostics.record(this, "Sem Wi-Fi; aguardando")
                 sleep(0)
                 continue
@@ -211,7 +227,7 @@ class BridgeService : Service() {
                     greeted = true
                     PairingStore.updateAddress(this, connection.host, connection.port, first.body.name)
                     setState(BridgeState.Connection.Connected(first.body.name))
-                    Diagnostics.record(this, "Conectado a ${first.body.name}")
+                    Diagnostics.record(this, "Conectado a ${first.body.name}${if (connection.isUsb) " pelo cabo" else ""}")
                 }
                 is Message.ErrorMessage -> {
                     Log.w(TAG, "Mac recusou: ${first.body.message}")

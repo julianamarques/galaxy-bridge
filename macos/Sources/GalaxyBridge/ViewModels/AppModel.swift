@@ -45,6 +45,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var phoneStatus: PhoneStatus?
     let fileBrowser = FileBrowser()
     let mirror = MirrorController()
+    let usb = AccessoryUSB()
+    @Published private(set) var isAppOverUSB = false
     @Published private(set) var gallery: [GalleryItem] = []
     @Published private(set) var galleryError: String?
     @Published var setupRequested = false
@@ -83,6 +85,8 @@ final class AppModel: ObservableObject {
         notifier.callBack = { [weak self] number in PhoneNumber(number).map { self?.call($0) } }
         fileBrowser.send = { [weak self] in self?.bridge?.send($0) }
         mirror.findDevice = { [weak self] in await self?.mirrorDevice() }
+        usb.isEnabled = { [weak self] in self?.appPhone != nil }
+        usb.port = { [weak self] in self?.bridge?.port }
         mirror.makeAppTransport = { [weak self] in
             guard let self, self.isAppConnected, let bridge = self.bridge else { return nil }
             return AppTransport(send: { [weak bridge] in bridge?.send($0) }, stopStream: { [weak bridge] in bridge?.stopMirrorStream() })
@@ -639,16 +643,19 @@ extension AppModel {
         switch event {
         case .ready:
             setup.bridgeChanged()
+            usb.start()
         case .failed(let message):
             Log.connection.error("Servidor do Galaxy Bridge parou: \(message, privacy: .public)")
             setup.bridgeChanged(failure: message)
         case .connected(let phone):
             appPhone = phone
             isAppConnected = true
+            isAppOverUSB = bridge?.phoneHost == "127.0.0.1"
             callError = nil
             bridge?.send(.notificationFilter(NotificationFilter(muted: phoneApps.muted.sorted())))
         case .disconnected:
             isAppConnected = false
+            isAppOverUSB = false
             dropCall()
             requestedPhotos.removeAll()
             photos.removeAll()
@@ -750,6 +757,7 @@ extension AppModel {
         dropADBDevice()
         appPhone = phone
         setup.appPaired()
+        usb.retry()
     }
 
     private func clearAppPhone() {

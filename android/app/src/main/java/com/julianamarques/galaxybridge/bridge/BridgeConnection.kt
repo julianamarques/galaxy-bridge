@@ -2,6 +2,7 @@ package com.julianamarques.galaxybridge.bridge
 
 import android.content.Context
 import android.util.Log
+import com.julianamarques.galaxybridge.Diagnostics
 import com.julianamarques.galaxybridge.Diagnostics.TAG
 import com.julianamarques.galaxybridge.protocol.Envelope
 import com.julianamarques.galaxybridge.protocol.Frames
@@ -26,6 +27,7 @@ class BridgeConnection private constructor(
 
     val host: String get() = socket.inetAddress.hostAddress ?: ""
     val port: Int get() = socket.port
+    val isUsb: Boolean get() = socket.inetAddress.isLoopbackAddress
 
     var receiveTimeoutMs: Int
         get() = socket.soTimeout
@@ -66,9 +68,15 @@ class BridgeConnection private constructor(
     companion object {
         private const val DISCOVERY_TIMEOUT_MS = 10_000L
         private const val CONNECT_TIMEOUT_MS = 5_000
+        const val LOOPBACK = "127.0.0.1"
 
-        fun open(context: Context, mac: PairedMac): BridgeConnection? =
-            openPinned(context, mac.host, mac.port, mac.fingerprint, DISCOVERY_TIMEOUT_MS)
+        fun open(context: Context, mac: PairedMac): BridgeConnection? {
+            UsbTunnel.port?.let { port ->
+                runCatching { return open(LOOPBACK, port, mac.fingerprint) }
+                    .onFailure { Diagnostics.record(context, "Cabo USB falhou: ${it.javaClass.simpleName} ${it.message}") }
+            }
+            return openPinned(context, mac.host, mac.port, mac.fingerprint, DISCOVERY_TIMEOUT_MS)
+        }
 
         fun openPinned(context: Context, host: String?, port: Int?, fingerprint: String, discoveryMs: Long): BridgeConnection? {
             if (host != null && port != null) {

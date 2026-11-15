@@ -271,6 +271,10 @@ To send a file into a folder, the Mac adds `folder` to `transfer.offer`; the pho
 
 **The video** travels on its own TLS connection, opened by the phone like a file transfer: its first message is `{ "type": "mirror.stream", "body": { "codec": "h264" } }`. After that every frame (still 4-byte length + body) carries binary data instead of JSON: one byte for the kind, 8 bytes for the presentation time in microseconds (big-endian), then the payload. Kinds: `0` a new video size (the payload is two big-endian `u32`: width, height; sent at the start and when the phone rotates), `1` the codec configuration (H.264 SPS and PPS, Annex B), `2` a frame, `3` a key frame. Closing this connection ends the mirroring.
 
+### USB cable
+
+Over a USB cable the same TLS connections travel through a tunnel, so nothing above changes. The Mac switches a Samsung phone to Android Open Accessory mode (manufacturer and model `Galaxy Bridge`), opens the accessory's bulk endpoints and the phone opens the accessory with `UsbManager.openAccessory`. The phone listens on `127.0.0.1` on a random port and connects there instead of to the Mac's address; each connection to that port becomes a channel. On the cable, each frame is: kind (`u8`), channel (`u16`), length (`u32`), all big-endian, then the bytes. Kinds: `0` open (phone → Mac: the Mac connects to its own listener on `127.0.0.1` for that channel), `1` data, `2` close, `3` padding (ignored), `4` reset (Mac → phone, when the Mac starts: the phone closes every channel and reconnects). A write whose size is a multiple of 512 bytes gets a padding frame appended, so every USB transfer ends with a short packet and neither side waits for more.
+
 ### File transfers
 
 Files don't travel on the main connection, so a large one never holds up pings, calls or notifications. Each transfer gets its own connection: the phone opens a new TLS connection to the Mac's port, with the same certificates, and its first message says what it's for instead of `hello`. The Mac accepts it only from a paired phone.

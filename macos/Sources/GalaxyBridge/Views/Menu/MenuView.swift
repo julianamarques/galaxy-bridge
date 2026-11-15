@@ -87,7 +87,9 @@ struct MenuView: View {
             Label(callStatus(call), systemImage: "phone.fill")
                 .foregroundStyle(.green)
         } else if app.appPhone != nil {
-            if app.isAppConnected {
+            if app.isAppConnected, app.isAppOverUSB {
+                Label("Cabo USB", systemImage: "cable.connector")
+            } else if app.isAppConnected {
                 Label("Wi-Fi", systemImage: "wifi")
             } else {
                 Text("Desconectado")
