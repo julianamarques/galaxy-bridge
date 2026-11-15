@@ -30,8 +30,13 @@ struct GalaxyBridgeApp: App {
         .defaultSize(width: 720, height: 480)
 
         Settings {
-            SettingsView()
-                .environmentObject(delegate.app)
+            TabView {
+                SettingsView()
+                    .environmentObject(delegate.app)
+                    .tabItem { Label("Geral", systemImage: "gearshape") }
+                AboutView()
+                    .tabItem { Label("Sobre", systemImage: "info.circle") }
+            }
         }
     }
 }
