@@ -6,6 +6,38 @@ struct PhoneStatusBar: View {
     let status: PhoneStatus
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let accessories = status.accessories, !accessories.isEmpty {
+                HStack(spacing: 12) {
+                    ForEach(accessories) { accessory in
+                        Label {
+                            Text(verbatim: "\(accessory.name) · \(accessory.battery)%")
+                                .lineLimit(1)
+                        } icon: {
+                            Image(systemName: symbol(for: accessory))
+                        }
+                        .foregroundStyle(accessory.battery <= 20 ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+                        .help("Bateria de \(accessory.name)")
+                    }
+                }
+            }
+            details
+        }
+        .labelStyle(StatusLabelStyle())
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 8)
+    }
+
+    private func symbol(for accessory: PhoneStatus.Accessory) -> String {
+        switch accessory.kind {
+        case .headphones: accessory.name.localizedCaseInsensitiveContains("buds") ? "earbuds" : "headphones"
+        case .watch: "watch.analog"
+        default: "dot.radiowaves.left.and.right"
+        }
+    }
+
+    private var details: some View {
         HStack(spacing: 12) {
             if status.signal != nil || status.carrier != nil {
                 Label {
@@ -43,10 +75,6 @@ struct PhoneStatusBar: View {
                 .help(dnd ? "Desativar o Não Perturbe no \(app.deviceName)" : "Ativar o Não Perturbe no \(app.deviceName)")
             }
         }
-        .labelStyle(StatusLabelStyle())
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 8)
     }
 
     private func level(_ value: Int?) -> Double {

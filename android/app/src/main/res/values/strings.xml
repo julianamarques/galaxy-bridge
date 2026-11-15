@@ -64,6 +64,8 @@
     <string name="permission_all_files_reason">To browse the Galaxy\'s folders from the Mac and save files where you choose.</string>
     <string name="permission_mirror_control">Control from the Mac</string>
     <string name="permission_mirror_control_reason">To use the mirrored screen with the Mac\'s mouse and keyboard. If Android says the setting is restricted, allow restricted settings in the app\'s info first.</string>
+    <string name="permission_nearby_devices">Nearby devices</string>
+    <string name="permission_nearby_devices_reason">To show the battery of your earbuds and other Bluetooth accessories on the Mac.</string>
     <string name="permission_battery">Unrestricted battery</string>
     <string name="permission_battery_reason">So the connection keeps going with the screen off.</string>
     <string name="allow">Allow</string>
@@ -133,6 +135,8 @@
     <string name="feature_media_on">Control what\'s playing from the Mac</string>
     <string name="feature_mirror">Mirroring</string>
     <string name="feature_mirror_on">This screen on the Mac</string>
+    <string name="feature_accessories">Accessories</string>
+    <string name="feature_accessories_on">Earbuds battery on the Mac</string>
     <string name="feature_clipboard">Clipboard</string>
     <string name="feature_clipboard_on">Share text to copy it on the Mac</string>
     <string name="feature_photos">Photos</string>

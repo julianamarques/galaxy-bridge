@@ -19,7 +19,7 @@ object PhoneInfo {
 
     fun hello(context: Context) = Hello(appVersion = BuildConfig.VERSION_NAME, name = name(context), model = Build.MODEL)
 
-    fun status(context: Context, battery: Intent, signals: PhoneSignals?): PhoneStatus {
+    fun status(context: Context, battery: Intent, signals: PhoneSignals?, accessories: List<PhoneStatus.Accessory> = emptyList()): PhoneStatus {
         val level = battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = battery.getIntExtra(BatteryManager.EXTRA_SCALE, 100).takeIf { it > 0 } ?: 100
         val status = battery.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
@@ -37,6 +37,7 @@ object PhoneInfo {
             wifi = signals?.wifi,
             storage = storage(),
             dnd = NotificationListener.dnd,
+            accessories = accessories.takeIf { it.isNotEmpty() },
         )
     }
 

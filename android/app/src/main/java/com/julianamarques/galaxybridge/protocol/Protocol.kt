@@ -40,9 +40,19 @@ data class PhoneStatus(
     val wifi: Int? = null,
     val storage: Storage? = null,
     val dnd: Boolean? = null,
+    val accessories: List<Accessory>? = null,
 ) {
     @Serializable
     data class Battery(val level: Int, val charging: Boolean)
+
+    @Serializable
+    data class Accessory(val name: String, val battery: Int, val kind: String? = null) {
+        companion object {
+            const val HEADPHONES = "headphones"
+            const val WATCH = "watch"
+            const val OTHER = "other"
+        }
+    }
 
     @Serializable
     data class Storage(val free: Long, val total: Long)
@@ -103,6 +113,7 @@ data class PhoneNotification(
     val actions: List<Action>,
     val silent: Boolean,
     val icon: String? = null,
+    val image: String? = null,
 ) {
     @Serializable
     data class Action(val id: Int, val title: String, val reply: Boolean)

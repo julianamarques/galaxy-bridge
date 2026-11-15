@@ -78,6 +78,7 @@ class BridgeService : Service() {
     private lateinit var links: LinkNotifier
     private lateinit var signals: PhoneSignals
     private lateinit var media: MediaRelay
+    private lateinit var accessories: AccessoryBattery
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -134,6 +135,7 @@ class BridgeService : Service() {
         links = LinkNotifier(this)
         signals = PhoneSignals(this, ::sendStatus)
         media = MediaRelay(this) { send(Message.MediaStateMessage(it)) }
+        accessories = AccessoryBattery(this, ::sendStatus)
         NotificationListener.onDndChanged = ::sendStatus
         NotificationListener.onConnected = media::start
         ringer = PhoneRinger(this, Intent(this, BridgeService::class.java).setAction(ACTION_STOP_RINGING)) {
@@ -147,6 +149,7 @@ class BridgeService : Service() {
         watchCallLog()
         signals.start()
         media.start()
+        accessories.start()
         registerReceiver(shutdownReceiver, IntentFilter(Intent.ACTION_SHUTDOWN))
         registerReceiver(usbDetached, IntentFilter(UsbManager.ACTION_USB_ACCESSORY_DETACHED), RECEIVER_NOT_EXPORTED)
         UsbTunnel.onChange = ::usbChanged
@@ -163,6 +166,7 @@ class BridgeService : Service() {
         watchCallLog()
         signals.start()
         media.start()
+        accessories.start()
         wake()
         return START_STICKY
     }
@@ -173,6 +177,7 @@ class BridgeService : Service() {
         ringer.stop()
         signals.stop()
         media.stop()
+        accessories.stop()
         NotificationListener.onDndChanged = null
         NotificationListener.onConnected = null
         handler.removeCallbacks(recentCallsUpdate)
@@ -397,7 +402,7 @@ class BridgeService : Service() {
         val connection = connection ?: return
         val battery = batteryIntent ?: return
         if (!established) return
-        val status = PhoneInfo.status(this, battery, signals)
+        val status = PhoneInfo.status(this, battery, signals, accessories.current)
         synchronized(this) {
             if (status == lastStatus) return
             lastStatus = status

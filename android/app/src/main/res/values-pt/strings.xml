@@ -63,6 +63,8 @@
     <string name="permission_all_files_reason">Para navegar nas pastas do Galaxy pelo Mac e salvar arquivos onde você escolher.</string>
     <string name="permission_mirror_control">Controle pelo Mac</string>
     <string name="permission_mirror_control_reason">Para usar a tela espelhada com o mouse e o teclado do Mac. Se o Android disser que a configuração é restrita, permita as configurações restritas nas informações do app antes.</string>
+    <string name="permission_nearby_devices">Dispositivos próximos</string>
+    <string name="permission_nearby_devices_reason">Para mostrar no Mac a bateria dos fones e de outros acessórios Bluetooth.</string>
     <string name="permission_battery">Bateria sem restrições</string>
     <string name="permission_battery_reason">Para a conexão continuar com a tela apagada.</string>
     <string name="allow">Permitir</string>
@@ -131,6 +133,8 @@
     <string name="feature_media_on">Controle o que está tocando pelo Mac</string>
     <string name="feature_mirror">Espelhamento</string>
     <string name="feature_mirror_on">Esta tela no Mac</string>
+    <string name="feature_accessories">Acessórios</string>
+    <string name="feature_accessories_on">Bateria dos fones no Mac</string>
     <string name="feature_clipboard">Área de transferência</string>
     <string name="feature_clipboard_on">Compartilhe um texto para copiá-lo no Mac</string>
     <string name="feature_photos">Fotos</string>

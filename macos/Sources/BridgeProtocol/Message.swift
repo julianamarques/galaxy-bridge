@@ -190,6 +190,26 @@ public struct PhoneStatus: Codable, Equatable, Sendable {
         }
     }
 
+    public struct Accessory: Codable, Equatable, Identifiable, Sendable {
+        public enum Kind: String, Codable, Sendable {
+            case headphones
+            case watch
+            case other
+        }
+
+        public var name: String
+        public var battery: Int
+        public var kind: Kind?
+
+        public var id: String { name }
+
+        public init(name: String, battery: Int, kind: Kind? = nil) {
+            self.name = name
+            self.battery = battery
+            self.kind = kind
+        }
+    }
+
     public struct Storage: Codable, Equatable, Sendable {
         public var free: Int64
         public var total: Int64
@@ -209,6 +229,7 @@ public struct PhoneStatus: Codable, Equatable, Sendable {
     public var wifi: Int?
     public var storage: Storage?
     public var dnd: Bool?
+    public var accessories: [Accessory]?
 
     public init(
         battery: Battery,
@@ -219,7 +240,8 @@ public struct PhoneStatus: Codable, Equatable, Sendable {
         network: String? = nil,
         wifi: Int? = nil,
         storage: Storage? = nil,
-        dnd: Bool? = nil
+        dnd: Bool? = nil,
+        accessories: [Accessory]? = nil
     ) {
         self.battery = battery
         self.networkCountry = networkCountry
@@ -230,6 +252,7 @@ public struct PhoneStatus: Codable, Equatable, Sendable {
         self.wifi = wifi
         self.storage = storage
         self.dnd = dnd
+        self.accessories = accessories
     }
 }
 
@@ -363,8 +386,9 @@ public struct PhoneNotification: Codable, Equatable, Sendable {
     public var actions: [Action]
     public var silent: Bool
     public var icon: Data?
+    public var image: Data?
 
-    public init(key: String, app: String, appName: String, title: String?, text: String?, time: Int64, actions: [Action], silent: Bool, icon: Data? = nil) {
+    public init(key: String, app: String, appName: String, title: String?, text: String?, time: Int64, actions: [Action], silent: Bool, icon: Data? = nil, image: Data? = nil) {
         self.key = key
         self.app = app
         self.appName = appName
@@ -374,6 +398,7 @@ public struct PhoneNotification: Codable, Equatable, Sendable {
         self.actions = actions
         self.silent = silent
         self.icon = icon
+        self.image = image
     }
 }
 

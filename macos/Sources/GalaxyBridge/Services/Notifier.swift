@@ -93,7 +93,11 @@ final class Notifier: NSObject {
         content.threadIdentifier = notification.app
         content.categoryIdentifier = category(for: notification.actions)
         if !notification.silent { content.sound = .default }
-        if let icon, let attachment = Self.attachment(copying: icon) { content.attachments = [attachment] }
+        if let image = notification.image, let attachment = Self.attachment(image: image) {
+            content.attachments = [attachment]
+        } else if let icon, let attachment = Self.attachment(copying: icon) {
+            content.attachments = [attachment]
+        }
         center.add(UNNotificationRequest(identifier: Self.phonePrefix + notification.key, content: content, trigger: nil))
     }
 
@@ -108,6 +112,16 @@ final class Notifier: NSObject {
             let stale = delivered.map(\.request.identifier).filter { $0.hasPrefix(Self.phonePrefix) && !active.contains($0) }
             center.removeDeliveredNotifications(withIdentifiers: stale)
         }
+    }
+
+    private static func attachment(image: Data) -> UNNotificationAttachment? {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
+        guard (try? image.write(to: file)) != nil else { return nil }
+        guard let attachment = try? UNNotificationAttachment(identifier: "image", url: file) else {
+            try? FileManager.default.removeItem(at: file)
+            return nil
+        }
+        return attachment
     }
 
     private static func attachment(copying icon: URL) -> UNNotificationAttachment? {

@@ -1,1 +1,1 @@
-{"type":"status","body":{"battery":{"level":71,"charging":true},"networkCountry":"BR","simCountry":"BR","carrier":"TIM","signal":3,"network":"5G","wifi":4,"storage":{"free":61203456000,"total":256000000000},"dnd":false}}
+{"type":"status","body":{"battery":{"level":71,"charging":true},"networkCountry":"BR","simCountry":"BR","carrier":"TIM","signal":3,"network":"5G","wifi":4,"storage":{"free":61203456000,"total":256000000000},"dnd":false,"accessories":[{"name":"Galaxy Buds3","battery":80,"kind":"headphones"}]}}

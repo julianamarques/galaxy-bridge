@@ -47,6 +47,7 @@ import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.ScreenShare
 import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.Notifications
@@ -451,6 +452,7 @@ private val features = listOf(
     Feature(Icons.Rounded.FolderOpen, R.string.feature_browse, R.string.feature_browse_on, Permission.AllFiles),
     Feature(Icons.Rounded.MusicNote, R.string.feature_media, R.string.feature_media_on, Permission.CallerName),
     Feature(Icons.Rounded.ScreenShare, R.string.feature_mirror, R.string.feature_mirror_on, Permission.MirrorControl),
+    Feature(Icons.Rounded.Headphones, R.string.feature_accessories, R.string.feature_accessories_on, Permission.NearbyDevices),
     Feature(Icons.Rounded.ContentPaste, R.string.feature_clipboard, R.string.feature_clipboard_on, null),
     Feature(Icons.Rounded.Vibration, R.string.feature_find, R.string.feature_find_on, null),
 )
@@ -567,5 +569,6 @@ private val Permission.icon: ImageVector
         Permission.Photos -> Icons.Rounded.PhotoLibrary
         Permission.AllFiles -> Icons.Rounded.FolderOpen
         Permission.MirrorControl -> Icons.Rounded.ScreenShare
+        Permission.NearbyDevices -> Icons.Rounded.Headphones
         Permission.Battery -> Icons.Rounded.BatteryChargingFull
     }

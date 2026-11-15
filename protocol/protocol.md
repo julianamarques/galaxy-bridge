@@ -85,10 +85,10 @@ Sent when the user forgets the other device. The receiver forgets the sender too
 Countries are ISO 3166-1 alpha-2 codes in uppercase, left out when unknown (no signal, no SIM). The Mac uses them to format and dial numbers.
 
 ```json
-{ "type": "status", "body": { "battery": { "level": 71, "charging": true }, "networkCountry": "BR", "simCountry": "BR", "carrier": "TIM", "signal": 3, "network": "5G", "wifi": 4, "storage": { "free": 61200000000, "total": 256000000000 }, "dnd": false } }
+{ "type": "status", "body": { "battery": { "level": 71, "charging": true }, "networkCountry": "BR", "simCountry": "BR", "carrier": "TIM", "signal": 3, "network": "5G", "wifi": 4, "storage": { "free": 61200000000, "total": 256000000000 }, "dnd": false, "accessories": [ { "name": "Galaxy Buds3", "battery": 80, "kind": "headphones" } ] } }
 ```
 
-The other fields are optional and also left out when unknown. `carrier` is the network's name; `signal` (mobile) and `wifi` go from 0 to 4, and `wifi` is left out when the phone isn't on Wi-Fi; `network` is what the status bar shows (`2G`, `3G`, `4G`, `4G+`, `5G`); `storage` is the free and total space in bytes, the free space rounded down to 100 MB so it doesn't change all the time; `dnd` is whether Do Not Disturb is on. The phone sends `status` whenever any field changes.
+The other fields are optional and also left out when unknown. `carrier` is the network's name; `signal` (mobile) and `wifi` go from 0 to 4, and `wifi` is left out when the phone isn't on Wi-Fi; `network` is what the status bar shows (`2G`, `3G`, `4G`, `4G+`, `5G`); `storage` is the free and total space in bytes, the free space rounded down to 100 MB so it doesn't change all the time; `dnd` is whether Do Not Disturb is on. `accessories` lists the Bluetooth accessories connected to the phone that report a battery level (0–100), with `kind` `headphones`, `watch` or `other`; left out when there are none or without the Nearby devices permission. The phone sends `status` whenever any field changes.
 
 ### `dnd` — Mac → phone
 
@@ -158,6 +158,8 @@ The contact's thumbnail, base64 (JPEG or PNG, a few KB). No answer when the cont
 ```
 
 A new or updated notification on the phone. `key` is Android's notification key: an update carries the same key and replaces the Mac's copy. `time` is in milliseconds since 1970. `actions` are the notification's buttons, `id` being the button's position; `reply` marks the ones that take text. `silent` is set on updates the app asked not to alert for. `icon` is the app's icon as a 96×96 PNG, base64, sent with the app's first notification on each connection and left out after that; the Mac keeps it on disk.
+
+`image`, when present, is a picture from the notification (Android's big picture, or the image in the latest message of a conversation) as a JPEG of up to 720 pixels in base64; the Mac shows it in the notification.
 
 The phone leaves out ongoing notifications (music, downloads, its own), group summaries, notifications that can't be dismissed, low-importance ones, calls (shown by `call.state`), and those the app marked as local to the phone.
 

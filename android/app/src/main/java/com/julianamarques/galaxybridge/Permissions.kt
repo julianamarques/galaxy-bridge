@@ -24,6 +24,7 @@ enum class Permission(@StringRes val title: Int, @StringRes val reason: Int) {
     Photos(R.string.permission_photos, R.string.permission_photos_reason),
     AllFiles(R.string.permission_all_files, R.string.permission_all_files_reason),
     MirrorControl(R.string.permission_mirror_control, R.string.permission_mirror_control_reason),
+    NearbyDevices(R.string.permission_nearby_devices, R.string.permission_nearby_devices_reason),
     Battery(R.string.permission_battery, R.string.permission_battery_reason);
 
     val manifestPermissions: List<String>
@@ -41,6 +42,7 @@ enum class Permission(@StringRes val title: Int, @StringRes val reason: Int) {
             } else {
                 listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
             }
+            NearbyDevices -> if (Build.VERSION.SDK_INT >= 31) listOf(Manifest.permission.BLUETOOTH_CONNECT) else emptyList()
             CallerName, Battery, AllFiles, MirrorControl -> emptyList()
         }
 
@@ -67,7 +69,7 @@ enum class Permission(@StringRes val title: Int, @StringRes val reason: Int) {
 
     companion object {
         fun needed(): List<Permission> =
-            if (Build.VERSION.SDK_INT >= 33) entries else entries.filter { it != Notifications }
+            entries.filter { (it != Notifications || Build.VERSION.SDK_INT >= 33) && (it != NearbyDevices || Build.VERSION.SDK_INT >= 31) }
 
         fun missing(context: Context): List<Permission> = needed().filter { !it.isGranted(context) }
 

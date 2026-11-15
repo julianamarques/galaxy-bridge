@@ -7,7 +7,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.graphics.drawable.Drawable
+import android.graphics.drawable.Icon
 import android.os.Bundle
 import android.service.notification.NotificationListenerService.Ranking
 import android.service.notification.StatusBarNotification
@@ -26,6 +29,8 @@ object NotificationRelay {
     private val sentIcons = ConcurrentHashMap.newKeySet<String>()
     private const val MAX_TEXT = 1_000
     private const val ICON_SIZE = 96
+    private const val IMAGE_SIZE = 720
+    private const val IMAGE_QUALITY = 80
     private const val EXTRA_APP_INFO = "android.appInfo"
     private const val SKIPPED_FLAGS = Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE or
         Notification.FLAG_GROUP_SUMMARY or Notification.FLAG_LOCAL_ONLY
@@ -92,7 +97,36 @@ object NotificationRelay {
         val info by lazy { extras.parcelable<ApplicationInfo>(EXTRA_APP_INFO) ?: runCatching { context.packageManager.getApplicationInfo(app, 0) }.getOrNull() }
         val name = appNames.getOrPut(app) { info?.loadLabel(context.packageManager)?.toString() ?: app }
         val icon = if (sentIcons.add(app)) info?.let { icon(context, it) } else null
-        return PhoneNotification(notification.key, app, name, title, text, notification.postTime, actions, silent, icon)
+        return PhoneNotification(notification.key, app, name, title, text, notification.postTime, actions, silent, icon, image(context, extras))
+    }
+
+    private fun image(context: Context, extras: Bundle): String? = runCatching {
+        val bitmap = extras.parcelable<Bitmap>(Notification.EXTRA_PICTURE)
+            ?: extras.parcelable<Icon>(Notification.EXTRA_PICTURE_ICON)?.loadDrawable(context)?.let(::draw)
+            ?: messageImage(context, extras)
+            ?: return null
+        val scale = minOf(1f, IMAGE_SIZE.toFloat() / maxOf(bitmap.width, bitmap.height))
+        val scaled = if (scale < 1f) Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true) else bitmap
+        val jpeg = ByteArrayOutputStream().also { scaled.compress(Bitmap.CompressFormat.JPEG, IMAGE_QUALITY, it) }.toByteArray()
+        Base64.encodeToString(jpeg, Base64.NO_WRAP)
+    }.getOrNull()
+
+    private fun messageImage(context: Context, extras: Bundle): Bitmap? {
+        val messages = Notification.MessagingStyle.Message.getMessagesFromBundleArray(extras.getParcelableArray(Notification.EXTRA_MESSAGES, android.os.Parcelable::class.java))
+        val uri = messages.lastOrNull()?.takeIf { it.dataMimeType?.startsWith("image/") == true }?.dataUri ?: return null
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        val sample = generateSequence(1) { it * 2 }.first { maxOf(bounds.outWidth, bounds.outHeight) / (it * 2) < IMAGE_SIZE }
+        return context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) }
+    }
+
+    private fun draw(drawable: Drawable): Bitmap {
+        val width = drawable.intrinsicWidth.coerceIn(1, IMAGE_SIZE)
+        val height = drawable.intrinsicHeight.coerceIn(1, IMAGE_SIZE)
+        return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
+            drawable.setBounds(0, 0, width, height)
+            drawable.draw(Canvas(it))
+        }
     }
 
     private fun icon(context: Context, info: ApplicationInfo): String? = runCatching {
