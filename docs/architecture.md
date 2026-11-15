@@ -160,7 +160,7 @@ Options, to decide before Phase 1 ships to anyone else:
 
 | Store | Cost | Notes |
 |---|---|---|
-| Google Play | US$ 25, once | Reaches every Android phone. New personal accounts must run a closed test (12 testers for 14 days) before publishing. Policy review for notification access, `ANSWER_PHONE_CALLS` and the battery exemption. `READ_CALL_LOG` falls under the SMS and Call Log policy, so the app gets the caller's number from the dialer's notification instead. |
+| Google Play | US$ 25, once | Reaches every Android phone. New personal accounts must run a closed test (12 testers for 14 days) before publishing. Policy review for notification access, `ANSWER_PHONE_CALLS` and the battery exemption. `READ_CALL_LOG` falls under the SMS and Call Log policy; the app uses it to tell a declined call from a missed one and to list the recent calls, so on Google Play it would need a policy declaration or those two features would have to go. |
 | Galaxy Store | Free seller account | Fits a Galaxy-focused app and is preinstalled on every Galaxy. Samsung reviews each release. |
 
 Whatever the store, keep the signing key backed up: an app signed with a different key cannot update the installed one.

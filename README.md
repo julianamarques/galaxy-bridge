@@ -1,22 +1,27 @@
 # Galaxy Bridge
 
-Use a Samsung Galaxy (or any Android 11+) together with your Mac over Wi-Fi.
+Use a Samsung Galaxy (or any Android 11+) together with your Mac, over Wi-Fi or a USB cable.
 
-Galaxy Bridge lives in the menu bar. It shows whether the Galaxy is connected and its battery level, and places calls on the phone from the Mac: type a number in the menu, or make the phone numbers in Safari, Contacts, Calendar and other apps (`tel:` links) ring through the Galaxy. With the Android app, incoming calls show on the Mac with the caller's name and photo, to answer or decline from there, the menu finds the phone's contacts by name as you type, the phone's notifications show on the Mac, where you can reply to them, files go both ways: "Enviar para o Mac" in the phone's share sheet, "Enviar para o Galaxy" in the Finder, the menu shows the phone's recent calls and photos, and it can ring the phone to find it. A notification tells you when the Galaxy's battery runs low or finishes charging.
+Galaxy Bridge lives in the menu bar and brings the phone to the Mac:
+
+- **Calls** — place calls from the menu or from any phone number on the Mac (`tel:` links), and answer or decline incoming calls in a panel with the caller's name and photo. The menu finds contacts as you type and lists the recent calls.
+- **Notifications** — the phone's notifications show on the Mac, with replies, buttons and pictures.
+- **Photos and files** — every photo and video on the phone, its folders, a photo taken with the phone that arrives copied on the Mac, and files both ways.
+- **Screen mirroring** — the phone's screen in a window, with sound, mouse, keyboard and copy and paste.
+- **Status** — battery, signal, storage, Do Not Disturb, what is playing (with controls) and the battery of the earbuds connected to the phone.
+- **And more** — ringing the phone to find it, battery alerts, links and copied text between the two, and a guided introduction on both apps.
 
 There are two ways to connect:
 
-- **The Galaxy Bridge app on the phone** (recommended). Pair once with a QR code; after that the phone reconnects on its own whenever both are on the same Wi-Fi, also after a restart, without Developer options.
-- **adb**, with nothing installed on the phone: Wireless debugging or USB debugging, the same connection [Galaxy Mirror](https://github.com/julianamarques/galaxy-mirror) uses. A Galaxy already set up in Galaxy Mirror works here without pairing again.
-
-Galaxy Mirror shows and controls the phone's screen, and Galaxy Bridge brings the phone's features to the Mac.
+- **The Galaxy Bridge app on the phone** (recommended). Pair once with a QR code; after that the phone reconnects on its own, over Wi-Fi or the USB cable, also after a restart, without Developer options. Everything above works with it.
+- **adb**, with nothing installed on the phone: Wireless debugging or USB debugging, the same connection [Galaxy Mirror](https://github.com/julianamarques/galaxy-mirror) uses. It covers the battery, placing calls and screen mirroring; the rest needs the app. A Galaxy already set up in Galaxy Mirror works here without pairing again.
 
 ## Requirements
 
 - macOS 14 or later
-- A phone with Android 11+ on the same Wi-Fi network as the Mac
-- For the Android app: battery usage set to **Unrestricted**, so Android doesn't cut its network while the screen is off, notification access, to read the caller's name from the dialer, access to contacts, to search them from the Mac, to photos, to show the latest ones on the Mac, and to all files, to browse them from the Mac (the app asks for each)
-- For adb, and for screen mirroring: Wireless debugging (or USB debugging and a cable) turned on
+- A phone with Android 11+ on the same Wi-Fi network as the Mac, or connected to it with a USB cable
+- For the Android app: the permissions of the features you use, asked one by one in the app's introduction. The ones with the biggest effect are running without battery restrictions, so Android doesn't cut the connection while the screen is off, and notification access, which carries notifications, the caller's name and media. Screen mirroring control uses an accessibility service; Android may ask to allow restricted settings in the app's info first.
+- For adb: Wireless debugging (or USB debugging and a cable) turned on
 
 ## Build
 
@@ -30,7 +35,7 @@ cd macos
 ./scripts/build-app.sh debug    # debug build
 ```
 
-`swift test` (in `macos/`) runs the tests. The app icon is drawn in SwiftUI by `scripts/make-icon.swift`; run it after changing the drawing to regenerate `Resources/AppIcon.icns`. In debug builds, `GALAXY_PREVIEW_MENU=1` shows the menu in a regular window and `GALAXY_PREVIEW_SETTINGS=1` opens Settings at launch, to check the design without clicking the menu bar.
+`swift test` (in `macos/`) runs the tests. The app icon is drawn in SwiftUI by `scripts/make-icon.swift`; run it after changing the drawing to regenerate `Resources/AppIcon.icns`. In debug builds, `GALAXY_PREVIEW_MENU=1` shows the menu in a regular window, `GALAXY_PREVIEW_SETTINGS=1` opens Settings at launch, `GALAXY_PREVIEW_CALL=1` and `GALAXY_PREVIEW_TRANSFER=1` show a fake call and transfer in the activity panel, and `GALAXY_START_MIRROR=1` starts mirroring at launch, to check the design without clicking the menu bar.
 
 The build script copies the Swift package resources (PhoneNumberKit's phone number data) into the app and downloads `adb` (`scripts/fetch-adb.sh`, platform-tools 37.0.1) and the scrcpy server (`scripts/fetch-scrcpy.sh`, 5.0) and checks their checksums. Keep this version the same as Galaxy Mirror's: two different `adb` versions restart each other's server and drop the connection.
 
@@ -47,7 +52,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 Install it with `adb` while developing. A plain APK opened on the phone is blocked by Play Protect in Brazil because of the permissions the app asks for, so users will get it from a store (see [Distribution](docs/architecture.md#distribution)).
 
-To pair: on the Mac, **Settings › Usar o App no Galaxy…** shows a QR code. On the phone, open Galaxy Bridge, grant the permissions and scan the code.
+To pair: on the Mac, **Settings › Usar o App no Galaxy…** (or the setup window on first launch) shows a QR code. On the phone, open Galaxy Bridge and scan the code; the app's introduction then asks for the permissions of each feature.
 
 ## Languages
 
@@ -64,19 +69,22 @@ macos/                    the Mac app (Swift package)
 │   ├── BridgeProtocol/   messages, framing, TLS identity, pairing, BridgeServer (no UI)
 │   ├── GalaxyKit/        adb connection, shared with Galaxy Mirror
 │   └── GalaxyBridge/     the menu bar app
-│       ├── App/          entry point and app delegate (tel: links)
-│       ├── ViewModels/   AppModel (connection, battery, calls) and SetupModel (pairing)
-│       ├── Services/     activity panel (calls, transfers), Notification Center, phone apps and icons
-│       ├── Views/        menu, activity panel, setup flow, settings and components
+│       ├── App/          entry point, app delegate, Services menu
+│       ├── Mirror/       screen mirroring: scrcpy over adb and the Android app's stream, video decoding, audio
+│       ├── ViewModels/   AppModel, SetupModel, MirrorController, FileBrowser, GalleryBrowser
+│       ├── Services/     activity panel, Notification Center, phone apps and icons, USB accessory link, Dock
+│       ├── Views/        menu, activity panel, setup and introduction, mirror, files and photos windows, settings
 │       └── Extensions/   default tel: handler, launch at login, links
 ├── Tests/                BridgeProtocolTests, GalaxyKitTests
-├── Resources/            Info.plist, icon, bundled adb
-└── scripts/              build, adb download, icon, translation check
+├── Resources/            Info.plist, icon, translations, bundled adb and scrcpy server
+└── scripts/              build, adb and scrcpy downloads, icon, translation check
 android/                  the Android app (Kotlin, Jetpack Compose)
 └── app/src/main/java/com/julianamarques/galaxybridge/
-    ├── bridge/           BridgeService, TLS connection, Keystore identity, Mac discovery, calls, contacts, notification relay
+    ├── bridge/           BridgeService, TLS connection, USB tunnel, Keystore identity, Mac discovery, calls,
+    │                     contacts, notifications, media, gallery, files, accessories
+    ├── mirror/           screen capture, encoder, accessibility control, sound
     ├── protocol/         messages and framing
-    └── ui/               onboarding and pairing screens
+    └── ui/               pairing, introduction and home screens
 protocol/                 protocol reference and JSON fixtures shared by both test suites
 docs/                     architecture, plans and test results
 spikes/                   Phase 0 experiments (throwaway)
@@ -91,7 +99,7 @@ spikes/                   Phase 0 experiments (throwaway)
 - **Dock** — the app lives in the menu bar, and shows in the Dock and in ⌘Tab only while one of its windows (mirroring, photos, files, Settings) is open.
 - **Battery** — the Android app sends it when it changes; with adb, `dumpsys battery` every minute.
 - **Calls** — the Android app dials with `TelecomManager.placeCall()`; with adb, `am start -a android.intent.action.CALL`. Numbers are formatted as you type and dialed in international format (`+55 86 99999-0001`) with [PhoneNumberKit](https://github.com/PhoneNumberKit/PhoneNumberKit), using the country of the network the Galaxy is on (so it follows you when traveling), then the SIM's country, then the Mac's region. The audio stays on the phone (or on the earbuds connected to it). **Settings › Calls** makes the app the default handler for `tel:` links; macOS asks for confirmation.
-- **Clipboard (Android app)** — "Enviar Texto Copiado para o …" in the menu copies the Mac's text to the phone; sharing text to "Enviar para o Mac" on the phone copies it to the Mac. Nothing is synced in the background.
+- **Clipboard (Android app)** — "Enviar Texto Copiado para o …" in the menu copies the Mac's text to the phone; sharing text to "Enviar para o Mac" on the phone copies it to the Mac. Outside screen mirroring, nothing is synced in the background.
 - **Files (Android app)** — "Enviar para o Mac" in Android's share sheet saves photos and files to the Mac's Downloads; "Enviar para o Galaxy" in the Finder's context menu, or "Enviar Arquivo para o …" in the menu, saves them to `Download/Galaxy Bridge` on the phone. Each transfer has its own encrypted connection, and a panel in the top-right corner shows the progress. If the Finder doesn't list the service, turn it on in **System Settings › Keyboard › Keyboard Shortcuts › Services**.
 - **Notifications (Android app)** — the phone's notifications show in the Mac's Notification Center under the sending app's name, with their buttons, including **Reply** with a text field. Pictures in them (a photo sent on WhatsApp, a screenshot, a big picture) come along and show in the notification on the Mac. Dismissing one on either side dismisses it on the other. Ongoing, silent and call notifications stay on the phone, and **Settings › Notificações** turns off the apps you don't want on the Mac.
 - **Battery alerts** — a notification when the Galaxy drops to 20% and 10%, and when it reaches 100% while charging. **Settings › Geral** turns them off.
@@ -117,10 +125,19 @@ Features that work without an Apple Developer account:
 - [x] Calls from the Mac
 - [x] Android app, with no Developer options on the phone
 - [x] Incoming calls on the Mac, with Answer and Decline
-- [x] Phone notifications on the Mac, with replies
+- [x] Phone notifications on the Mac, with replies and pictures
 - [x] "Send to Galaxy" in the Finder (Services menu), and files from the phone to the Mac
 - [x] Recent calls, finding the phone and battery alerts
 - [x] Calling back, links, media, phone status, file browser and screen mirroring
+- [x] USB cable without developer options
+- [x] Photo library, taking a photo with the phone and accessory battery
+- [x] Guided introduction on both apps
+- [ ] SMS on the Mac
+- [ ] Installers for other people (DMG and signed APK)
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to propose changes, [SECURITY.md](SECURITY.md) to report a vulnerability privately and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for the code of conduct.
 
 ## License
 
