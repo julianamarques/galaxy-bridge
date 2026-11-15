@@ -30,6 +30,7 @@ enum ControlMessage {
     case scroll(position: Position, horizontal: Float, vertical: Float, buttons: Int32)
     case backOrScreenOn(action: KeyAction)
     case setClipboard(sequence: UInt64, text: String, paste: Bool)
+    case getClipboard(cut: Bool)
     case setDisplayPower(on: Bool)
     case resetVideo
 
@@ -67,6 +68,9 @@ enum ControlMessage {
             data.append(bigEndian: sequence)
             data.append(paste ? 1 : 0)
             data.appendString(text)
+        case let .getClipboard(cut):
+            data.append(8)
+            data.append(cut ? 2 : 1)
         case let .setDisplayPower(on):
             data.append(10)
             data.append(on ? 1 : 0)

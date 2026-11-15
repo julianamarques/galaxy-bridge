@@ -1,7 +1,6 @@
 import AppKit
 import GalaxyKit
 import AVFoundation
-import GalaxyKit
 
 final class MirrorView: NSView, @preconcurrency NSTextInputClient {
     let session: MirrorSession
@@ -12,6 +11,23 @@ final class MirrorView: NSView, @preconcurrency NSTextInputClient {
         super.init(frame: .zero)
         layer = session.displayLayer
         wantsLayer = true
+        registerForDraggedTypes([.fileURL])
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        Self.files(in: sender).isEmpty ? [] : .copy
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let files = Self.files(in: sender)
+        guard !files.isEmpty else { return false }
+        session.onFiles?(files)
+        return true
+    }
+
+    private static func files(in sender: NSDraggingInfo) -> [URL] {
+        let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
+        return urls?.filter { !$0.hasDirectoryPath } ?? []
     }
 
     @available(*, unavailable)
@@ -99,6 +115,14 @@ final class MirrorView: NSView, @preconcurrency NSTextInputClient {
             metaState: AndroidKeycode.metaState(for: event.modifierFlags)
         ))
         return true
+    }
+
+    @objc func copy(_ sender: Any?) {
+        session.copySelection(cut: false)
+    }
+
+    @objc func cut(_ sender: Any?) {
+        session.copySelection(cut: true)
     }
 
     @objc func paste(_ sender: Any?) {

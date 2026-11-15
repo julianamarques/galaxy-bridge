@@ -52,6 +52,8 @@ final class MirrorSession {
     let displayLayer = AVSampleBufferDisplayLayer()
     private(set) var videoSize: CGSize = .zero
     var onVideoSizeChange: ((CGSize) -> Void)?
+    var onFiles: (([URL]) -> Void)?
+    private(set) var lastClipboard: String?
 
     private let transport: MirrorTransport
     private var hasFrame = false
@@ -59,7 +61,6 @@ final class MirrorSession {
     private var isStopped = false
     private var firstFrameWaiter: CheckedContinuation<Void, Error>?
     private var endWaiter: CheckedContinuation<String?, Never>?
-    private var lastClipboard: String?
     private var clipboardSequence: UInt64 = 0
 
     init(transport: MirrorTransport) {
@@ -119,6 +120,21 @@ final class MirrorSession {
         clipboardSequence += 1
         lastClipboard = text
         send(.setClipboard(sequence: clipboardSequence, text: text, paste: true))
+    }
+
+    func copySelection(cut: Bool) {
+        send(.getClipboard(cut: cut))
+    }
+
+    func syncClipboard(_ text: String) {
+        guard text != lastClipboard else { return }
+        clipboardSequence += 1
+        lastClipboard = text
+        send(.setClipboard(sequence: clipboardSequence, text: text, paste: false))
+    }
+
+    func clipboardArrived(_ text: String) {
+        lastClipboard = text
     }
 
     func stop() {

@@ -1,7 +1,6 @@
 import Accelerate
 import GalaxyKit
 import AVFoundation
-import GalaxyKit
 
 final class AudioPlayer: @unchecked Sendable {
     static let sampleRate = 48_000.0

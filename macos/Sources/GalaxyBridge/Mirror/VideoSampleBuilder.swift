@@ -1,7 +1,6 @@
 import CoreMedia
 import GalaxyKit
 import Foundation
-import GalaxyKit
 
 final class VideoSampleBuilder {
     enum BuildError: LocalizedError {

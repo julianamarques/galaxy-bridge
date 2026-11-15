@@ -210,7 +210,7 @@ data class PhoneFile(val name: String, val folder: Boolean, val size: Long, val 
 data class FilesListing(val path: String, val files: List<PhoneFile>)
 
 @Serializable
-data class MirrorStart(val maxSize: Int? = null, val bitRate: Int)
+data class MirrorStart(val maxSize: Int? = null, val bitRate: Int, val audio: Boolean? = null)
 
 @Serializable
 data class MirrorState(val state: String, val control: Boolean? = null, val message: String? = null) {
@@ -245,6 +245,8 @@ data class MirrorKey(val key: String) {
         const val ENTER = "enter"
         const val DELETE = "delete"
         const val NOTIFICATIONS = "notifications"
+        const val COPY = "copy"
+        const val CUT = "cut"
     }
 }
 

@@ -630,10 +630,12 @@ public struct FilesListing: Codable, Equatable, Sendable {
 public struct MirrorStart: Codable, Equatable, Sendable {
     public var maxSize: Int?
     public var bitRate: Int
+    public var audio: Bool?
 
-    public init(maxSize: Int?, bitRate: Int) {
+    public init(maxSize: Int?, bitRate: Int, audio: Bool? = nil) {
         self.maxSize = maxSize
         self.bitRate = bitRate
+        self.audio = audio
     }
 }
 
@@ -711,6 +713,8 @@ public struct MirrorKey: Codable, Equatable, Sendable {
         case enter
         case delete
         case notifications
+        case copy
+        case cut
     }
 
     public var key: Key

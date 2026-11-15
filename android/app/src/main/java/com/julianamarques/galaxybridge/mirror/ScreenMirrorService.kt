@@ -1,5 +1,6 @@
 package com.julianamarques.galaxybridge.mirror
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -7,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
@@ -31,6 +33,7 @@ class ScreenMirrorService : Service() {
     private var projection: MediaProjection? = null
     @Volatile private var encoder: ScreenEncoder? = null
     @Volatile private var connection: BridgeConnection? = null
+    @Volatile private var audio: AudioCapture? = null
     private var worker: Thread? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -46,7 +49,11 @@ class ScreenMirrorService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        startForeground(NOTIFICATION_ID, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+        val wantsAudio = intent.getBooleanExtra(EXTRA_AUDIO, false) &&
+            checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val types = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION or
+            if (wantsAudio) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0
+        startForeground(NOTIFICATION_ID, notification(), types)
         val projection = getSystemService(MediaProjectionManager::class.java).getMediaProjection(resultCode, data)
         if (projection == null) {
             finished(null)
@@ -58,11 +65,11 @@ class ScreenMirrorService : Service() {
         }, handler)
         val maxSize = intent.getIntExtra(EXTRA_MAX_SIZE, 0).takeIf { it > 0 }
         val bitRate = intent.getIntExtra(EXTRA_BIT_RATE, DEFAULT_BIT_RATE)
-        worker = thread(name = "mirror") { stream(projection, maxSize, bitRate) }
+        worker = thread(name = "mirror") { stream(projection, maxSize, bitRate, wantsAudio) }
         return START_NOT_STICKY
     }
 
-    private fun stream(projection: MediaProjection, maxSize: Int?, bitRate: Int) {
+    private fun stream(projection: MediaProjection, maxSize: Int?, bitRate: Int, withAudio: Boolean) {
         var failure: String? = null
         try {
             val mac = PairingStore.current(this) ?: throw IllegalStateException(getString(R.string.transfer_not_paired))
@@ -72,6 +79,11 @@ class ScreenMirrorService : Service() {
             connection.sendNow(Envelope(Message.MirrorStreamMessage(MirrorStream(CODEC))))
             val encoder = ScreenEncoder(this, projection, maxSize, bitRate) { kind, pts, data, extra -> write(connection, kind, pts, data, extra) }
             this.encoder = encoder
+            if (withAudio) {
+                val capture = AudioCapture(projection) { data, count -> write(connection, KIND_AUDIO, 0, ByteBuffer.wrap(data, 0, count), null) }
+                audio = capture
+                thread(name = "mirror-audio") { runCatching { capture.run(this) } }
+            }
             BridgeService.mirrorStarted(MirrorControlService.isEnabled(this))
             Diagnostics.record(this, "Espelhamento iniciado")
             encoder.run()
@@ -95,12 +107,14 @@ class ScreenMirrorService : Service() {
     }
 
     private fun stopMirroring() {
+        audio?.stop()
         encoder?.stop()
         connection?.close()
         if (worker == null) finished(null)
     }
 
     private fun finished(failure: String?) {
+        audio?.stop()
         encoder?.stop()
         connection?.close()
         projection?.stop()
@@ -145,6 +159,8 @@ class ScreenMirrorService : Service() {
         private const val EXTRA_RESULT = "result"
         const val EXTRA_MAX_SIZE = "maxSize"
         const val EXTRA_BIT_RATE = "bitRate"
+        const val EXTRA_AUDIO = "audio"
+        private const val KIND_AUDIO = 4
         private const val DEFAULT_BIT_RATE = 8_000_000
         private const val SEND_BUFFER_BYTES = 1 shl 20
         private const val HEADER = 9

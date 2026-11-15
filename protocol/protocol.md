@@ -254,7 +254,7 @@ To send a file into a folder, the Mac adds `folder` to `transfer.offer`; the pho
 ### `mirror.*` — screen mirroring
 
 ```json
-{ "type": "mirror.start", "body": { "maxSize": 1920, "bitRate": 12000000 } }
+{ "type": "mirror.start", "body": { "maxSize": 1920, "bitRate": 12000000, "audio": true } }
 { "type": "mirror.state", "body": { "state": "running", "control": true } }
 { "type": "mirror.state", "body": { "state": "stopped", "message": "O espelhamento não foi permitido no Galaxy." } }
 { "type": "mirror.stop" }
@@ -265,11 +265,11 @@ To send a file into a folder, the Mac adds `folder` to `transfer.offer`; the pho
 { "type": "mirror.text", "body": { "text": "Olá" } }
 ```
 
-`mirror.start` (Mac → phone) asks to mirror the screen, the video's longer side at most `maxSize` pixels (left out: the screen's own size) at `bitRate` bits per second. Android only lets the user start a screen recording, so the phone shows a notification and answers `mirror.state` `waiting`; tapping it opens Android's confirmation. Once the user confirms, the phone opens a second connection for the video (below) and sends `running`; `control` says whether the accessibility service that carries taps and keys is on. `stopped` ends it, with a `message` when it failed or was declined. `mirror.stop` (Mac → phone) stops it; `mirror.sync` asks for a key frame, after the Mac's decoder lost one.
+`mirror.start` (Mac → phone) asks to mirror the screen, the video's longer side at most `maxSize` pixels (left out: the screen's own size) at `bitRate` bits per second, with the phone's sound when `audio` is `true` (Android asks for the microphone permission once, since capturing other apps' sound needs it; apps that opt out of capture stay silent). Android only lets the user start a screen recording, so the phone shows a notification and answers `mirror.state` `waiting`; tapping it opens Android's confirmation. Once the user confirms, the phone opens a second connection for the video (below) and sends `running`; `control` says whether the accessibility service that carries taps and keys is on. `stopped` ends it, with a `message` when it failed or was declined. `mirror.stop` (Mac → phone) stops it; `mirror.sync` asks for a key frame, after the Mac's decoder lost one.
 
-`mirror.touch`, `mirror.scroll`, `mirror.key` and `mirror.text` (Mac → phone) control the phone. Coordinates are in the video's pixels (`width` × `height`), so the phone scales them to its screen. `action` is `down`, `move` or `up`, for a single finger; `dx` and `dy` are the Mac's scroll amounts (positive moves the content right and down); `key` is `back`, `home`, `recents`, `notifications`, `enter` or `delete`; `text` is typed into the focused field.
+`mirror.touch`, `mirror.scroll`, `mirror.key` and `mirror.text` (Mac → phone) control the phone. Coordinates are in the video's pixels (`width` × `height`), so the phone scales them to its screen. `action` is `down`, `move` or `up`, for a single finger; `dx` and `dy` are the Mac's scroll amounts (positive moves the content right and down); `key` is `back`, `home`, `recents`, `notifications`, `enter`, `delete`, `copy` or `cut` (these two send the focused field's selected text to the Mac as `clipboard`); `text` is typed into the focused field.
 
-**The video** travels on its own TLS connection, opened by the phone like a file transfer: its first message is `{ "type": "mirror.stream", "body": { "codec": "h264" } }`. After that every frame (still 4-byte length + body) carries binary data instead of JSON: one byte for the kind, 8 bytes for the presentation time in microseconds (big-endian), then the payload. Kinds: `0` a new video size (the payload is two big-endian `u32`: width, height; sent at the start and when the phone rotates), `1` the codec configuration (H.264 SPS and PPS, Annex B), `2` a frame, `3` a key frame. Closing this connection ends the mirroring.
+**The video** travels on its own TLS connection, opened by the phone like a file transfer: its first message is `{ "type": "mirror.stream", "body": { "codec": "h264" } }`. After that every frame (still 4-byte length + body) carries binary data instead of JSON: one byte for the kind, 8 bytes for the presentation time in microseconds (big-endian), then the payload. Kinds: `0` a new video size (the payload is two big-endian `u32`: width, height; sent at the start and when the phone rotates), `1` the codec configuration (H.264 SPS and PPS, Annex B), `2` a frame, `3` a key frame, `4` sound (48 kHz stereo, 16-bit little-endian PCM). While mirroring, the Mac also sends `clipboard` whenever its own clipboard changes, so what was copied on the Mac can be pasted on the phone. Closing this connection ends the mirroring.
 
 ### USB cable
 

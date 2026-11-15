@@ -86,6 +86,11 @@ final class AppModel: ObservableObject {
         fileBrowser.send = { [weak self] in self?.bridge?.send($0) }
         mirror.findDevice = { [weak self] in await self?.mirrorDevice() }
         usb.isEnabled = { [weak self] in self?.appPhone != nil }
+        mirror.sendFiles = { [weak self] urls in
+            guard let self, self.isAppConnected else { return false }
+            self.sendFiles(urls)
+            return true
+        }
         usb.port = { [weak self] in self?.bridge?.port }
         mirror.makeAppTransport = { [weak self] in
             guard let self, self.isAppConnected, let bridge = self.bridge else { return nil }
@@ -708,7 +713,11 @@ extension AppModel {
         case .clipboard(let text):
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
-            notifier.clipboard(String(localized: "Copiado do \(deviceName)"), text: text)
+            if mirror.isActive {
+                mirror.clipboardArrived(text)
+            } else {
+                notifier.clipboard(String(localized: "Copiado do \(deviceName)"), text: text)
+            }
         case .notificationPosted(let notification):
             notificationPosted(notification)
         case .notificationRemoved(let key):

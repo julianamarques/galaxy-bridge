@@ -9,6 +9,7 @@ final class AppTransport: MirrorTransport {
         case config = 1
         case frame = 2
         case keyFrame = 3
+        case audio = 4
     }
 
     private static let headerLength = 9
@@ -18,6 +19,8 @@ final class AppTransport: MirrorTransport {
     private let sendMessage: (Message) -> Void
     private let stopStream: () -> Void
     private var feed: VideoFeed?
+    private var audioPlayer: AudioPlayer?
+    private var audioFailed = false
     private var isClosed = false
 
     init(send: @escaping (Message) -> Void, stopStream: @escaping () -> Void) {
@@ -53,10 +56,20 @@ final class AppTransport: MirrorTransport {
                 try feed.config(payload)
             case .frame, .keyFrame:
                 try feed.frame(payload, pts: pts, isKeyFrame: kind == .keyFrame)
+            case .audio:
+                play(payload)
             }
         } catch {
             end(error.localizedDescription)
         }
+    }
+
+    private func play(_ samples: [UInt8]) {
+        if audioPlayer == nil, !audioFailed {
+            let player = AudioPlayer()
+            if (try? player.start()) != nil { audioPlayer = player } else { audioFailed = true }
+        }
+        audioPlayer?.play(interleavedInt16: samples)
     }
 
     func stateChanged(_ state: MirrorState) {
@@ -93,6 +106,10 @@ final class AppTransport: MirrorTransport {
             if let key = Self.key(for: keycode) { sendMessage(.mirrorKey(MirrorKey(key: key))) }
         case let .text(text), let .setClipboard(_, text, true):
             sendMessage(.mirrorText(MirrorText(text: text)))
+        case let .setClipboard(_, text, false):
+            sendMessage(.clipboard(Clipboard(text: String(text.prefix(Clipboard.maxLength)))))
+        case let .getClipboard(cut):
+            sendMessage(.mirrorKey(MirrorKey(key: cut ? .cut : .copy)))
         case .resetVideo:
             requestKeyFrame()
         default:
@@ -103,6 +120,8 @@ final class AppTransport: MirrorTransport {
     func close() {
         guard !isClosed else { return }
         isClosed = true
+        audioPlayer?.stop()
+        audioPlayer = nil
         sendMessage(.mirrorStop)
         stopStream()
     }

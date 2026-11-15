@@ -15,6 +15,7 @@ import android.view.Display
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.julianamarques.galaxybridge.bridge.BridgeService
 import com.julianamarques.galaxybridge.protocol.MirrorKey
 import com.julianamarques.galaxybridge.protocol.MirrorScroll
 import com.julianamarques.galaxybridge.protocol.MirrorTouch
@@ -92,12 +93,23 @@ class MirrorControlService : AccessibilityService() {
             MirrorKey.RECENTS -> performGlobalAction(GLOBAL_ACTION_RECENTS)
             MirrorKey.NOTIFICATIONS -> performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)
             MirrorKey.ENTER -> focused()?.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
+            MirrorKey.COPY, MirrorKey.CUT -> copy(cut = key == MirrorKey.CUT)
             MirrorKey.DELETE -> edit { text, start, end -> if (start != end) Edit(text.removeRange(start, end), start) else if (start > 0) Edit(text.removeRange(start - 1, start), start - 1) else null }
         }
     }
 
     fun text(text: String) = handler.post {
         edit { current, start, end -> Edit(current.replaceRange(start, end, text), start + text.length) }
+    }
+
+    private fun copy(cut: Boolean) {
+        val node = focused() ?: return
+        val text = if (node.isShowingHintText) "" else node.text?.toString().orEmpty()
+        val start = minOf(node.textSelectionStart, node.textSelectionEnd)
+        val end = maxOf(node.textSelectionStart, node.textSelectionEnd)
+        if (start < 0 || end > text.length || start == end) return
+        BridgeService.copyToMac(text.substring(start, end))
+        node.performAction(if (cut) AccessibilityNodeInfo.ACTION_CUT else AccessibilityNodeInfo.ACTION_COPY)
     }
 
     private data class Edit(val text: String, val cursor: Int)

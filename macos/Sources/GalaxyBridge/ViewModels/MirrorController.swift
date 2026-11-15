@@ -17,6 +17,7 @@ final class MirrorController: ObservableObject {
 
     var findDevice: (() async -> String?)?
     var makeAppTransport: (() -> AppTransport?)?
+    var sendFiles: (([URL]) -> Bool)?
     private(set) var appTransport: AppTransport?
     var deviceName: () -> String = { "Galaxy" }
 
@@ -24,9 +25,12 @@ final class MirrorController: ObservableObject {
     private static let reconnectWindow: TimeInterval = 30
     private static let firstFrameTimeout: TimeInterval = 12
     private static let consentTimeout: TimeInterval = 120
+    private static let clipboardInterval: TimeInterval = 0.5
     static let consentHint = String(localized: "Toque na notificação do Galaxy e confirme para começar.")
 
     private var task: Task<Void, Never>?
+    private var clipboardTimer: Timer?
+    private var clipboardChange = NSPasteboard.general.changeCount
     private var session: MirrorSession?
     private var window: MirrorWindowController?
 
@@ -120,6 +124,7 @@ final class MirrorController: ObservableObject {
         let options = MirrorOptions()
         let connection = try await ScrcpyServer.start(serial: serial, options: options)
         let session = MirrorSession(transport: ScrcpyTransport(connection: connection, codec: options.codec))
+        session.onFiles = { [weak self] urls in self?.send(urls, serial: serial) }
         try await run(session, options: options, timeout: Self.firstFrameTimeout)
         if options.turnScreenOff {
             session.send(.setDisplayPower(on: false))
@@ -132,9 +137,10 @@ final class MirrorController: ObservableObject {
         appTransport = transport
         defer { appTransport = nil }
         let session = MirrorSession(transport: transport)
+        session.onFiles = { [weak self] urls in self?.send(urls, serial: nil) }
         hint = Self.consentHint
         try await run(session, options: options, timeout: Self.consentTimeout) {
-            transport.begin(MirrorStart(maxSize: options.quality.maxSize, bitRate: options.quality.bitRate))
+            transport.begin(MirrorStart(maxSize: options.quality.maxSize, bitRate: options.quality.bitRate, audio: options.audio))
         }
         return await session.waitUntilEnded()
     }
@@ -152,6 +158,38 @@ final class MirrorController: ObservableObject {
         state = .running
         window.sessionDidStart()
         showWindow()
+        watchClipboard()
+    }
+
+    func clipboardArrived(_ text: String) {
+        session?.clipboardArrived(text)
+        clipboardChange = NSPasteboard.general.changeCount
+    }
+
+    private func watchClipboard() {
+        clipboardChange = NSPasteboard.general.changeCount
+        clipboardTimer?.invalidate()
+        clipboardTimer = Timer.scheduledTimer(withTimeInterval: Self.clipboardInterval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.clipboardChanged() }
+        }
+    }
+
+    private func clipboardChanged() {
+        let pasteboard = NSPasteboard.general
+        guard pasteboard.changeCount != clipboardChange else { return }
+        clipboardChange = pasteboard.changeCount
+        guard let text = pasteboard.string(forType: .string), !text.isEmpty, text.count <= Clipboard.maxLength else { return }
+        session?.syncClipboard(text)
+    }
+
+    private func send(_ urls: [URL], serial: String?) {
+        if sendFiles?(urls) == true { return }
+        guard let serial else { return }
+        Task {
+            for url in urls {
+                try? await ADB.push(url, to: "/sdcard/Download/\(url.lastPathComponent)", serial: serial)
+            }
+        }
     }
 
     private func makeWindow(options: MirrorOptions) -> MirrorWindowController {
@@ -163,6 +201,8 @@ final class MirrorController: ObservableObject {
     }
 
     private func tearDownSession() {
+        clipboardTimer?.invalidate()
+        clipboardTimer = nil
         session?.stop()
         session = nil
     }

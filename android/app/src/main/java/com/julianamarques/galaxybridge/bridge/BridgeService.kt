@@ -435,6 +435,7 @@ class BridgeService : Service() {
         val consent = Intent(this, MirrorConsentActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             .putExtra(ScreenMirrorService.EXTRA_BIT_RATE, start.bitRate)
+            .putExtra(ScreenMirrorService.EXTRA_AUDIO, start.audio == true)
         start.maxSize?.let { consent.putExtra(ScreenMirrorService.EXTRA_MAX_SIZE, it) }
         val notification = Notification.Builder(this, ScreenMirrorService.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
