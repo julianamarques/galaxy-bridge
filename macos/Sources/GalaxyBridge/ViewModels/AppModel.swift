@@ -727,6 +727,7 @@ extension AppModel {
         case .link(let link):
             openFromPhone(link)
         case .media(let state):
+            Log.phone.info("Mídia: \(state.app ?? "nada", privacy: .public), tocando: \(state.playing), título: \(state.title != nil)")
             media = state.title == nil ? nil : state
         case .files(let listing, let replyTo):
             fileBrowser.received(listing, replyTo: replyTo)

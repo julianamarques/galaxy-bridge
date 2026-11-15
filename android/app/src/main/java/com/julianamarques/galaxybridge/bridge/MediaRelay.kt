@@ -10,6 +10,7 @@ import android.media.session.PlaybackState
 import android.os.Handler
 import android.os.Looper
 import android.util.Base64
+import com.julianamarques.galaxybridge.Diagnostics
 import com.julianamarques.galaxybridge.protocol.MediaControl
 import com.julianamarques.galaxybridge.protocol.MediaState
 import java.io.ByteArrayOutputStream
@@ -36,7 +37,9 @@ class MediaRelay(private val context: Context, private val onChange: (MediaState
     fun start() {
         handler.post {
             if (listening) return@post
-            listening = runCatching { sessions.addOnActiveSessionsChangedListener(sessionsChanged, component, handler) }.isSuccess
+            val result = runCatching { sessions.addOnActiveSessionsChangedListener(sessionsChanged, component, handler) }
+            listening = result.isSuccess
+            Diagnostics.record(context, "Mídia: ${result.exceptionOrNull()?.let { "sem acesso (${it.javaClass.simpleName})" } ?: "acompanhando"}")
             if (listening) follow(activeSessions())
         }
     }
@@ -78,6 +81,7 @@ class MediaRelay(private val context: Context, private val onChange: (MediaState
         val state = controller?.let(::state) ?: MediaState(playing = false)
         if (state == current) return
         current = state
+        Diagnostics.record(context, "Mídia: ${state.app ?: "nada"}, ${if (state.playing) "tocando" else "parado"}, título=${state.title != null}")
         onChange(state)
     }
 
