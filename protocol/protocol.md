@@ -107,6 +107,8 @@ Sent on every change of the phone's call, and once after `hello` if a call is al
 | `voicemail` | One UI's direct voicemail picked up an unanswered call. The Mac treats it as unanswered. |
 | `ended` | The call is over. The phone forgets it. |
 
+`declined` is `true` on the `ended` of an unanswered incoming call that was declined, on the phone or from the Mac, so the Mac doesn't show it as missed. The phone reads it from its call history, which takes up to 3 s after the call ends and needs the call log permission; without it, `declined` is left out and the call counts as missed.
+
 `direction` is `incoming` or `outgoing`. `name` is the contact name and `number` the number, both as the dialer shows them (the number is often national, like `086…`), left out until known. They usually arrive in a second `call.state` a moment after the first. `contact` is the phone's contact ID when the number is in the phone's contacts, so the Mac can ask for the photo; for calls placed with `call.place`, the phone fills in the number it dialed and its contact.
 
 ### `call.answer` / `call.decline` / `call.end` — Mac → phone
@@ -178,6 +180,32 @@ The apps whose notifications the phone should not send. Sent after `hello` and w
 ```
 
 Text the user chose to send to the other side's clipboard, up to 100,000 characters. Only sent on an explicit action: the Mac's "Enviar Texto Copiado" menu item, or sharing text to "Enviar para o Mac" on the phone. Neither side watches the clipboard.
+
+### `ring` — both directions
+
+```json
+{ "type": "ring", "body": { "on": true } }
+```
+
+From the Mac, starts (`on: true`) or stops ringing the phone so the user can find it. The phone plays its ringtone on the alarm stream at full volume, so it rings in silent mode too, vibrates and shows a notification that stops it; it stops on its own after a minute and puts the alarm volume back. The phone sends `ring` back each time it starts or stops, so the Mac's menu follows it.
+
+### `calls.recent` — phone → Mac
+
+```json
+{ "type": "calls.recent", "body": { "calls": [ { "number": "+5586999990001", "name": "Maria", "contact": "3789r1-2A4E", "kind": "missed", "time": 1760700000000, "duration": 0 } ] } }
+```
+
+The phone's latest calls, newest first, up to 8. Sent after `hello` and whenever the call history changes; not sent without the call log permission. `kind` is `incoming`, `outgoing`, `missed` or `declined` (blocked calls count as declined), `time` is in milliseconds since 1970 and `duration` in seconds. `number` is left out for private numbers; `name` and `contact` when the number isn't a contact.
+
+### `gallery.request` / `gallery.results` / `gallery.import` — Mac → phone / phone → Mac / Mac → phone
+
+```json
+{ "type": "gallery.request", "id": "g1", "body": { "limit": 8 } }
+{ "type": "gallery.results", "replyTo": "g1", "body": { "photos": [ { "id": "1000012345", "name": "20261017_111110.jpg", "time": 1760700000000, "thumbnail": "/9j/4AAQ…" } ] } }
+{ "type": "gallery.import", "body": { "id": "1000012345" } }
+```
+
+The latest photos on the phone, newest first, up to `limit` (at most 24), each with a JPEG thumbnail of about 200 pixels in base64. The Mac asks each time its menu opens. `gallery.import` asks the phone to send that photo, which it does as a regular phone-to-Mac file transfer. Without the photos permission the phone answers `error` (`permission`).
 
 ### File transfers
 

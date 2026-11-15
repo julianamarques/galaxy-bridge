@@ -6,6 +6,11 @@
     <string name="notification_searching">Looking for %1$s…</string>
     <string name="notification_refused">%1$s doesn\'t recognize this phone anymore</string>
     <string name="channel_transfers">Files between the Galaxy and the Mac</string>
+    <string name="channel_find">Find my phone</string>
+    <string name="ringing_title">Ringing from the Mac</string>
+    <string name="ringing_text">Tap to stop.</string>
+    <string name="ringing_stop">Stop</string>
+    <string name="error_photos_permission">Galaxy Bridge isn\'t allowed to see the photos. Open the app on the Galaxy to allow it.</string>
     <string name="transfer_sending">Sending to the Mac…</string>
     <string name="transfer_sent">Sent to the Mac</string>
     <string name="transfer_failed">Couldn\'t send to the Mac</string>
@@ -31,11 +36,13 @@
     <string name="permission_notifications">Notifications</string>
     <string name="permission_notifications_reason">Shows when the Galaxy is connected to the Mac.</string>
     <string name="permission_calls">Calls</string>
-    <string name="permission_calls_reason">To make, answer and decline calls from the Mac.</string>
+    <string name="permission_calls_reason">To make, answer and decline calls from the Mac, and to tell declined calls from missed ones.</string>
     <string name="permission_caller_name">Caller\'s name</string>
     <string name="permission_caller_name_reason">Reads the Galaxy\'s call notification to show on the Mac who\'s calling.</string>
     <string name="permission_contacts">Contacts</string>
     <string name="permission_contacts_reason">To search contacts and show their photos on the Mac. The contacts stay on the Galaxy.</string>
+    <string name="permission_photos">Photos</string>
+    <string name="permission_photos_reason">To show your latest photos on the Mac and import them from there.</string>
     <string name="permission_battery">Unrestricted battery</string>
     <string name="permission_battery_reason">So the connection keeps going with the screen off.</string>
     <string name="allow">Allow</string>
@@ -96,5 +103,9 @@
     <string name="feature_files_on">Share › Send to Mac</string>
     <string name="feature_clipboard">Clipboard</string>
     <string name="feature_clipboard_on">Share text to copy it on the Mac</string>
+    <string name="feature_photos">Photos</string>
+    <string name="feature_photos_on">Latest ones in the Mac\'s menu</string>
+    <string name="feature_find">Find my phone</string>
+    <string name="feature_find_on">Rings it from the Mac, even on silent</string>
     <string name="feature_needs_permission">Tap to allow</string>
 </resources>

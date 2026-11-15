@@ -23,6 +23,9 @@ public final class BridgeServer {
         case transferProgress(TransferProgress)
         case transferEnded(String, TransferOutcome)
         case clipboard(String)
+        case ring(Bool)
+        case recentCalls([RecentCall])
+        case gallery([GalleryPhoto], replyTo: String?)
         case error(BridgeError, replyTo: String?)
     }
 
@@ -283,6 +286,12 @@ public final class BridgeServer {
             onEvent?(.notificationRemoved(notification.key))
         case .clipboard(let clipboard) where connection === active:
             onEvent?(.clipboard(clipboard.text))
+        case .ring(let ring) where connection === active:
+            onEvent?(.ring(ring.on))
+        case .callsRecent(let recent) where connection === active:
+            onEvent?(.recentCalls(recent.calls))
+        case .galleryResults(let results) where connection === active:
+            onEvent?(.gallery(results.photos, replyTo: envelope.replyTo))
         case .notificationActive(let notifications) where connection === active:
             onEvent?(.notificationsActive(notifications.keys))
         case .error(let error) where connection === active:

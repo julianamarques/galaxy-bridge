@@ -19,6 +19,10 @@ struct MenuView: View {
                 }
                 MenuDivider()
                 dialer
+                if app.isAppConnected, !app.gallery.isEmpty || app.galleryError != nil {
+                    MenuDivider()
+                    gallery
+                }
                 if !app.transfers.isEmpty {
                     MenuDivider()
                     transfers
@@ -30,6 +34,7 @@ struct MenuView: View {
         .padding(.horizontal, 6)
         .padding(.vertical, 10)
         .frame(width: 310)
+        .onMenuOpen { app.refreshGallery() }
     }
 
     private var notConfigured: some View {
@@ -158,6 +163,8 @@ struct MenuView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            } else if number.isEmpty, !app.recentCalls.isEmpty {
+                recents
             }
             if let error = app.callError {
                 Text(error)
@@ -194,6 +201,41 @@ struct MenuView: View {
         number = ""
     }
 
+    private var recents: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Recentes")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.top, 2)
+            VStack(spacing: 0) {
+                ForEach(app.recentCalls.prefix(Self.recentLimit)) { call in
+                    RecentCallRow(call: call, name: displayName(call), photo: photo(call)) { redial(call) }
+                        .disabled(call.number == nil)
+                }
+            }
+            .padding(.horizontal, -8)
+        }
+    }
+
+    private var gallery: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            MenuSectionTitle("Fotos Recentes")
+            if let error = app.galleryError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
+                    ForEach(app.gallery) { photo in
+                        GalleryTile(photo: photo) { app.importPhoto(photo.id) }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+    }
+
     private var transfers: some View {
         VStack(alignment: .leading, spacing: 8) {
             MenuSectionTitle("Transferências")
@@ -226,6 +268,9 @@ struct MenuView: View {
     private var footer: some View {
         VStack(spacing: 0) {
             if app.appPhone != nil {
+                Button(app.isRinging ? "Parar de Tocar o \(app.deviceName)" : "Tocar o \(app.deviceName)") { app.toggleRing() }
+                    .buttonStyle(MenuRowStyle())
+                    .disabled(!app.isAppConnected)
                 Button("Enviar Arquivo para o \(app.deviceName)…") { app.chooseFilesToSend() }
                     .buttonStyle(MenuRowStyle())
                     .disabled(!app.isAppConnected)
@@ -239,6 +284,24 @@ struct MenuView: View {
             Button("Sair do \(Bundle.appName)") { NSApp.terminate(nil) }
                 .buttonStyle(MenuRowStyle())
         }
+    }
+
+    private static let recentLimit = 4
+
+    private func displayName(_ call: RecentCall) -> String? {
+        if let name = call.name { return name }
+        guard let number = call.number else { return nil }
+        return PhoneNumbers.shared.display(number, country: app.dialCountry)
+    }
+
+    private func photo(_ call: RecentCall) -> NSImage? {
+        guard let contact = call.contact else { return nil }
+        return app.photos[contact]
+    }
+
+    private func redial(_ call: RecentCall) {
+        guard let number = call.number else { return }
+        dial(PhoneNumber(number))
     }
 
     private func call() {
@@ -366,5 +429,64 @@ private struct SuggestionRow: View {
             }
         }
         .buttonStyle(MenuRowStyle(isSelected: isSelected))
+    }
+}
+
+private struct RecentCallRow: View {
+    let call: RecentCall
+    let name: String?
+    let photo: NSImage?
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                ContactAvatar(name: call.name, photo: photo, size: 26)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(name ?? String(localized: "Número desconhecido"))
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(call.kind == .missed ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+                        .lineLimit(1)
+                    Label { Text(verbatim: "\(call.kindLabel) · \(call.when)") } icon: { Image(systemName: call.symbol) }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .buttonStyle(MenuRowStyle())
+    }
+}
+
+private struct GalleryTile: View {
+    let photo: GalleryItem
+    let action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            Color.clear
+                .aspectRatio(1, contentMode: .fit)
+                .overlay {
+                    Image(nsImage: photo.image)
+                        .resizable()
+                        .scaledToFill()
+                }
+                .overlay {
+                    if isHovered {
+                        ZStack {
+                            Color.black.opacity(0.35)
+                            Image(systemName: "square.and.arrow.down")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .help("Importar \(photo.name) para Downloads")
     }
 }

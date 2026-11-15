@@ -42,6 +42,10 @@ final class Notifier: NSObject {
         post(Self.filePrefix + UUID().uuidString, title: title, body: name)
     }
 
+    func battery(_ title: String, body: String, sound: Bool) {
+        post("battery", title: title, body: body, sound: sound)
+    }
+
     func clipboard(_ title: String, text: String) {
         post("clipboard", title: title, body: String(text.prefix(Self.clipboardPreview)))
     }

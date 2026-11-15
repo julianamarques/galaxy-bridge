@@ -42,6 +42,11 @@ public enum Message: Equatable, Sendable {
     case transferChunk(TransferChunk)
     case transferResult(TransferResult)
     case clipboard(Clipboard)
+    case ring(Ring)
+    case callsRecent(RecentCalls)
+    case galleryRequest(GalleryRequest)
+    case galleryResults(GalleryResults)
+    case galleryImport(GalleryID)
     case error(BridgeError)
     case ping
     case pong
@@ -76,6 +81,11 @@ public enum Message: Equatable, Sendable {
         case .transferChunk: "transfer.chunk"
         case .transferResult: "transfer.result"
         case .clipboard: "clipboard"
+        case .ring: "ring"
+        case .callsRecent: "calls.recent"
+        case .galleryRequest: "gallery.request"
+        case .galleryResults: "gallery.results"
+        case .galleryImport: "gallery.import"
         case .error: "error"
         case .ping: "ping"
         case .pong: "pong"
@@ -180,14 +190,16 @@ public struct CallState: Codable, Equatable, Sendable {
     public var number: String?
     public var name: String?
     public var contact: String?
+    public var declined: Bool?
 
-    public init(call: String, state: State, direction: Direction, number: String? = nil, name: String? = nil, contact: String? = nil) {
+    public init(call: String, state: State, direction: Direction, number: String? = nil, name: String? = nil, contact: String? = nil, declined: Bool? = nil) {
         self.call = call
         self.state = state
         self.direction = direction
         self.number = number
         self.name = name
         self.contact = contact
+        self.declined = declined
     }
 }
 
@@ -385,6 +397,87 @@ public struct Clipboard: Codable, Equatable, Sendable {
     }
 }
 
+public struct Ring: Codable, Equatable, Sendable {
+    public var on: Bool
+
+    public init(on: Bool) {
+        self.on = on
+    }
+}
+
+public struct RecentCall: Codable, Equatable, Identifiable, Sendable {
+    public enum Kind: String, Codable, Sendable {
+        case incoming
+        case outgoing
+        case missed
+        case declined
+    }
+
+    public var number: String?
+    public var name: String?
+    public var contact: String?
+    public var kind: Kind
+    public var time: Int64
+    public var duration: Int
+
+    public var id: String { "\(time)|\(number ?? "")" }
+
+    public init(number: String?, name: String? = nil, contact: String? = nil, kind: Kind, time: Int64, duration: Int) {
+        self.number = number
+        self.name = name
+        self.contact = contact
+        self.kind = kind
+        self.time = time
+        self.duration = duration
+    }
+}
+
+public struct RecentCalls: Codable, Equatable, Sendable {
+    public var calls: [RecentCall]
+
+    public init(calls: [RecentCall]) {
+        self.calls = calls
+    }
+}
+
+public struct GalleryRequest: Codable, Equatable, Sendable {
+    public var limit: Int
+
+    public init(limit: Int) {
+        self.limit = limit
+    }
+}
+
+public struct GalleryPhoto: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var name: String
+    public var time: Int64
+    public var thumbnail: Data
+
+    public init(id: String, name: String, time: Int64, thumbnail: Data) {
+        self.id = id
+        self.name = name
+        self.time = time
+        self.thumbnail = thumbnail
+    }
+}
+
+public struct GalleryResults: Codable, Equatable, Sendable {
+    public var photos: [GalleryPhoto]
+
+    public init(photos: [GalleryPhoto]) {
+        self.photos = photos
+    }
+}
+
+public struct GalleryID: Codable, Equatable, Sendable {
+    public var id: String
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
 public struct BridgeError: Codable, Equatable, Sendable, Error {
     public enum Code: String, Codable, Sendable {
         case version
@@ -439,6 +532,11 @@ extension Envelope: Codable {
         case "transfer.chunk": .transferChunk(try container.decode(TransferChunk.self, forKey: .body))
         case "transfer.result": .transferResult(try container.decode(TransferResult.self, forKey: .body))
         case "clipboard": .clipboard(try container.decode(Clipboard.self, forKey: .body))
+        case "ring": .ring(try container.decode(Ring.self, forKey: .body))
+        case "calls.recent": .callsRecent(try container.decode(RecentCalls.self, forKey: .body))
+        case "gallery.request": .galleryRequest(try container.decode(GalleryRequest.self, forKey: .body))
+        case "gallery.results": .galleryResults(try container.decode(GalleryResults.self, forKey: .body))
+        case "gallery.import": .galleryImport(try container.decode(GalleryID.self, forKey: .body))
         case "error": .error(try container.decode(BridgeError.self, forKey: .body))
         case "ping": .ping
         case "pong": .pong
@@ -474,6 +572,11 @@ extension Envelope: Codable {
         case .transferChunk(let body): try container.encode(body, forKey: .body)
         case .transferResult(let body): try container.encode(body, forKey: .body)
         case .clipboard(let body): try container.encode(body, forKey: .body)
+        case .ring(let body): try container.encode(body, forKey: .body)
+        case .callsRecent(let body): try container.encode(body, forKey: .body)
+        case .galleryRequest(let body): try container.encode(body, forKey: .body)
+        case .galleryResults(let body): try container.encode(body, forKey: .body)
+        case .galleryImport(let body): try container.encode(body, forKey: .body)
         case .error(let body): try container.encode(body, forKey: .body)
         case .unpair, .ping, .pong, .unknown: break
         }

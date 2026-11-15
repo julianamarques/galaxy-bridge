@@ -50,6 +50,7 @@ data class CallState(
     val number: String? = null,
     val name: String? = null,
     val contact: String? = null,
+    val declined: Boolean? = null,
 ) {
     companion object {
         const val RINGING = "ringing"
@@ -130,6 +131,41 @@ data class Clipboard(val text: String) {
 }
 
 @Serializable
+data class Ring(val on: Boolean)
+
+@Serializable
+data class RecentCall(
+    val number: String? = null,
+    val name: String? = null,
+    val contact: String? = null,
+    val kind: String,
+    val time: Long,
+    val duration: Int,
+) {
+    companion object {
+        const val INCOMING = "incoming"
+        const val OUTGOING = "outgoing"
+        const val MISSED = "missed"
+        const val DECLINED = "declined"
+    }
+}
+
+@Serializable
+data class RecentCalls(val calls: List<RecentCall>)
+
+@Serializable
+data class GalleryRequest(val limit: Int)
+
+@Serializable
+data class GalleryPhoto(val id: String, val name: String, val time: Long, val thumbnail: String)
+
+@Serializable
+data class GalleryResults(val photos: List<GalleryPhoto>)
+
+@Serializable
+data class GalleryID(val id: String)
+
+@Serializable
 data class BridgeError(val code: String, val message: String)
 
 sealed interface Message {
@@ -162,6 +198,11 @@ sealed interface Message {
     data class TransferChunkMessage(val body: TransferChunk) : Message { override val type get() = "transfer.chunk" }
     data class TransferResultMessage(val body: TransferResult) : Message { override val type get() = "transfer.result" }
     data class ClipboardMessage(val body: Clipboard) : Message { override val type get() = "clipboard" }
+    data class RingMessage(val body: Ring) : Message { override val type get() = "ring" }
+    data class CallsRecentMessage(val body: RecentCalls) : Message { override val type get() = "calls.recent" }
+    data class GalleryRequestMessage(val body: GalleryRequest) : Message { override val type get() = "gallery.request" }
+    data class GalleryResultsMessage(val body: GalleryResults) : Message { override val type get() = "gallery.results" }
+    data class GalleryImportMessage(val body: GalleryID) : Message { override val type get() = "gallery.import" }
     data class ErrorMessage(val body: BridgeError) : Message { override val type get() = "error" }
     data object Ping : Message { override val type get() = "ping" }
     data object Pong : Message { override val type get() = "pong" }
@@ -218,6 +259,11 @@ object Codec {
             "transfer.chunk" -> Message.TransferChunkMessage(body(TransferChunk.serializer()))
             "transfer.result" -> Message.TransferResultMessage(body(TransferResult.serializer()))
             "clipboard" -> Message.ClipboardMessage(body(Clipboard.serializer()))
+            "ring" -> Message.RingMessage(body(Ring.serializer()))
+            "calls.recent" -> Message.CallsRecentMessage(body(RecentCalls.serializer()))
+            "gallery.request" -> Message.GalleryRequestMessage(body(GalleryRequest.serializer()))
+            "gallery.results" -> Message.GalleryResultsMessage(body(GalleryResults.serializer()))
+            "gallery.import" -> Message.GalleryImportMessage(body(GalleryID.serializer()))
             "error" -> Message.ErrorMessage(body(BridgeError.serializer()))
             "ping" -> Message.Ping
             "pong" -> Message.Pong
@@ -257,6 +303,11 @@ object Codec {
         is Message.TransferChunkMessage -> json.encodeToJsonElement(TransferChunk.serializer(), message.body)
         is Message.TransferResultMessage -> json.encodeToJsonElement(TransferResult.serializer(), message.body)
         is Message.ClipboardMessage -> json.encodeToJsonElement(Clipboard.serializer(), message.body)
+        is Message.RingMessage -> json.encodeToJsonElement(Ring.serializer(), message.body)
+        is Message.CallsRecentMessage -> json.encodeToJsonElement(RecentCalls.serializer(), message.body)
+        is Message.GalleryRequestMessage -> json.encodeToJsonElement(GalleryRequest.serializer(), message.body)
+        is Message.GalleryResultsMessage -> json.encodeToJsonElement(GalleryResults.serializer(), message.body)
+        is Message.GalleryImportMessage -> json.encodeToJsonElement(GalleryID.serializer(), message.body)
         is Message.ErrorMessage -> json.encodeToJsonElement(BridgeError.serializer(), message.body)
         Message.Unpair, Message.Ping, Message.Pong, is Message.Unknown -> null
     }

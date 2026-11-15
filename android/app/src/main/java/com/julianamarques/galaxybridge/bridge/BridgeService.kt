@@ -13,13 +13,17 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.database.ContentObserver
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.provider.CallLog
 import android.telecom.TelecomManager
 import android.telephony.TelephonyCallback
 import android.telephony.TelephonyManager
@@ -37,8 +41,12 @@ import com.julianamarques.galaxybridge.protocol.ContactResults
 import com.julianamarques.galaxybridge.protocol.NotificationKey
 import com.julianamarques.galaxybridge.protocol.NotificationKeys
 import com.julianamarques.galaxybridge.protocol.Envelope
+import com.julianamarques.galaxybridge.protocol.GalleryResults
 import com.julianamarques.galaxybridge.protocol.Message
 import com.julianamarques.galaxybridge.protocol.PhoneStatus
+import com.julianamarques.galaxybridge.protocol.RecentCall
+import com.julianamarques.galaxybridge.protocol.RecentCalls
+import com.julianamarques.galaxybridge.protocol.Ring
 import java.io.IOException
 import javax.net.ssl.SSLException
 import kotlin.concurrent.thread
@@ -51,9 +59,14 @@ class BridgeService : Service() {
     @Volatile private var established = false
     @Volatile private var lastStatus: PhoneStatus? = null
     @Volatile private var lastBattery: Pair<Int, Int>? = null
+    private var lastRecentCalls: List<RecentCall>? = null
     private var worker: Thread? = null
     private var callCallback: TelephonyCallback? = null
+    private var callLogObserver: ContentObserver? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private val recentCallsUpdate = Runnable { thread(name = "recent-calls") { sendRecentCalls() } }
     private lateinit var transfers: Transfers
+    private lateinit var ringer: PhoneRinger
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) = sendStatus(intent)
@@ -94,10 +107,15 @@ class BridgeService : Service() {
         running = true
         Diagnostics.record(this, "Serviço iniciado")
         transfers = Transfers(this)
+        ringer = PhoneRinger(this, Intent(this, BridgeService::class.java).setAction(ACTION_STOP_RINGING)) {
+            send(Message.RingMessage(Ring(it)))
+        }
         CallTracker.onChange = ::sendCall
+        CallTracker.wasDeclined = { CallHistory.wasDeclined(this, it) }
         NotificationRelay.onPosted = { send(Message.NotificationPostedMessage(it)) }
         NotificationRelay.onRemoved = { send(Message.NotificationRemovedMessage(NotificationKey(it))) }
         monitorCalls()
+        watchCallLog()
         registerReceiver(shutdownReceiver, IntentFilter(Intent.ACTION_SHUTDOWN))
         getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback)
         worker = thread(name = "bridge") { run() }
@@ -106,7 +124,9 @@ class BridgeService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val shared = intent?.clipData?.takeIf { intent.action == ACTION_SEND_FILES }
         shared?.let { clip -> transfers.upload((0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }) }
+        if (intent?.action == ACTION_STOP_RINGING) ringer.stop()
         monitorCalls()
+        watchCallLog()
         wake()
         return START_STICKY
     }
@@ -114,12 +134,17 @@ class BridgeService : Service() {
     override fun onDestroy() {
         Diagnostics.record(this, "Serviço parado")
         transfers.shutdown()
+        ringer.stop()
+        handler.removeCallbacks(recentCallsUpdate)
+        callLogObserver?.let(contentResolver::unregisterContentObserver)
+        callLogObserver = null
         running = false
         instance = null
         connection?.close()
         wake()
         runCatching { unregisterReceiver(shutdownReceiver) }
         CallTracker.onChange = null
+        CallTracker.wasDeclined = null
         NotificationRelay.onPosted = null
         NotificationRelay.onRemoved = null
         callCallback?.let { getSystemService(TelephonyManager::class.java).unregisterTelephonyCallback(it) }
@@ -177,10 +202,12 @@ class BridgeService : Service() {
             established = true
             lastStatus = null
             lastBattery = null
+            synchronized(handler) { lastRecentCalls = null }
             registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             CallTracker.current?.let(::sendCall)
             NotificationRelay.connected()
             connection.send(Envelope(Message.NotificationActiveMessage(NotificationKeys(NotificationRelay.activeKeys))))
+            handler.post(recentCallsUpdate)
             connection.receiveTimeoutMs = RECEIVE_TIMEOUT_MS
             while (running) {
                 val envelope = connection.receive()
@@ -242,6 +269,18 @@ class BridgeService : Service() {
             is Message.NotificationFilterMessage -> NotificationRelay.muted = message.body.muted.toSet()
             is Message.TransferOfferMessage -> transfers.download(message.body)
             is Message.ClipboardMessage -> copy(message.body.text)
+            is Message.RingMessage -> if (message.body.on) ringer.start() else ringer.stop()
+            is Message.GalleryRequestMessage -> thread(name = "gallery") {
+                connection.send(
+                    if (!PhoneGallery.canRead(this)) {
+                        Envelope(Message.ErrorMessage(BridgeError("permission", getString(R.string.error_photos_permission))), replyTo = envelope.id)
+                    } else {
+                        val photos = runCatching { PhoneGallery.recent(this, message.body.limit) }.getOrDefault(emptyList())
+                        Envelope(Message.GalleryResultsMessage(GalleryResults(photos)), replyTo = envelope.id)
+                    },
+                )
+            }
+            is Message.GalleryImportMessage -> PhoneGallery.uri(message.body.id)?.let { transfers.upload(listOf(it)) }
             is Message.PhotoRequestMessage -> PhoneContacts.photo(this, message.body.contact)?.let {
                 connection.send(Envelope(Message.PhotoMessage(ContactPhoto(message.body.contact, it)), replyTo = envelope.id))
             }
@@ -288,6 +327,29 @@ class BridgeService : Service() {
         }
         getSystemService(TelephonyManager::class.java).registerTelephonyCallback(mainExecutor, callback)
         callCallback = callback
+    }
+
+    private fun watchCallLog() {
+        if (callLogObserver != null || !CallHistory.canRead(this)) return
+        val observer = object : ContentObserver(handler) {
+            override fun onChange(selfChange: Boolean) {
+                handler.removeCallbacks(recentCallsUpdate)
+                handler.postDelayed(recentCallsUpdate, CALL_LOG_SETTLE_MS)
+            }
+        }
+        runCatching { contentResolver.registerContentObserver(CallLog.Calls.CONTENT_URI, true, observer) }.onSuccess {
+            callLogObserver = observer
+            handler.post(recentCallsUpdate)
+        }
+    }
+
+    private fun sendRecentCalls() {
+        if (!established) return
+        val calls = CallHistory.recent(this) ?: return
+        synchronized(handler) {
+            if (calls == lastRecentCalls) return
+            if (send(Message.CallsRecentMessage(RecentCalls(calls)))) lastRecentCalls = calls
+        }
     }
 
     private fun send(message: Message): Boolean {
@@ -376,6 +438,8 @@ class BridgeService : Service() {
     companion object {
         private const val CHANNEL_ID = "connection"
         private const val ACTION_SEND_FILES = "com.julianamarques.galaxybridge.SEND_FILES"
+        private const val ACTION_STOP_RINGING = "com.julianamarques.galaxybridge.STOP_RINGING"
+        private const val CALL_LOG_SETTLE_MS = 1_000L
         private const val NOTIFICATION_ID = 1
         private const val RECEIVE_TIMEOUT_MS = 6 * 60_000
         private const val SHUTDOWN_CLOSE_MS = 1_000L

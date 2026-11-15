@@ -19,13 +19,22 @@ enum class Permission(@StringRes val title: Int, @StringRes val reason: Int) {
     Calls(R.string.permission_calls, R.string.permission_calls_reason),
     CallerName(R.string.permission_caller_name, R.string.permission_caller_name_reason),
     Contacts(R.string.permission_contacts, R.string.permission_contacts_reason),
+    Photos(R.string.permission_photos, R.string.permission_photos_reason),
     Battery(R.string.permission_battery, R.string.permission_battery_reason);
 
     val manifestPermissions: List<String>
         get() = when (this) {
             Notifications -> listOf(Manifest.permission.POST_NOTIFICATIONS)
-            Calls -> listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE, Manifest.permission.ANSWER_PHONE_CALLS)
+            Calls -> listOf(
+                Manifest.permission.CALL_PHONE,
+                Manifest.permission.READ_PHONE_STATE,
+                Manifest.permission.ANSWER_PHONE_CALLS,
+                Manifest.permission.READ_CALL_LOG,
+            )
             Contacts -> listOf(Manifest.permission.READ_CONTACTS)
+            Photos -> listOf(
+                if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE,
+            )
             CallerName, Battery -> emptyList()
         }
 

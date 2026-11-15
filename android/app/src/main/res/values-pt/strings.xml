@@ -5,6 +5,11 @@
     <string name="notification_searching">Procurando o %1$s…</string>
     <string name="notification_refused">O %1$s não reconhece mais este celular</string>
     <string name="channel_transfers">Arquivos entre o Galaxy e o Mac</string>
+    <string name="channel_find">Encontrar o celular</string>
+    <string name="ringing_title">Tocando pelo Mac</string>
+    <string name="ringing_text">Toque para parar.</string>
+    <string name="ringing_stop">Parar</string>
+    <string name="error_photos_permission">O Galaxy Bridge não tem permissão para ver as fotos. Abra o app no Galaxy para permitir.</string>
     <string name="transfer_sending">Enviando para o Mac…</string>
     <string name="transfer_sent">Enviado para o Mac</string>
     <string name="transfer_failed">Não foi possível enviar para o Mac</string>
@@ -30,11 +35,13 @@
     <string name="permission_notifications">Notificações</string>
     <string name="permission_notifications_reason">Mostra quando o Galaxy está conectado ao Mac.</string>
     <string name="permission_calls">Ligações</string>
-    <string name="permission_calls_reason">Para fazer, atender e recusar ligações pelo Mac.</string>
+    <string name="permission_calls_reason">Para fazer, atender e recusar ligações pelo Mac e distinguir as recusadas das perdidas.</string>
     <string name="permission_caller_name">Nome de quem liga</string>
     <string name="permission_caller_name_reason">Lê o aviso de ligação do Galaxy para mostrar no Mac quem está ligando.</string>
     <string name="permission_contacts">Contatos</string>
     <string name="permission_contacts_reason">Para buscar contatos e mostrar as fotos deles no Mac. Os contatos ficam no Galaxy.</string>
+    <string name="permission_photos">Fotos</string>
+    <string name="permission_photos_reason">Para mostrar as fotos mais recentes no Mac e importá-las de lá.</string>
     <string name="permission_battery">Bateria sem restrições</string>
     <string name="permission_battery_reason">Para a conexão continuar com a tela apagada.</string>
     <string name="allow">Permitir</string>
@@ -95,5 +102,9 @@
     <string name="feature_files_on">Compartilhar › Enviar para o Mac</string>
     <string name="feature_clipboard">Área de transferência</string>
     <string name="feature_clipboard_on">Compartilhe um texto para copiá-lo no Mac</string>
+    <string name="feature_photos">Fotos</string>
+    <string name="feature_photos_on">As mais recentes no menu do Mac</string>
+    <string name="feature_find">Encontrar o celular</string>
+    <string name="feature_find_on">Toca pelo Mac, mesmo no silencioso</string>
     <string name="feature_needs_permission">Toque para permitir</string>
 </resources>

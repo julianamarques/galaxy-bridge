@@ -28,7 +28,9 @@ final class AppModel: ObservableObject {
             refreshPhoneStatus()
         }
     }
-    @Published private(set) var battery: Battery?
+    @Published private(set) var battery: Battery? {
+        didSet { batteryChanged(from: oldValue) }
+    }
     @Published private(set) var phoneCountry: String?
     @Published private(set) var callError: String?
     @Published private(set) var call: CallState?
@@ -37,6 +39,10 @@ final class AppModel: ObservableObject {
     @Published private(set) var transfers: [TransferProgress] = []
     @Published private(set) var contactsError: String?
     @Published private(set) var photos: [String: NSImage] = [:]
+    @Published private(set) var isRinging = false
+    @Published private(set) var recentCalls: [RecentCall] = []
+    @Published private(set) var gallery: [GalleryItem] = []
+    @Published private(set) var galleryError: String?
     @Published var setupRequested = false
 
     lazy var setup = SetupModel(app: self)
@@ -48,6 +54,10 @@ final class AppModel: ObservableObject {
     private var searchRequest: String?
     private var searchTask: Task<Void, Never>?
     private var requestedPhotos: Set<String> = []
+    private var galleryRequest: String?
+    private static let galleryLimit = 8
+    private static let lowBatteryLevels = [10, 20]
+    static let batteryAlertsKey = "batteryAlerts"
     private static let searchDelay: Duration = .milliseconds(150)
     private static let searchLimit = 8
     private static let maxSuggestions = 6
@@ -391,6 +401,32 @@ final class AppModel: ObservableObject {
         notifier.show(notification, icon: phoneApps.iconFile(notification.app))
     }
 
+    func toggleRing() {
+        let ring = !isRinging
+        guard bridge?.send(.ring(Ring(on: ring))) != nil else { return }
+        isRinging = ring
+    }
+
+    func refreshGallery() {
+        guard isAppConnected else { return }
+        galleryRequest = bridge?.send(.galleryRequest(GalleryRequest(limit: Self.galleryLimit)))
+    }
+
+    func importPhoto(_ id: String) {
+        bridge?.send(.galleryImport(GalleryID(id: id)))
+    }
+
+    private func batteryChanged(from old: Battery?) {
+        guard let old, let battery, battery != old,
+              UserDefaults.standard.object(forKey: Self.batteryAlertsKey) as? Bool ?? true
+        else { return }
+        if battery.isCharging, battery.level >= 100, old.level < 100 {
+            notifier.battery(String(localized: "\(deviceName) carregado"), body: String(localized: "A bateria está em 100%."), sound: false)
+        } else if !battery.isCharging, Self.lowBatteryLevels.contains(where: { battery.level <= $0 && old.level > $0 }) {
+            notifier.battery(String(localized: "Bateria fraca no \(deviceName)"), body: String(localized: "Restam \(battery.level)%. Conecte o carregador."), sound: true)
+        }
+    }
+
     func requestPhoto(_ contact: String) {
         guard photos[contact] == nil, requestedPhotos.insert(contact).inserted else { return }
         bridge?.send(.photoRequest(PhotoRequest(contact: contact)))
@@ -411,13 +447,14 @@ final class AppModel: ObservableObject {
             call = state
             callAnsweredAt = nil
         case .ended:
-            let caller = callerName.isEmpty ? (state.name ?? state.number ?? "") : callerName
-            if state.direction == .incoming, !wasAnswered, declinedCall != state.call {
+            let caller = previous == nil || callerName.isEmpty ? (state.name ?? state.number ?? "") : callerName
+            if state.direction == .incoming, !wasAnswered, declinedCall != state.call, state.declined != true {
                 notifier.missed(call: state.call, caller: caller, toVoicemail: previous?.state == .voicemail)
             }
+            if declinedCall == state.call { declinedCall = nil }
+            guard previous != nil || call == nil else { return }
             call = nil
             callAnsweredAt = nil
-            declinedCall = nil
         }
     }
 
@@ -547,6 +584,10 @@ extension AppModel {
             requestedPhotos.removeAll()
             photos.removeAll()
             contactSuggestions = []
+            isRinging = false
+            recentCalls = []
+            gallery = []
+            galleryError = nil
         case .paired(let phone):
             didPairApp(phone)
         case .pairingExpired:
@@ -591,11 +632,22 @@ extension AppModel {
             notifier.remove(key)
         case .notificationsActive(let keys):
             notifier.keepOnly(keys)
+        case .ring(let on):
+            isRinging = on
+        case .recentCalls(let calls):
+            recentCalls = calls
+            for contact in calls.compactMap(\.contact) { requestPhoto(contact) }
+        case .gallery(let photos, let replyTo):
+            guard replyTo != nil, replyTo == galleryRequest else { return }
+            galleryError = nil
+            gallery = photos.compactMap(GalleryItem.init)
         case .photo(let photo):
             if let image = NSImage(data: photo.data) { photos[photo.contact] = image }
         case .error(let error, let replyTo):
             if replyTo != nil, replyTo == searchRequest {
                 contactsError = error.message
+            } else if replyTo != nil, replyTo == galleryRequest {
+                galleryError = error.message
             } else {
                 callError = error.message
             }
@@ -621,6 +673,19 @@ extension AppModel {
         var model = [CChar](repeating: 0, count: max(size, 1))
         sysctlbyname("hw.model", &model, &size, nil, 0)
         return String(decoding: model.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+    }
+}
+
+struct GalleryItem: Identifiable {
+    let id: String
+    let name: String
+    let image: NSImage
+
+    init?(_ photo: GalleryPhoto) {
+        guard let image = NSImage(data: photo.thumbnail) else { return nil }
+        id = photo.id
+        name = photo.name
+        self.image = image
     }
 }
 

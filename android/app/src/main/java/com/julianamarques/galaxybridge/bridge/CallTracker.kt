@@ -2,12 +2,14 @@ package com.julianamarques.galaxybridge.bridge
 
 import android.telephony.TelephonyManager
 import com.julianamarques.galaxybridge.protocol.CallState
+import kotlin.concurrent.thread
 
 object CallTracker {
     @Volatile var current: CallState? = null
         private set
 
     @Volatile var onChange: ((CallState) -> Unit)? = null
+    @Volatile var wasDeclined: ((Long) -> Boolean)? = null
 
     private var callerName: String? = null
     private var callerNumber: String? = null
@@ -15,6 +17,7 @@ object CallTracker {
     private var placed: Placed? = null
     private var voicemailAnswering = false
     private var answeredAt = 0L
+    private var ringingAt = 0L
     private var counter = 0
 
     private data class Placed(val number: String, val contact: PhoneContacts.Match?, val at: Long)
@@ -29,6 +32,7 @@ object CallTracker {
         val call = current
         when (state) {
             TelephonyManager.CALL_STATE_RINGING -> if (call == null) {
+                ringingAt = System.currentTimeMillis()
                 publish(CallState(nextId(), CallState.RINGING, CallState.INCOMING, callerNumber, callerName, callerContact))
             }
             TelephonyManager.CALL_STATE_OFFHOOK -> when {
@@ -58,7 +62,7 @@ object CallTracker {
                 voicemailAnswering = false
                 if (call != null) {
                     current = null
-                    onChange?.invoke(call.copy(state = CallState.ENDED))
+                    ended(call.copy(state = CallState.ENDED), unanswered = call.state == CallState.RINGING)
                 }
             }
         }
@@ -83,6 +87,13 @@ object CallTracker {
 
     private const val VOICEMAIL_WINDOW_MS = 3_000L
     private const val PLACED_WINDOW_MS = 30_000L
+
+    private fun ended(call: CallState, unanswered: Boolean) {
+        val lookup = wasDeclined
+        if (!unanswered || lookup == null) return onChange?.invoke(call) ?: Unit
+        val since = ringingAt
+        thread(name = "call-history") { onChange?.invoke(call.copy(declined = lookup(since).takeIf { it })) }
+    }
 
     private fun publish(call: CallState) {
         current = call

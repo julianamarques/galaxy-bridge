@@ -43,7 +43,9 @@ import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -390,7 +392,9 @@ private val features = listOf(
     Feature(Icons.Rounded.Notifications, R.string.feature_notifications, R.string.feature_notifications_on, Permission.CallerName),
     Feature(Icons.Rounded.Contacts, R.string.feature_contacts, R.string.feature_contacts_on, Permission.Contacts),
     Feature(Icons.Rounded.Folder, R.string.feature_files, R.string.feature_files_on, Permission.Notifications),
+    Feature(Icons.Rounded.PhotoLibrary, R.string.feature_photos, R.string.feature_photos_on, Permission.Photos),
     Feature(Icons.Rounded.ContentPaste, R.string.feature_clipboard, R.string.feature_clipboard_on, null),
+    Feature(Icons.Rounded.Vibration, R.string.feature_find, R.string.feature_find_on, null),
 )
 
 @Composable
@@ -502,5 +506,6 @@ private val Permission.icon: ImageVector
         Permission.Calls -> Icons.Rounded.Call
         Permission.CallerName -> Icons.Rounded.Person
         Permission.Contacts -> Icons.Rounded.Contacts
+        Permission.Photos -> Icons.Rounded.PhotoLibrary
         Permission.Battery -> Icons.Rounded.BatteryChargingFull
     }

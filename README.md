@@ -2,7 +2,7 @@
 
 Use a Samsung Galaxy (or any Android 11+) together with your Mac over Wi-Fi.
 
-Galaxy Bridge lives in the menu bar. It shows whether the Galaxy is connected and its battery level, and places calls on the phone from the Mac: type a number in the menu, or make the phone numbers in Safari, Contacts, Calendar and other apps (`tel:` links) ring through the Galaxy. With the Android app, incoming calls show on the Mac with the caller's name and photo, to answer or decline from there, the menu finds the phone's contacts by name as you type, the phone's notifications show on the Mac, where you can reply to them, and files go both ways: "Enviar para o Mac" in the phone's share sheet, "Enviar para o Galaxy" in the Finder.
+Galaxy Bridge lives in the menu bar. It shows whether the Galaxy is connected and its battery level, and places calls on the phone from the Mac: type a number in the menu, or make the phone numbers in Safari, Contacts, Calendar and other apps (`tel:` links) ring through the Galaxy. With the Android app, incoming calls show on the Mac with the caller's name and photo, to answer or decline from there, the menu finds the phone's contacts by name as you type, the phone's notifications show on the Mac, where you can reply to them, files go both ways: "Enviar para o Mac" in the phone's share sheet, "Enviar para o Galaxy" in the Finder, the menu shows the phone's recent calls and photos, and it can ring the phone to find it. A notification tells you when the Galaxy's battery runs low or finishes charging.
 
 There are two ways to connect:
 
@@ -15,7 +15,7 @@ Galaxy Mirror shows and controls the phone's screen, and Galaxy Bridge brings th
 
 - macOS 14 or later
 - A phone with Android 11+ on the same Wi-Fi network as the Mac
-- For the Android app: battery usage set to **Unrestricted**, so Android doesn't cut its network while the screen is off, notification access, to read the caller's name from the dialer, and access to contacts, to search them from the Mac (the app asks for all three)
+- For the Android app: battery usage set to **Unrestricted**, so Android doesn't cut its network while the screen is off, notification access, to read the caller's name from the dialer, access to contacts, to search them from the Mac, and to photos, to show the latest ones on the Mac (the app asks for each)
 - For adb: Wireless debugging (or USB debugging and a cable) turned on
 
 ## Build
@@ -91,8 +91,12 @@ spikes/                   Phase 0 experiments (throwaway)
 - **Clipboard (Android app)** — "Enviar Texto Copiado para o …" in the menu copies the Mac's text to the phone; sharing text to "Enviar para o Mac" on the phone copies it to the Mac. Nothing is synced in the background.
 - **Files (Android app)** — "Enviar para o Mac" in Android's share sheet saves photos and files to the Mac's Downloads; "Enviar para o Galaxy" in the Finder's context menu, or "Enviar Arquivo para o …" in the menu, saves them to `Download/Galaxy Bridge` on the phone. Each transfer has its own encrypted connection, and a panel in the top-right corner shows the progress. If the Finder doesn't list the service, turn it on in **System Settings › Keyboard › Keyboard Shortcuts › Services**.
 - **Notifications (Android app)** — the phone's notifications show in the Mac's Notification Center under the sending app's name, with their buttons, including **Reply** with a text field. Dismissing one on either side dismisses it on the other. Ongoing, silent and call notifications stay on the phone, and **Settings › Notificações** turns off the apps you don't want on the Mac.
+- **Battery alerts** — a notification when the Galaxy drops to 20% and 10%, and when it reaches 100% while charging. **Settings › Geral** turns them off.
+- **Find my phone (Android app)** — "Tocar o …" in the menu rings the phone for a minute at full volume, also in silent mode, until it is stopped on either side.
+- **Recent calls (Android app)** — with the field empty, the menu lists the last four calls from the phone's call history; clicking one calls back. The phone sends the list again whenever its call history changes.
+- **Recent photos (Android app)** — each time the menu opens it shows thumbnails of the phone's last eight photos; clicking one imports it to Downloads, as a regular transfer.
 - **Contacts (Android app)** — typing a name in the menu searches the phone's contacts as you type (`contacts.search`); the contacts stay on the phone and the Mac only keeps the latest results and the photos it showed.
-- **Incoming calls (Android app)** — the phone follows the call state and reads the caller's name and number from the dialer's notification. On the Mac a panel in the top-right corner shows the caller with Answer and Decline, then the call's duration with End; a call nobody answered, including one taken by One UI's direct voicemail, leaves a "Ligação perdida" notification.
+- **Incoming calls (Android app)** — the phone follows the call state and reads the caller's name and number from the dialer's notification. On the Mac a panel in the top-right corner shows the caller with Answer and Decline, then the call's duration with End; a call nobody answered, including one taken by One UI's direct voicemail, leaves a "Ligação perdida" notification, and a call declined on the phone doesn't (the phone checks its call history).
 
 ## Roadmap
 
@@ -104,7 +108,8 @@ Features that work without an Apple Developer account:
 - [x] Incoming calls on the Mac, with Answer and Decline
 - [x] Phone notifications on the Mac, with replies
 - [x] "Send to Galaxy" in the Finder (Services menu), and files from the phone to the Mac
-- [ ] File browser and photo import
+- [x] Recent calls, recent photos, finding the phone and battery alerts
+- [ ] File browser
 
 ## License
 

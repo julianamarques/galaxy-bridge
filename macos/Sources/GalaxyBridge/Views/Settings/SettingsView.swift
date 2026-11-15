@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
     @State private var error: String?
     @State private var confirmingForget = false
+    @AppStorage(AppModel.batteryAlertsKey) private var batteryAlerts = true
 
     var body: some View {
         Form {
@@ -58,6 +59,7 @@ struct SettingsView: View {
             }
 
             Section("Geral") {
+                Toggle("Avisar quando a bateria do Galaxy estiver fraca ou carregada", isOn: $batteryAlerts)
                 Toggle("Abrir ao iniciar sessão", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, enabled in
                         guard enabled != LaunchAtLogin.isEnabled else { return }
@@ -77,7 +79,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: app.appPhone != nil ? 560 : 410)
+        .frame(width: 460, height: app.appPhone != nil ? 600 : 450)
         .onAppear { isCallHandler = CallLinks.isDefault }
         .confirmationDialog("Esquecer o \(app.deviceName)?", isPresented: $confirmingForget) {
             Button("Esquecer", role: .destructive) { app.forget() }
