@@ -117,24 +117,6 @@ spikes/                   Phase 0 experiments (throwaway)
 - **Screen mirroring** — **Espelhar a Tela do …** in the menu opens a window with the phone's screen, controlled with the mouse, trackpad and keyboard. With the Android app connected it needs no developer options: the phone shows a notification, Android asks to confirm (every time, as for any screen recording), and the phone records its screen with `MediaProjection`, encodes it in H.264 and sends it over its own encrypted connection; taps, scrolling and typing go through the app's accessibility service (**Controle pelo Mac**, turned on once). The phone's sound plays on the Mac (Android asks for the microphone permission once; it still plays on the phone too), and apps that protect their screen (banks, some video apps) show black. Without the Android app it is Galaxy Mirror's mirroring: the Mac sends the [scrcpy](https://github.com/Genymobile/scrcpy) server (version 5.0) to the phone over adb, which needs the USB cable or Wireless debugging, and also plays the phone's sound. Dropping files on the window sends them to the phone. While the window is open, text copied on the Mac can be pasted on the phone, and ⌘C or ⌘X in a text field of the phone copies its selection to the Mac. **Settings › Espelhamento** sets the quality, the sound, turning the phone's screen off and keeping the window on top.
 - **Incoming calls (Android app)** — the phone follows the call state and reads the caller's name and number from the dialer's notification. On the Mac a panel in the top-right corner shows the caller with Answer and Decline, then the call's duration with End; a call nobody answered, including one taken by One UI's direct voicemail, leaves a "Ligação perdida" notification, and a call declined on the phone doesn't (the phone checks its call history).
 
-## Roadmap
-
-Features that work without an Apple Developer account:
-
-- [x] Connection status and battery in the menu bar
-- [x] Calls from the Mac
-- [x] Android app, with no Developer options on the phone
-- [x] Incoming calls on the Mac, with Answer and Decline
-- [x] Phone notifications on the Mac, with replies and pictures
-- [x] "Send to Galaxy" in the Finder (Services menu), and files from the phone to the Mac
-- [x] Recent calls, finding the phone and battery alerts
-- [x] Calling back, links, media, phone status, file browser and screen mirroring
-- [x] USB cable without developer options
-- [x] Photo library, taking a photo with the phone and accessory battery
-- [x] Guided introduction on both apps
-- [ ] SMS on the Mac
-- [ ] Installers for other people (DMG and signed APK)
-
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to propose changes, [SECURITY.md](SECURITY.md) to report a vulnerability privately and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for the code of conduct.
