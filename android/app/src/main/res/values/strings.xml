@@ -106,6 +106,11 @@
     <string name="section_permissions">Permissions</string>
     <string name="section_pair">Pair with your Mac</string>
     <string name="section_features">Features</string>
+    <string name="section_about">About</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_description">Calls, notifications, files, media and screen mirroring between your Galaxy and your Mac.</string>
+    <string name="about_github">View on GitHub</string>
+    <string name="about_copyright" translatable="false">© 2026 Juliana Marques</string>
     <string name="status_chip_connected">Connected · Wi-Fi</string>
     <string name="status_chip_searching">Searching for the Mac…</string>
     <string name="status_chip_refused">Not recognized</string>

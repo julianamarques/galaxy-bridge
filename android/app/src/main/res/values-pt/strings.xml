@@ -105,6 +105,10 @@
     <string name="section_permissions">Permissões</string>
     <string name="section_pair">Parear com o Mac</string>
     <string name="section_features">Recursos</string>
+    <string name="section_about">Sobre</string>
+    <string name="about_version">Versão %1$s</string>
+    <string name="about_description">Ligações, notificações, arquivos, mídia e espelhamento de tela entre o Galaxy e o Mac.</string>
+    <string name="about_github">Ver no GitHub</string>
     <string name="status_chip_connected">Conectado · Wi-Fi</string>
     <string name="status_chip_searching">Procurando o Mac…</string>
     <string name="status_chip_refused">Não reconhecido</string>

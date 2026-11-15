@@ -10,6 +10,11 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import com.julianamarques.galaxybridge.BuildConfig
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -320,6 +325,8 @@ fun HomeScreen(mac: PairedMac, connection: BridgeState.Connection, refresh: Int)
                 modifier = Modifier.padding(20.dp),
             )
         }
+        SectionTitle(stringResource(R.string.section_about))
+        AboutCard()
         TextButton(onClick = { confirmingForget = true }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
             Text(stringResource(R.string.forget_mac), color = MaterialTheme.colorScheme.error)
         }
@@ -343,6 +350,51 @@ fun HomeScreen(mac: PairedMac, connection: BridgeState.Connection, refresh: Int)
             },
             dismissButton = { TextButton(onClick = { confirmingForget = false }) { Text(stringResource(R.string.cancel)) } },
         )
+    }
+}
+
+private const val REPOSITORY = "https://github.com/julianamarques/galaxy-bridge"
+
+@Composable
+private fun AboutCard() {
+    val links = LocalUriHandler.current
+    PanelCard {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                Modifier.size(88.dp).clip(RoundedCornerShape(22.dp)).background(colorResource(R.color.icon_background)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painterResource(R.drawable.ic_launcher_foreground),
+                    contentDescription = null,
+                    modifier = Modifier.requiredSize(132.dp),
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text(
+                stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                stringResource(R.string.about_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = { links.openUri(REPOSITORY) }) { Text(stringResource(R.string.about_github)) }
+            Text(
+                stringResource(R.string.about_copyright),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.outline,
+            )
+        }
     }
 }
 
