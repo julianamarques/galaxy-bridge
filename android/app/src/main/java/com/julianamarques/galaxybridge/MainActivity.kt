@@ -16,10 +16,12 @@ import androidx.compose.runtime.setValue
 import com.julianamarques.galaxybridge.bridge.BridgeService
 import com.julianamarques.galaxybridge.bridge.BridgeState
 import com.julianamarques.galaxybridge.bridge.Identity
+import com.julianamarques.galaxybridge.bridge.Onboarding
 import com.julianamarques.galaxybridge.bridge.PairingStore
 import com.julianamarques.galaxybridge.protocol.PairingLink
 import com.julianamarques.galaxybridge.ui.GalaxyBridgeTheme
 import com.julianamarques.galaxybridge.ui.HomeScreen
+import com.julianamarques.galaxybridge.ui.OnboardingScreen
 import com.julianamarques.galaxybridge.ui.PairingController
 import com.julianamarques.galaxybridge.ui.SetupScreen
 import kotlin.concurrent.thread
@@ -42,8 +44,13 @@ class MainActivity : ComponentActivity() {
                 }
                 val mac by PairingStore.mac(this).collectAsState()
                 val connection by BridgeState.connection.collectAsState()
+                val toured by Onboarding.done(this).collectAsState()
                 val current = mac
-                if (current == null) SetupScreen(controller, resumes) else HomeScreen(current, connection, resumes)
+                when {
+                    current == null -> SetupScreen(controller, resumes)
+                    !toured -> OnboardingScreen(resumes)
+                    else -> HomeScreen(current, connection, resumes)
+                }
             }
         }
         handle(intent)

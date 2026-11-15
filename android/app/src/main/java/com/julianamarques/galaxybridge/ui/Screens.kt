@@ -11,6 +11,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import com.julianamarques.galaxybridge.BuildConfig
+import com.julianamarques.galaxybridge.bridge.Onboarding
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.foundation.layout.requiredSize
@@ -143,7 +144,7 @@ private fun Hero(title: String, subtitle: @Composable () -> Unit) {
 }
 
 @Composable
-private fun IconBadge(size: Dp, shape: Shape, container: Color, content: @Composable () -> Unit) {
+internal fun IconBadge(size: Dp, shape: Shape, container: Color, content: @Composable () -> Unit) {
     Box(Modifier.size(size).clip(shape).background(container), contentAlignment = Alignment.Center) { content() }
 }
 
@@ -389,7 +390,11 @@ private fun AboutCard() {
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(8.dp))
-            TextButton(onClick = { links.openUri(REPOSITORY) }) { Text(stringResource(R.string.about_github)) }
+            val context = LocalContext.current
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = { Onboarding.replay(context) }) { Text(stringResource(R.string.about_tour)) }
+                TextButton(onClick = { links.openUri(REPOSITORY) }) { Text(stringResource(R.string.about_github)) }
+            }
             Text(
                 stringResource(R.string.about_copyright),
                 style = MaterialTheme.typography.labelMedium,
@@ -458,7 +463,7 @@ private val features = listOf(
 )
 
 @Composable
-private fun rememberPermissions(refresh: Int): Pair<Map<Permission, Boolean>, (Permission) -> Unit> {
+internal fun rememberPermissions(refresh: Int): Pair<Map<Permission, Boolean>, (Permission) -> Unit> {
     val context = LocalContext.current
     fun read() = Permission.needed().associateWith { it.isGranted(context) }
     var granted by remember(refresh) { mutableStateOf(read()) }
@@ -560,7 +565,7 @@ private fun PermissionRow(permission: Permission, isGranted: Boolean, onRequest:
     }
 }
 
-private val Permission.icon: ImageVector
+internal val Permission.icon: ImageVector
     get() = when (this) {
         Permission.Notifications -> Icons.Rounded.Notifications
         Permission.Calls -> Icons.Rounded.Call

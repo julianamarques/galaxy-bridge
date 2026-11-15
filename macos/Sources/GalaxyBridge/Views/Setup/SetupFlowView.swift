@@ -24,6 +24,7 @@ struct SetupFlowView: View {
             case .usb: usb
             case .connecting: connecting
             case .failed(let problem): failed(problem)
+            case .tour(let index): TourView(index: index, onBack: setup.tourBack, onContinue: setup.tourContinue, onSkip: setup.skipTour)
             case .done: done
             }
         }
@@ -39,7 +40,7 @@ struct SetupFlowView: View {
         SetupPage(title: Text(Bundle.appName)) {
             DevicesIllustration()
         } content: {
-            Text("Use seu Galaxy junto com o Mac: veja a bateria na barra de menus e faça ligações a partir dos números que aparecem no Safari, no Contatos ou em qualquer outro app, pela rede Wi-Fi.")
+            Text("Use seu Galaxy junto com o Mac: ligações, notificações, fotos e arquivos, mídia e a tela do celular numa janela, pelo Wi-Fi ou pelo cabo USB.")
         } buttons: {
             PillButton("Saiba Mais…") { openURL(Links.learnMore) }
             Spacer()
@@ -175,11 +176,11 @@ struct SetupFlowView: View {
         SetupPage(title: "Tudo pronto") {
             DevicesIllustration(status: .connected)
         } content: {
-            Text("O \(app.deviceName) está conectado. O \(Bundle.appName) fica na barra de menus, mostrando a bateria do celular e o status da conexão. Para ligar, digite o número no menu — ou, nos Ajustes, faça os números de telefone de qualquer app ligarem pelo Galaxy.")
+            Text("O \(app.deviceName) está conectado. O \(Bundle.appName) fica na barra de menus, com a bateria, as ligações recentes e tudo o que você viu aqui. Para rever esta introdução, abra Ajustes › Sobre.")
         } buttons: {
             SettingsPillLink()
             Spacer()
-            PillButton("OK", prominent: true) { close() }
+            PillButton("Começar a Usar", prominent: true) { close() }
         }
     }
 }

@@ -14,6 +14,7 @@ final class SetupModel: ObservableObject {
         case usb
         case connecting
         case failed(ConnectionProblem)
+        case tour(Int)
         case done
     }
 
@@ -283,6 +284,23 @@ extension SetupModel {
 
     func appPaired() {
         stopAppPairing()
+        step = .tour(0)
+    }
+
+    func showTour() {
+        step = .tour(0)
+    }
+
+    func tourBack() {
+        if case .tour(let index) = step, index > 0 { step = .tour(index - 1) }
+    }
+
+    func tourContinue() {
+        guard case .tour(let index) = step else { return }
+        step = index + 1 < TourView.pages.count ? .tour(index + 1) : .done
+    }
+
+    func skipTour() {
         step = .done
     }
 

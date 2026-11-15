@@ -92,7 +92,6 @@
 "Não é possível conectar ao Galaxy" = "Can't connect to the Galaxy";
 "Número de telefone" = "Phone number";
 "Número desconhecido" = "Unknown number";
-"O %@ está conectado. O %@ fica na barra de menus, mostrando a bateria do celular e o status da conexão. Para ligar, digite o número no menu — ou, nos Ajustes, faça os números de telefone de qualquer app ligarem pelo Galaxy." = "%1$@ is connected. %2$@ lives in the menu bar, showing the phone's battery and the connection status. To call, type the number in the menu — or, in Settings, make phone numbers in any app call through the Galaxy.";
 "O %@ não está conectado" = "%@ isn't connected";
 "O %@ não está conectado. Confira se ele está na mesma rede Wi-Fi que este Mac e se o app Galaxy Bridge está instalado nele." = "%@ isn't connected. Check that it's on the same Wi-Fi network as this Mac and has the Galaxy Bridge app installed.";
 "O %@ não está conectado. Confira se ele está na mesma rede Wi-Fi que este Mac ou conecte o cabo USB." = "%@ isn't connected. Check that it's on the same Wi-Fi network as this Mac, or connect the USB cable.";
@@ -114,7 +113,6 @@
 "O macOS está impedindo o %@ de encontrar o Galaxy pelo Wi-Fi. Em Ajustes do Sistema › Privacidade e Segurança › Rede Local, ative o %@." = "macOS is keeping %1$@ from finding the Galaxy over Wi-Fi. In System Settings › Privacy & Security › Local Network, turn on %2$@.";
 "O macOS não permitiu que o %@ acesse a rede local." = "macOS didn't allow %@ to access the local network.";
 "O pareamento foi recusado. Confira o código e tente novamente." = "Pairing was refused. Check the code and try again.";
-"OK" = "OK";
 "Ocultar" = "Hide";
 "Os apps aparecem aqui quando mandarem a primeira notificação." = "Apps show up here when they send their first notification.";
 "Os arquivos vão para a pasta Download/Galaxy Bridge do %@." = "The files go to the Download/Galaxy Bridge folder on %@.";
@@ -149,7 +147,6 @@
 "Usar cabo USB" = "Use USB cable";
 "Usar código de seis dígitos" = "Use six-digit code";
 "Usar o App no Galaxy…" = "Use the App on the Galaxy…";
-"Use seu Galaxy junto com o Mac: veja a bateria na barra de menus e faça ligações a partir dos números que aparecem no Safari, no Contatos ou em qualquer outro app, pela rede Wi-Fi." = "Use your Galaxy with your Mac: see its battery in the menu bar and call the numbers you find in Safari, Contacts or any other app, over Wi-Fi.";
 "Veja a bateria e faça ligações pelo Mac." = "See the battery and make calls from the Mac.";
 "Volte para **Configurações › Opções do desenvolvedor** e ative a **Depuração sem fio** — ou a **Depuração USB**, se for usar o cabo." = "Go back to **Settings › Developer options** and turn on **Wireless debugging** — or **USB debugging**, if you'll use the cable.";
 "Wi-Fi" = "Wi-Fi";
@@ -242,3 +239,16 @@
 "Todas" = "All";
 "Álbuns" = "Albums";
 "Bateria de %@" = "%@ battery";
+"As notificações do Galaxy chegam ao Mac com respostas e imagens. O que está tocando no celular aparece no menu, com os controles. Em Ajustes, escolha os apps que podem notificar no Mac." = "The Galaxy's notifications reach the Mac with replies and pictures. What's playing on the phone shows in the menu, with its controls. In Settings, choose which apps can notify on the Mac.";
+"Atenda e recuse ligações num painel no canto da tela. Para ligar, digite o número ou o nome no menu, ou clique num número no Safari, no Contatos ou em outro app. O som continua no Galaxy ou nos fones conectados a ele." = "Answer and decline calls from a panel in the corner of the screen. To call, type the number or the name in the menu, or click a number in Safari, Contacts or another app. The sound stays on the Galaxy or on the earbuds connected to it.";
+"Começar a Usar" = "Get Started";
+"Espelhamento da tela" = "Screen mirroring";
+"Fotos e arquivos" = "Photos and files";
+"Ligue o Galaxy ao Mac com um cabo para conectar sem Wi-Fi e com menos atraso no espelhamento. Na primeira vez, escolha Sempre na pergunta que aparece no Galaxy." = "Connect the Galaxy to the Mac with a cable to work without Wi-Fi and with less lag when mirroring. The first time, choose Always in the question that shows on the Galaxy.";
+"No menu ficam as fotos e vídeos do Galaxy, as pastas dele e o Tirar Foto, que manda a foto direto para o Mac. Para enviar arquivos ao Galaxy, use Enviar para o Galaxy no Finder ou arraste-os para a janela do espelhamento." = "The menu has the Galaxy's photos and videos, its folders and Take Photo, which sends the photo straight to the Mac. To send files to the Galaxy, use Send to Galaxy in the Finder or drag them to the mirroring window.";
+"Notificações e mídia" = "Notifications and media";
+"O %@ está conectado. O %@ fica na barra de menus, com a bateria, as ligações recentes e tudo o que você viu aqui. Para rever esta introdução, abra Ajustes › Sobre." = "The %1$@ is connected. %2$@ lives in the menu bar, with the battery, the recent calls and everything you saw here. To see this introduction again, open Settings › About.";
+"Pular" = "Skip";
+"Rever Introdução" = "Review Introduction";
+"Use o Galaxy numa janela do Mac, com som, mouse e teclado, e copie e cole entre os dois. A cada vez que espelhar, toque na notificação do Galaxy e confirme Iniciar: o Android exige essa confirmação." = "Use the Galaxy in a window on the Mac, with sound, mouse and keyboard, and copy and paste between them. Each time you mirror, tap the notification on the Galaxy and confirm Start: Android requires it.";
+"Use seu Galaxy junto com o Mac: ligações, notificações, fotos e arquivos, mídia e a tela do celular numa janela, pelo Wi-Fi ou pelo cabo USB." = "Use your Galaxy together with the Mac: calls, notifications, photos and files, media and the phone's screen in a window, over Wi-Fi or the USB cable.";

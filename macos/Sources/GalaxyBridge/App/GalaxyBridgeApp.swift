@@ -41,6 +41,7 @@ struct GalaxyBridgeApp: App {
                     .environmentObject(delegate.app)
                     .tabItem { Label("Geral", systemImage: "gearshape") }
                 AboutView()
+                    .environmentObject(delegate.app)
                     .tabItem { Label("Sobre", systemImage: "info.circle") }
             }
         }
