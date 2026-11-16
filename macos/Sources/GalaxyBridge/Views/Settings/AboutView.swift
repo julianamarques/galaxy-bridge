@@ -8,13 +8,12 @@ struct AboutView: View {
     private static let repository = URL(string: "https://github.com/julianamarques/galaxy-bridge")!
 
     private var version: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+        Bundle.appVersion ?? "—"
     }
 
     private func showTour() {
         app.setup.showTour()
-        openWindow(id: SetupWindow.id)
-        NSApp.activate()
+        openWindow.activating(id: SetupWindow.id)
     }
 
     var body: some View {

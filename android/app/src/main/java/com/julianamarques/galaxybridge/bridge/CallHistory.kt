@@ -10,7 +10,7 @@ object CallHistory {
     private const val ATTEMPTS = 10
     private const val RETRY_MS = 300L
     private const val CLOCK_SLACK_MS = 5_000L
-    private const val RECENT_LIMIT = 8
+    private const val RECENT_LIMIT = 4
 
     fun canRead(context: Context): Boolean = Permission.has(context, Manifest.permission.READ_CALL_LOG)
 
@@ -29,13 +29,14 @@ object CallHistory {
             val uri = CallLog.Calls.CONTENT_URI.buildUpon()
                 .appendQueryParameter(CallLog.Calls.LIMIT_PARAM_KEY, RECENT_LIMIT.toString())
                 .build()
-            val projection = arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.TYPE, CallLog.Calls.DATE, CallLog.Calls.DURATION)
+            val projection = arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.TYPE, CallLog.Calls.DATE)
             context.contentResolver.query(uri, projection, null, null, "${CallLog.Calls.DATE} DESC")?.use { cursor ->
+                val contacts = mutableMapOf<String, PhoneContacts.Match?>()
                 buildList {
                     while (cursor.moveToNext()) {
                         val kind = kind(cursor.getInt(2)) ?: continue
                         val number = cursor.getString(0)?.takeIf { it.isNotBlank() }
-                        val contact = number?.let { PhoneContacts.lookup(context, it) }
+                        val contact = number?.let { if (it in contacts) contacts[it] else PhoneContacts.lookup(context, it).also { match -> contacts[it] = match } }
                         add(
                             RecentCall(
                                 number = number,
@@ -43,7 +44,6 @@ object CallHistory {
                                 contact = contact?.key,
                                 kind = kind,
                                 time = cursor.getLong(3),
-                                duration = cursor.getInt(4),
                             ),
                         )
                     }

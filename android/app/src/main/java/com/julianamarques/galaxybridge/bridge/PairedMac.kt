@@ -23,7 +23,8 @@ object PairingStore {
 
     fun current(context: Context): PairedMac? = mac(context).value
 
-    fun save(context: Context, mac: PairedMac) {
+    fun save(context: Context, pairing: PairedMac) {
+        val mac = if (pairing.host == BridgeConnection.LOOPBACK) pairing.copy(host = null, port = null) else pairing
         prefs(context).edit()
             .putString("fingerprint", mac.fingerprint)
             .putString("name", mac.name)
@@ -34,10 +35,10 @@ object PairingStore {
         state.value = mac
     }
 
-    fun updateAddress(context: Context, host: String, port: Int, name: String) {
+    fun updateAddress(context: Context, host: String?, port: Int?, name: String) {
         val mac = current(context) ?: return
-        if (mac.host == host && mac.port == port && mac.name == name) return
-        save(context, mac.copy(host = host, port = port, name = name))
+        val updated = if (host == null || port == null) mac.copy(name = name) else mac.copy(host = host, port = port, name = name)
+        if (updated != mac) save(context, updated)
     }
 
     fun clear(context: Context) {
@@ -54,7 +55,7 @@ object PairingStore {
             PairedMac(
                 fingerprint = fingerprint,
                 name = prefs.getString("name", null) ?: "Mac",
-                host = prefs.getString("host", null),
+                host = prefs.getString("host", null)?.takeUnless { it == BridgeConnection.LOOPBACK },
                 port = prefs.getInt("port", 0).takeIf { it > 0 },
             )
         }

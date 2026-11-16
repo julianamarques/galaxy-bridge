@@ -19,7 +19,10 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.os.BatteryManager
 import android.os.Bundle
+import androidx.annotation.StringRes
+import java.util.concurrent.Executors
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -74,6 +77,7 @@ class BridgeService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private val recentCallsUpdate = Runnable { thread(name = "recent-calls") { sendRecentCalls() } }
     private lateinit var transfers: Transfers
+    private val requests = Executors.newFixedThreadPool(REQUEST_THREADS) { Thread(it, "requests") }
     private lateinit var ringer: PhoneRinger
     private lateinit var links: LinkNotifier
     private lateinit var signals: PhoneSignals
@@ -82,7 +86,9 @@ class BridgeService : Service() {
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
+            val previous = batteryIntent
             batteryIntent = intent
+            if (previous != null && batteryKey(previous) == batteryKey(intent)) return
             sendStatus()
         }
     }
@@ -145,11 +151,6 @@ class BridgeService : Service() {
         CallTracker.wasDeclined = { CallHistory.wasDeclined(this, it) }
         NotificationRelay.onPosted = { send(Message.NotificationPostedMessage(it)) }
         NotificationRelay.onRemoved = { send(Message.NotificationRemovedMessage(NotificationKey(it))) }
-        monitorCalls()
-        watchCallLog()
-        signals.start()
-        media.start()
-        accessories.start()
         registerReceiver(shutdownReceiver, IntentFilter(Intent.ACTION_SHUTDOWN))
         registerReceiver(usbDetached, IntentFilter(UsbManager.ACTION_USB_ACCESSORY_DETACHED), RECEIVER_NOT_EXPORTED)
         UsbTunnel.onChange = ::usbChanged
@@ -174,6 +175,7 @@ class BridgeService : Service() {
     override fun onDestroy() {
         Diagnostics.record(this, "Serviço parado")
         transfers.shutdown()
+        requests.shutdownNow()
         ringer.stop()
         signals.stop()
         media.stop()
@@ -238,8 +240,12 @@ class BridgeService : Service() {
             when (val first = connection.receive().message) {
                 is Message.HelloMessage -> {
                     greeted = true
-                    PairingStore.updateAddress(this, connection.host, connection.port, first.body.name)
-                    setState(BridgeState.Connection.Connected(first.body.name))
+                    if (connection.isUsb) {
+                        PairingStore.updateAddress(this, first.body.addresses?.firstOrNull(), first.body.port, first.body.name)
+                    } else {
+                        PairingStore.updateAddress(this, connection.host, connection.port, first.body.name)
+                    }
+                    setState(BridgeState.Connection.Connected(first.body.name, connection.isUsb))
                     Diagnostics.record(this, "Conectado a ${first.body.name}${if (connection.isUsb) " pelo cabo" else ""}")
                 }
                 is Message.ErrorMessage -> {
@@ -294,26 +300,14 @@ class BridgeService : Service() {
                 Diagnostics.record(this, "Ping")
                 connection.send(Envelope(Message.Pong, replyTo = envelope.id))
             }
-            is Message.CallPlaceMessage -> placeCall(message.body.number)?.let {
-                connection.send(Envelope(Message.ErrorMessage(it), replyTo = envelope.id))
+            is Message.CallPlaceMessage -> placeCall(message.body.number)?.let { reply(connection, envelope, Message.ErrorMessage(it)) }
+            is Message.CallAnswerMessage -> controlCall(message.body.call, CallControl.Answer)?.let { reply(connection, envelope, Message.ErrorMessage(it)) }
+            is Message.CallDeclineMessage -> controlCall(message.body.call, CallControl.Decline)?.let { reply(connection, envelope, Message.ErrorMessage(it)) }
+            is Message.CallEndMessage -> controlCall(message.body.call, CallControl.End)?.let { reply(connection, envelope, Message.ErrorMessage(it)) }
+            is Message.ContactsSearchMessage -> respond(connection, envelope) {
+                if (!PhoneContacts.canRead(this)) denied(R.string.error_contacts_permission)
+                else Message.ContactsResultsMessage(ContactResults(PhoneContacts.search(this, message.body.query, message.body.limit)))
             }
-            is Message.CallAnswerMessage -> controlCall(message.body.call, CallControl.Answer)?.let {
-                connection.send(Envelope(Message.ErrorMessage(it), replyTo = envelope.id))
-            }
-            is Message.CallDeclineMessage -> controlCall(message.body.call, CallControl.Decline)?.let {
-                connection.send(Envelope(Message.ErrorMessage(it), replyTo = envelope.id))
-            }
-            is Message.CallEndMessage -> controlCall(message.body.call, CallControl.End)?.let {
-                connection.send(Envelope(Message.ErrorMessage(it), replyTo = envelope.id))
-            }
-            is Message.ContactsSearchMessage -> connection.send(
-                if (!PhoneContacts.canRead(this)) {
-                    Envelope(Message.ErrorMessage(BridgeError("permission", getString(R.string.error_contacts_permission))), replyTo = envelope.id)
-                } else {
-                    val contacts = PhoneContacts.search(this, message.body.query, message.body.limit)
-                    Envelope(Message.ContactsResultsMessage(ContactResults(contacts)), replyTo = envelope.id)
-                },
-            )
             is Message.NotificationActionMessage -> {
                 val done = NotificationRelay.act(this, message.body.key, message.body.action, message.body.reply)
                 Diagnostics.record(this, "Mac pediu ação de notificação: ${if (done) "feita" else "não encontrada"}")
@@ -324,15 +318,11 @@ class BridgeService : Service() {
             is Message.ClipboardMessage -> copy(message.body.text)
             is Message.LinkMessage -> links.show(message.body.url)
             is Message.MediaControlMessage -> media.control(message.body.action)
-            is Message.FilesListMessage -> thread(name = "files") {
-                val listing = if (PhoneFiles.canRead()) runCatching { PhoneFiles.list(message.body.path) }.getOrNull() else null
-                connection.send(
-                    when {
-                        listing != null -> Envelope(Message.FilesListingMessage(listing), replyTo = envelope.id)
-                        !PhoneFiles.canRead() -> Envelope(Message.ErrorMessage(BridgeError("permission", getString(R.string.error_files_permission))), replyTo = envelope.id)
-                        else -> Envelope(Message.ErrorMessage(BridgeError("failed", getString(R.string.error_files_missing))), replyTo = envelope.id)
-                    },
-                )
+            is Message.FilesListMessage -> respond(connection, envelope) {
+                if (!PhoneFiles.canRead()) return@respond denied(R.string.error_files_permission)
+                val listing = runCatching { PhoneFiles.list(message.body.path) }.getOrNull()
+                if (listing != null) Message.FilesListingMessage(listing)
+                else Message.ErrorMessage(BridgeError("failed", getString(R.string.error_files_missing)))
             }
             is Message.FilesGetMessage -> PhoneFiles.file(message.body.path)?.let { transfers.upload(listOf(Uri.fromFile(it))) }
             is Message.DndMessage -> NotificationListener.setDnd(message.body.on)
@@ -347,32 +337,20 @@ class BridgeService : Service() {
             is Message.MirrorKeyMessage -> MirrorControlService.instance?.key(message.body.key)
             is Message.MirrorTextMessage -> MirrorControlService.instance?.text(message.body.text)
             is Message.RingMessage -> if (message.body.on) ringer.start() else ringer.stop()
-            is Message.GalleryRequestMessage -> thread(name = "gallery") {
-                connection.send(
-                    if (!PhoneGallery.canRead(this)) {
-                        Envelope(Message.ErrorMessage(BridgeError("permission", getString(R.string.error_photos_permission))), replyTo = envelope.id)
-                    } else {
-                        val request = message.body
-                        val photos = runCatching {
-                            PhoneGallery.recent(this, request.limit, request.offset ?: 0, request.album, request.videos == true)
-                        }.getOrDefault(emptyList())
-                        Envelope(Message.GalleryResultsMessage(GalleryResults(photos)), replyTo = envelope.id)
-                    },
-                )
+            is Message.GalleryRequestMessage -> respond(connection, envelope) {
+                if (!PhoneGallery.canRead(this)) return@respond denied(R.string.error_photos_permission)
+                val request = message.body
+                val photos = runCatching { PhoneGallery.page(this, request.limit, request.offset ?: 0, request.album) }.getOrDefault(emptyList())
+                Message.GalleryResultsMessage(GalleryResults(photos))
             }
-            Message.GalleryAlbumsRequest -> thread(name = "gallery-albums") {
-                connection.send(
-                    if (!PhoneGallery.canRead(this)) {
-                        Envelope(Message.ErrorMessage(BridgeError("permission", getString(R.string.error_photos_permission))), replyTo = envelope.id)
-                    } else {
-                        Envelope(Message.GalleryAlbumListMessage(GalleryAlbums(runCatching { PhoneGallery.albums(this) }.getOrDefault(emptyList()))), replyTo = envelope.id)
-                    },
-                )
+            Message.GalleryAlbumsRequest -> respond(connection, envelope) {
+                if (!PhoneGallery.canRead(this)) denied(R.string.error_photos_permission)
+                else Message.GalleryAlbumListMessage(GalleryAlbums(runCatching { PhoneGallery.albums(this) }.getOrDefault(emptyList())))
             }
             Message.CameraCapture -> openCamera()
             is Message.GalleryImportMessage -> PhoneGallery.uri(message.body.id)?.let { transfers.upload(listOf(it)) }
-            is Message.PhotoRequestMessage -> PhoneContacts.photo(this, message.body.contact)?.let {
-                connection.send(Envelope(Message.PhotoMessage(ContactPhoto(message.body.contact, it)), replyTo = envelope.id))
+            is Message.PhotoRequestMessage -> respond(connection, envelope) {
+                PhoneContacts.photo(this, message.body.contact)?.let { Message.PhotoMessage(ContactPhoto(message.body.contact, it)) }
             }
             Message.Unpair -> {
                 Diagnostics.record(this, "O Mac esqueceu este celular")
@@ -397,6 +375,9 @@ class BridgeService : Service() {
             lock.notifyAll()
         }
     }
+
+    private fun batteryKey(intent: Intent) =
+        intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) to intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
 
     private fun sendStatus() {
         val connection = connection ?: return
@@ -456,6 +437,16 @@ class BridgeService : Service() {
         Diagnostics.record(this, "Texto copiado do Mac: ${text.length} caracteres")
     }
 
+    private fun reply(connection: BridgeConnection, envelope: Envelope, message: Message) {
+        connection.send(Envelope(message, replyTo = envelope.id))
+    }
+
+    private fun respond(connection: BridgeConnection, envelope: Envelope, answer: () -> Message?) {
+        runCatching { requests.execute { answer()?.let { reply(connection, envelope, it) } } }
+    }
+
+    private fun denied(@StringRes reason: Int) = Message.ErrorMessage(BridgeError("permission", getString(reason)))
+
     private fun requestMirror(start: MirrorStart) {
         ScreenMirrorService.createChannel(this)
         val consent = Intent(this, MirrorConsentActivity::class.java)
@@ -490,8 +481,7 @@ class BridgeService : Service() {
         if (MirrorControlService.isEnabled(this)) runCatching { startActivity(camera) }
     }
 
-    fun sendCapture(photo: Uri) {
-        getSystemService(NotificationManager::class.java).cancel(CAMERA_REQUEST_ID)
+    private fun sendCapture(photo: Uri) {
         transfers.upload(listOf(photo), capture = true)
     }
 
@@ -574,6 +564,7 @@ class BridgeService : Service() {
         private const val ACTION_STOP_RINGING = "com.julianamarques.galaxybridge.STOP_RINGING"
         private const val CALL_LOG_SETTLE_MS = 1_000L
         private const val NOTIFICATION_ID = 1
+        private const val REQUEST_THREADS = 3
         private const val MIRROR_REQUEST_ID = 4
         const val CAMERA_REQUEST_ID = 5
         private const val MIRROR_REQUEST_TIMEOUT_MS = 120_000L

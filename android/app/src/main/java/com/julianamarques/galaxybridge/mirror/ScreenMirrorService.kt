@@ -8,7 +8,6 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
@@ -23,6 +22,8 @@ import com.julianamarques.galaxybridge.bridge.BridgeService
 import com.julianamarques.galaxybridge.bridge.PairingStore
 import com.julianamarques.galaxybridge.bridge.parcelable
 import com.julianamarques.galaxybridge.protocol.Envelope
+import com.julianamarques.galaxybridge.protocol.Frames
+import com.julianamarques.galaxybridge.Permission
 import com.julianamarques.galaxybridge.protocol.Message
 import com.julianamarques.galaxybridge.protocol.MirrorStream
 import java.nio.ByteBuffer
@@ -49,8 +50,7 @@ class ScreenMirrorService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        val wantsAudio = intent.getBooleanExtra(EXTRA_AUDIO, false) &&
-            checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val wantsAudio = intent.getBooleanExtra(EXTRA_AUDIO, false) && Permission.has(this, Manifest.permission.RECORD_AUDIO)
         val types = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION or
             if (wantsAudio) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0
         startForeground(NOTIFICATION_ID, notification(), types)
@@ -72,8 +72,7 @@ class ScreenMirrorService : Service() {
     private fun stream(projection: MediaProjection, maxSize: Int?, bitRate: Int, withAudio: Boolean) {
         var failure: String? = null
         try {
-            val mac = PairingStore.current(this) ?: throw IllegalStateException(getString(R.string.transfer_not_paired))
-            val connection = BridgeConnection.open(this, mac) ?: throw IllegalStateException(getString(R.string.transfer_mac_not_found))
+            val connection = BridgeConnection.openPaired(this)
             this.connection = connection
             connection.sendBufferBytes = SEND_BUFFER_BYTES
             connection.sendNow(Envelope(Message.MirrorStreamMessage(MirrorStream(CODEC))))
@@ -96,10 +95,11 @@ class ScreenMirrorService : Service() {
 
     private fun write(connection: BridgeConnection, kind: Int, pts: Long, data: ByteBuffer?, extra: ByteArray?) {
         val payload = data?.remaining() ?: extra?.size ?: 0
-        val body = ByteArray(HEADER + payload)
-        ByteBuffer.wrap(body).put(kind.toByte()).putLong(pts)
-        if (data != null) data.get(body, HEADER, payload) else extra?.copyInto(body, HEADER)
-        connection.sendRaw(body)
+        val frame = Frames.framed(HEADER + payload)
+        val start = Frames.PREFIX + HEADER
+        ByteBuffer.wrap(frame, Frames.PREFIX, HEADER).put(kind.toByte()).putLong(pts)
+        if (data != null) data.get(frame, start, payload) else extra?.copyInto(frame, start)
+        connection.sendFrame(frame)
     }
 
     fun requestKeyFrame() {

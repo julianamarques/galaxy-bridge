@@ -67,7 +67,7 @@ struct FileBrowserView: View {
             }
             .width(min: 70, ideal: 90, max: 120)
             TableColumn("Modificado") { file in
-                Text(Date(timeIntervalSince1970: TimeInterval(file.modified) / 1000).formatted(date: .abbreviated, time: .shortened))
+                Text(Date(millis: file.modified).formatted(date: .abbreviated, time: .shortened))
                     .foregroundStyle(.secondary)
             }
             .width(min: 120, ideal: 160, max: 200)
@@ -128,7 +128,7 @@ struct FileBrowserView: View {
         panel.canChooseDirectories = false
         panel.prompt = String(localized: "Enviar")
         guard panel.runModal() == .OK else { return }
-        _ = browser.upload(panel.urls)
+        browser.upload(panel.urls)
     }
 
     private func drop(_ providers: [NSItemProvider]) -> Bool {
@@ -136,7 +136,7 @@ struct FileBrowserView: View {
         for provider in providers {
             _ = provider.loadObject(ofClass: URL.self) { url, _ in
                 guard let url else { return }
-                Task { @MainActor in _ = browser.upload([url]) }
+                Task { @MainActor in browser.upload([url]) }
             }
         }
         return true

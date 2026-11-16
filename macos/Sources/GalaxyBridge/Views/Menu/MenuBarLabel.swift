@@ -10,8 +10,7 @@ struct MenuBarLabel: View {
             .onChange(of: app.setupRequested, initial: true) { _, requested in
                 guard requested else { return }
                 app.setupRequested = false
-                openWindow(id: SetupWindow.id)
-                NSApp.activate()
+                openWindow.activating(id: SetupWindow.id)
             }
             #if DEBUG
             .task {

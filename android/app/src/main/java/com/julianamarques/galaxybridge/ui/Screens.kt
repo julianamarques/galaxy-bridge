@@ -408,7 +408,7 @@ private data class ConnectionLook(val label: String, val color: Color, val detai
 
 @Composable
 private fun look(connection: BridgeState.Connection, macName: String): ConnectionLook = when (connection) {
-    is BridgeState.Connection.Connected -> ConnectionLook(stringResource(R.string.status_chip_connected), Ready, null, pulsing = false)
+    is BridgeState.Connection.Connected -> ConnectionLook(stringResource(if (connection.usb) R.string.status_chip_connected_usb else R.string.status_chip_connected), Ready, null, pulsing = false)
     BridgeState.Connection.Refused -> ConnectionLook(
         stringResource(R.string.status_chip_refused),
         MaterialTheme.colorScheme.error,

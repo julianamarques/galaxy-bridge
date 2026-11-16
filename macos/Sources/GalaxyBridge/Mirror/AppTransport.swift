@@ -44,9 +44,8 @@ final class AppTransport: MirrorTransport {
 
     func received(_ body: Data) {
         guard let feed, body.count >= Self.headerLength, let kind = Kind(rawValue: body[body.startIndex]) else { return }
-        let bytes = [UInt8](body)
-        let pts = bytes[1..<Self.headerLength].reduce(UInt64(0)) { $0 << 8 | UInt64($1) }
-        let payload = Array(bytes[Self.headerLength...])
+        let pts = [UInt8](body.prefix(Self.headerLength)).bigEndian(at: 1, as: UInt64.self)
+        let payload = [UInt8](body.dropFirst(Self.headerLength))
         do {
             switch kind {
             case .session:

@@ -63,7 +63,7 @@ struct GalleryView: View {
     private var grid: some View {
         ScrollView {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 120, maximum: 180), spacing: 4)], spacing: 4, pinnedViews: .sectionHeaders) {
-                ForEach(months, id: \.title) { month in
+                ForEach(browser.months, id: \.title) { month in
                     Section {
                         ForEach(month.entries) { entry in
                             tile(entry)
@@ -136,23 +136,5 @@ struct GalleryView: View {
             .disabled(browser.selection.isEmpty)
             Button { browser.reload() } label: { Label("Atualizar", systemImage: "arrow.clockwise") }
         }
-    }
-
-    private struct Month {
-        let title: String
-        let entries: [GalleryEntry]
-    }
-
-    private var months: [Month] {
-        var result: [Month] = []
-        for entry in browser.entries {
-            let title = entry.date.formatted(.dateTime.month(.wide).year())
-            if result.last?.title == title {
-                result[result.count - 1] = Month(title: title, entries: result[result.count - 1].entries + [entry])
-            } else {
-                result.append(Month(title: title, entries: [entry]))
-            }
-        }
-        return result
     }
 }

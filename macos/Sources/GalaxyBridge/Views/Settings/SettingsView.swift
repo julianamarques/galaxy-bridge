@@ -35,8 +35,7 @@ struct SettingsView: View {
                         Text("Nenhum Galaxy configurado.").foregroundStyle(.secondary)
                         Spacer()
                         Button("Configurar…") {
-                            openWindow(id: SetupWindow.id)
-                            NSApp.activate()
+                            openWindow.activating(id: SetupWindow.id)
                         }
                     }
                 }

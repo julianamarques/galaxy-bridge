@@ -86,7 +86,6 @@
     <string name="six_digit_code">Código de seis dígitos</string>
     <string name="search_again">Procurar de novo</string>
     <string name="connecting">Conectando…</string>
-    <string name="status_connected">Conectado pela rede Wi-Fi.</string>
     <string name="status_refused">O %1$s não reconhece mais este celular. Esqueça o Mac aqui e pareie de novo.</string>
     <string name="status_searching">Procurando o Mac. Ele precisa estar ligado, na mesma rede Wi-Fi e com o Galaxy Bridge aberto.</string>
     <string name="background_hint">Pode fechar este app: a conexão continua em segundo plano e volta sozinha quando o celular reinicia.</string>
@@ -142,6 +141,7 @@
     <string name="tour_allowed">%1$s: permitido</string>
     <string name="tour_needs">Precisa de: %1$s</string>
     <string name="status_chip_connected">Conectado · Wi-Fi</string>
+    <string name="status_chip_connected_usb">Conectado · Cabo USB</string>
     <string name="status_chip_searching">Procurando o Mac…</string>
     <string name="status_chip_refused">Não reconhecido</string>
     <string name="feature_battery">Bateria</string>

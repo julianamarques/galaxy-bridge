@@ -3,16 +3,13 @@ package com.julianamarques.galaxybridge.bridge
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.Context
-import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
-import android.util.Base64
 import android.util.Size
 import com.julianamarques.galaxybridge.Permission
 import com.julianamarques.galaxybridge.protocol.GalleryAlbum
 import com.julianamarques.galaxybridge.protocol.GalleryPhoto
-import java.io.ByteArrayOutputStream
 
 object PhoneGallery {
     private const val THUMBNAIL_PX = 200
@@ -22,14 +19,14 @@ object PhoneGallery {
     private val FILES: Uri = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
     private val IMAGES: Uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
     private val VIDEOS: Uri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+    private val MEDIA_SELECTION = "${MediaStore.Files.FileColumns.MEDIA_TYPE} IN (${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE}, ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
 
     fun canRead(context: Context): Boolean = Permission.Photos.isGranted(context)
 
-    fun recent(context: Context, limit: Int, offset: Int = 0, album: String? = null, videos: Boolean = false): List<GalleryPhoto> {
+    fun page(context: Context, limit: Int, offset: Int, album: String?): List<GalleryPhoto> {
         val resolver = context.contentResolver
-        val types = if (videos) listOf(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE, MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO) else listOf(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE)
         val selection = buildString {
-            append("${MediaStore.Files.FileColumns.MEDIA_TYPE} IN (${types.joinToString()})")
+            append(MEDIA_SELECTION)
             if (album != null) append(" AND ${MediaStore.MediaColumns.BUCKET_ID} = ?")
         }
         val query = Bundle().apply {
@@ -64,10 +61,9 @@ object PhoneGallery {
     }
 
     fun albums(context: Context): List<GalleryAlbum> {
-        val selection = "${MediaStore.Files.FileColumns.MEDIA_TYPE} IN (${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE}, ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
         val projection = arrayOf(MediaStore.MediaColumns.BUCKET_ID, MediaStore.MediaColumns.BUCKET_DISPLAY_NAME)
         val albums = linkedMapOf<String, GalleryAlbum>()
-        context.contentResolver.query(FILES, projection, selection, null, "${MediaStore.MediaColumns.DATE_ADDED} DESC")?.use { cursor ->
+        context.contentResolver.query(FILES, projection, MEDIA_SELECTION, null, "${MediaStore.MediaColumns.DATE_ADDED} DESC")?.use { cursor ->
             while (cursor.moveToNext()) {
                 val id = cursor.getString(0) ?: continue
                 val current = albums[id]
@@ -85,9 +81,6 @@ object PhoneGallery {
 
     private fun thumbnail(resolver: ContentResolver, uri: Uri): String {
         val bitmap = resolver.loadThumbnail(uri, Size(THUMBNAIL_PX, THUMBNAIL_PX), null)
-        val bytes = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, bytes)
-        bitmap.recycle()
-        return Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
+        return bitmap.toBase64(THUMBNAIL_PX, quality = JPEG_QUALITY).also { bitmap.recycle() }
     }
 }

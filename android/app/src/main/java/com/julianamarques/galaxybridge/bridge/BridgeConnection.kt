@@ -3,6 +3,7 @@ package com.julianamarques.galaxybridge.bridge
 import android.content.Context
 import android.util.Log
 import com.julianamarques.galaxybridge.Diagnostics
+import com.julianamarques.galaxybridge.R
 import com.julianamarques.galaxybridge.Diagnostics.TAG
 import com.julianamarques.galaxybridge.protocol.Envelope
 import com.julianamarques.galaxybridge.protocol.Frames
@@ -56,8 +57,11 @@ class BridgeConnection private constructor(
         synchronized(output) { Frames.write(output, envelope) }
     }
 
-    fun sendRaw(body: ByteArray, length: Int = body.size) {
-        synchronized(output) { Frames.writeRaw(output, body, length) }
+    fun sendFrame(frame: ByteArray) {
+        synchronized(output) {
+            output.write(frame)
+            output.flush()
+        }
     }
 
     override fun close() {
@@ -65,10 +69,17 @@ class BridgeConnection private constructor(
         runCatching { socket.close() }
     }
 
+    class Unavailable(message: String) : IOException(message)
+
     companion object {
         private const val DISCOVERY_TIMEOUT_MS = 10_000L
         private const val CONNECT_TIMEOUT_MS = 5_000
         const val LOOPBACK = "127.0.0.1"
+
+        fun openPaired(context: Context): BridgeConnection {
+            val mac = PairingStore.current(context) ?: throw Unavailable(context.getString(R.string.transfer_not_paired))
+            return open(context, mac) ?: throw Unavailable(context.getString(R.string.transfer_mac_not_found))
+        }
 
         fun open(context: Context, mac: PairedMac): BridgeConnection? {
             UsbTunnel.port?.let { port ->

@@ -137,12 +137,16 @@ public struct Hello: Codable, Equatable, Sendable {
     public var appVersion: String
     public var name: String
     public var model: String
+    public var addresses: [String]?
+    public var port: Int?
 
-    public init(version: Int = protocolVersion, appVersion: String, name: String, model: String) {
+    public init(version: Int = protocolVersion, appVersion: String, name: String, model: String, addresses: [String]? = nil, port: Int? = nil) {
         self.version = version
         self.appVersion = appVersion
         self.name = name
         self.model = model
+        self.addresses = addresses
+        self.port = port
     }
 }
 
@@ -517,17 +521,15 @@ public struct RecentCall: Codable, Equatable, Identifiable, Sendable {
     public var contact: String?
     public var kind: Kind
     public var time: Int64
-    public var duration: Int
 
     public var id: String { "\(time)|\(number ?? "")" }
 
-    public init(number: String?, name: String? = nil, contact: String? = nil, kind: Kind, time: Int64, duration: Int) {
+    public init(number: String?, name: String? = nil, contact: String? = nil, kind: Kind, time: Int64) {
         self.number = number
         self.name = name
         self.contact = contact
         self.kind = kind
         self.time = time
-        self.duration = duration
     }
 }
 
@@ -543,13 +545,11 @@ public struct GalleryRequest: Codable, Equatable, Sendable {
     public var limit: Int
     public var offset: Int?
     public var album: String?
-    public var videos: Bool?
 
-    public init(limit: Int, offset: Int? = nil, album: String? = nil, videos: Bool? = nil) {
+    public init(limit: Int, offset: Int? = nil, album: String? = nil) {
         self.limit = limit
         self.offset = offset
         self.album = album
-        self.videos = videos
     }
 }
 

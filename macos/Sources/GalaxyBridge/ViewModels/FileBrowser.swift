@@ -9,13 +9,14 @@ final class FileBrowser: ObservableObject {
     @Published private(set) var files: [PhoneFile] = []
     @Published private(set) var isLoading = false
     @Published private(set) var error: String?
-    @Published private(set) var canGoBack = false
 
     var send: ((Message) -> String?)?
-    var offer: ((URL, String) -> Bool)?
+    var offer: ((URL, String) -> Void)?
 
     private var request: String?
     private var history: [String] = []
+
+    var canGoBack: Bool { !history.isEmpty }
 
     var components: [(name: String, path: String)] {
         let parts = path.split(separator: "/").map(String.init)
@@ -50,9 +51,8 @@ final class FileBrowser: ObservableObject {
         }
     }
 
-    func upload(_ urls: [URL]) -> Bool {
-        let files = urls.filter { !$0.hasDirectoryPath }
-        return files.reduce(false) { sent, url in (offer?(url, path) ?? false) || sent }
+    func upload(_ urls: [URL]) {
+        for url in urls where !url.hasDirectoryPath { offer?(url, path) }
     }
 
     func received(_ listing: FilesListing, replyTo: String?) {
@@ -85,7 +85,6 @@ final class FileBrowser: ObservableObject {
     }
 
     private func load(_ path: String) {
-        canGoBack = !history.isEmpty
         guard let id = send?(.filesList(FilesList(path: path))) else {
             return disconnected()
         }

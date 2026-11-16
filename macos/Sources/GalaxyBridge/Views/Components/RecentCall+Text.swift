@@ -2,7 +2,7 @@ import BridgeProtocol
 import Foundation
 
 extension RecentCall {
-    var date: Date { Date(timeIntervalSince1970: TimeInterval(time) / 1000) }
+    var date: Date { Date(millis: time) }
 
     var symbol: String {
         switch kind {

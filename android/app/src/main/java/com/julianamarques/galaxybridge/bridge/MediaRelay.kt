@@ -2,18 +2,15 @@ package com.julianamarques.galaxybridge.bridge
 
 import android.content.ComponentName
 import android.content.Context
-import android.graphics.Bitmap
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.Handler
 import android.os.Looper
-import android.util.Base64
 import com.julianamarques.galaxybridge.Diagnostics
 import com.julianamarques.galaxybridge.protocol.MediaControl
 import com.julianamarques.galaxybridge.protocol.MediaState
-import java.io.ByteArrayOutputStream
 
 class MediaRelay(private val context: Context, private val onChange: (MediaState) -> Unit) {
     private val handler = Handler(Looper.getMainLooper())
@@ -103,18 +100,9 @@ class MediaRelay(private val context: Context, private val onChange: (MediaState
     private fun artwork(metadata: MediaMetadata, key: String): String? {
         artwork?.takeIf { it.first == key }?.let { return it.second }
         val bitmap = ARTWORK_KEYS.firstNotNullOfOrNull { metadata.getBitmap(it) }
-        val encoded = bitmap?.let { runCatching { encode(it) }.getOrNull() }
+        val encoded = bitmap?.let { runCatching { it.toBase64(ARTWORK_PX, quality = JPEG_QUALITY) }.getOrNull() }
         artwork = key to encoded
         return encoded
-    }
-
-    private fun encode(bitmap: Bitmap): String {
-        val scale = ARTWORK_PX.toFloat() / maxOf(bitmap.width, bitmap.height)
-        val scaled = if (scale < 1) Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true) else bitmap
-        val bytes = ByteArrayOutputStream()
-        scaled.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, bytes)
-        if (scaled !== bitmap) scaled.recycle()
-        return Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
     }
 
     private fun appName(app: String): String? = runCatching {

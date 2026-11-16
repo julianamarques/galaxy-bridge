@@ -5,8 +5,7 @@ import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
 import android.os.Build
-import android.util.Log
-import com.julianamarques.galaxybridge.Diagnostics.TAG
+import com.julianamarques.galaxybridge.Diagnostics
 import java.net.Inet4Address
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
@@ -31,12 +30,15 @@ class MacFinder(context: Context) {
         }
         val services = LinkedBlockingQueue<NsdServiceInfo>()
         val listener = object : NsdManager.DiscoveryListener {
-            override fun onServiceFound(info: NsdServiceInfo) { services.add(info) }
+            override fun onServiceFound(info: NsdServiceInfo) {
+                Diagnostics.record(context, "Busca: achou ${info.serviceName}")
+                services.add(info)
+            }
             override fun onServiceLost(info: NsdServiceInfo) {}
             override fun onDiscoveryStarted(serviceType: String) {}
             override fun onDiscoveryStopped(serviceType: String) {}
             override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
-                Log.w(TAG, "Descoberta falhou: $errorCode")
+                Diagnostics.record(context, "Busca não iniciou: $errorCode")
             }
             override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
         }
@@ -53,7 +55,7 @@ class MacFinder(context: Context) {
                 if (stopAt(found)) return listOf(found)
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Descoberta interrompida: ${e.message}")
+            Diagnostics.record(context, "Busca interrompida: ${e.message}")
         } finally {
             runCatching { nsd.stopServiceDiscovery(listener) }
             lock.release()
@@ -70,9 +72,12 @@ class MacFinder(context: Context) {
                 resolved = serviceInfo
                 latch.countDown()
             }
-            override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) { latch.countDown() }
+            override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+                Diagnostics.record(context, "Busca: não resolveu ${serviceInfo.serviceName} ($errorCode)")
+                latch.countDown()
+            }
         })
-        if (!latch.await(5, TimeUnit.SECONDS)) return null
+        if (!latch.await(5, TimeUnit.SECONDS)) return null.also { Diagnostics.record(context, "Busca: resolução demorou demais") }
         val service = resolved ?: return null
         val address = if (Build.VERSION.SDK_INT >= 34) {
             service.hostAddresses.firstOrNull { it is Inet4Address } ?: service.hostAddresses.firstOrNull()

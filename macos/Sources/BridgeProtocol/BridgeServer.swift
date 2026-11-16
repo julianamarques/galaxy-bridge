@@ -46,6 +46,7 @@ public final class BridgeServer {
     public let identity: Identity
     public let store: PairingStore
     public var onEvent: ((Event) -> Void)?
+    public var addresses: () -> [String] = { [] }
     public private(set) var port: UInt16?
     public private(set) var pairing: PairingSession?
     public var phone: PairedPhone? { active?.phone }
@@ -375,13 +376,23 @@ public final class BridgeServer {
         }
     }
 
+    private var greeting: Hello {
+        var greeting = hello
+        let addresses = addresses()
+        if !addresses.isEmpty, let port {
+            greeting.addresses = addresses
+            greeting.port = Int(port)
+        }
+        return greeting
+    }
+
     private func reject(_ connection: BridgeConnection, _ reason: PairRejected.Reason) {
         connection.send(Envelope(.pairRejected(PairRejected(reason: reason)))) { connection.close() }
     }
 
     private func activate(_ connection: BridgeConnection, as phone: PairedPhone) {
         connection.phone = phone
-        connection.send(Envelope(.hello(hello)))
+        connection.send(Envelope(.hello(greeting)))
         let previous = active
         active = connection
         if let previous, previous !== connection {
@@ -415,10 +426,13 @@ public final class BridgeServer {
         onEvent?(.transferEnded(id, .sent(name: transfer.file.name, ok: false)))
     }
 
+    private func isSideChannel(_ connection: BridgeConnection) -> Bool {
+        guard connection.hello == nil, connection.transfer == nil, let fingerprint = connection.fingerprint else { return false }
+        return store.phone(withFingerprint: fingerprint) != nil
+    }
+
     private func startMirrorStream(on connection: BridgeConnection) {
-        guard connection.hello == nil, connection.transfer == nil,
-              let fingerprint = connection.fingerprint, store.phone(withFingerprint: fingerprint) != nil
-        else { return connection.close() }
+        guard isSideChannel(connection) else { return connection.close() }
         mirrorStream?.close()
         mirrorStream = connection
         log.info("Recebendo o vídeo do espelhamento")
@@ -430,9 +444,7 @@ public final class BridgeServer {
     }
 
     private func startTransfer(on connection: BridgeConnection) -> TransferSession? {
-        guard connection.hello == nil, connection.transfer == nil,
-              let fingerprint = connection.fingerprint, store.phone(withFingerprint: fingerprint) != nil
-        else {
+        guard isSideChannel(connection) else {
             connection.close()
             return nil
         }

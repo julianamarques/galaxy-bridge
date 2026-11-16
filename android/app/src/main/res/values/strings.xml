@@ -87,7 +87,6 @@
     <string name="six_digit_code">Six-digit code</string>
     <string name="search_again">Search again</string>
     <string name="connecting">Connecting…</string>
-    <string name="status_connected">Connected over Wi-Fi.</string>
     <string name="status_refused">%1$s doesn\'t recognize this phone anymore. Forget the Mac here and pair again.</string>
     <string name="status_searching">Looking for the Mac. It needs to be on, on the same Wi-Fi network, and running Galaxy Bridge.</string>
     <string name="background_hint">You can close this app: the connection keeps running in the background and comes back on its own after the phone restarts.</string>
@@ -144,6 +143,7 @@
     <string name="tour_needs">Needs: %1$s</string>
     <string name="about_copyright" translatable="false">© 2026 Juliana Marques</string>
     <string name="status_chip_connected">Connected · Wi-Fi</string>
+    <string name="status_chip_connected_usb">Connected · USB cable</string>
     <string name="status_chip_searching">Searching for the Mac…</string>
     <string name="status_chip_refused">Not recognized</string>
     <string name="feature_battery">Battery</string>

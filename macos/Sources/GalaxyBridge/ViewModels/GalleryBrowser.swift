@@ -10,6 +10,11 @@ struct GalleryEntry: Identifiable {
     let duration: Int?
 }
 
+struct GalleryMonth {
+    let title: String
+    var entries: [GalleryEntry]
+}
+
 @MainActor
 final class GalleryBrowser: ObservableObject {
     static let windowID = "gallery"
@@ -18,6 +23,7 @@ final class GalleryBrowser: ObservableObject {
     @Published private(set) var albums: [GalleryAlbum] = []
     @Published private(set) var album: String?
     @Published private(set) var entries: [GalleryEntry] = []
+    @Published private(set) var months: [GalleryMonth] = []
     @Published private(set) var isLoading = false
     @Published private(set) var hasMore = true
     @Published private(set) var error: String?
@@ -42,6 +48,7 @@ final class GalleryBrowser: ObservableObject {
 
     func reload() {
         entries = []
+        months = []
         selection = []
         offset = 0
         hasMore = true
@@ -53,7 +60,7 @@ final class GalleryBrowser: ObservableObject {
 
     func loadMore() {
         guard !isLoading, hasMore else { return }
-        guard let id = send?(.galleryRequest(GalleryRequest(limit: Self.pageSize, offset: offset, album: album, videos: true))) else {
+        guard let id = send?(.galleryRequest(GalleryRequest(limit: Self.pageSize, offset: offset, album: album))) else {
             return disconnected()
         }
         request = id
@@ -64,18 +71,31 @@ final class GalleryBrowser: ObservableObject {
         for id in ids { _ = send?(.galleryImport(GalleryID(id: id))) }
     }
 
-    func received(_ photos: [GalleryPhoto], replyTo: String?) -> Bool {
-        guard replyTo != nil, replyTo == request else { return false }
+    func received(_ photos: [GalleryPhoto], replyTo: String?) {
+        guard replyTo != nil, replyTo == request else { return }
         request = nil
         isLoading = false
         offset += Self.pageSize
         hasMore = !photos.isEmpty
         entries += photos.compactMap { photo in
             NSImage(data: photo.thumbnail).map {
-                GalleryEntry(id: photo.id, name: photo.name, date: Date(timeIntervalSince1970: TimeInterval(photo.time) / 1000), image: $0, duration: photo.duration)
+                GalleryEntry(id: photo.id, name: photo.name, date: Date(millis: photo.time), image: $0, duration: photo.duration)
             }
         }
-        return true
+        months = Self.group(entries)
+    }
+
+    private static func group(_ entries: [GalleryEntry]) -> [GalleryMonth] {
+        var months: [GalleryMonth] = []
+        for entry in entries {
+            let title = entry.date.formatted(.dateTime.month(.wide).year())
+            if months.last?.title == title {
+                months[months.count - 1].entries.append(entry)
+            } else {
+                months.append(GalleryMonth(title: title, entries: [entry]))
+            }
+        }
+        return months
     }
 
     func received(_ albums: [GalleryAlbum], replyTo: String?) {

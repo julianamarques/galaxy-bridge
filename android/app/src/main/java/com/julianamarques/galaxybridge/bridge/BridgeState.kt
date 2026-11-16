@@ -7,7 +7,7 @@ object BridgeState {
     sealed interface Connection {
         data object Stopped : Connection
         data object Searching : Connection
-        data class Connected(val macName: String) : Connection
+        data class Connected(val macName: String, val usb: Boolean) : Connection
         data object Refused : Connection
     }
 

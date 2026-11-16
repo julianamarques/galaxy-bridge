@@ -2,7 +2,7 @@ package com.julianamarques.galaxybridge.mirror
 
 import android.Manifest
 import android.app.Activity
-import android.content.pm.PackageManager
+import com.julianamarques.galaxybridge.Permission
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
@@ -13,7 +13,7 @@ class MirrorConsentActivity : Activity() {
         super.onCreate(savedInstanceState)
         if (savedInstanceState != null) return
         val wantsAudio = intent.getBooleanExtra(ScreenMirrorService.EXTRA_AUDIO, false)
-        if (wantsAudio && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        if (wantsAudio && !Permission.has(this, Manifest.permission.RECORD_AUDIO)) {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), AUDIO_REQUEST)
         } else {
             askToCapture()

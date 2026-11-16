@@ -82,10 +82,8 @@ struct MenuView: View {
             Label(callStatus(call), systemImage: "phone.fill")
                 .foregroundStyle(.green)
         } else if app.appPhone != nil {
-            if app.isAppConnected, app.isAppOverUSB {
-                Label("Cabo USB", systemImage: "cable.connector")
-            } else if app.isAppConnected {
-                Label("Wi-Fi", systemImage: "wifi")
+            if app.isAppConnected {
+                transport(usb: app.isAppOverUSB)
             } else {
                 Text("Desconectado")
             }
@@ -114,12 +112,12 @@ struct MenuView: View {
                 Text("Procurando…")
             }
         case .connected(let serial):
-            if ADBOutputParser.isUSBSerial(serial) {
-                Label("Cabo USB", systemImage: "cable.connector")
-            } else {
-                Label("Wi-Fi", systemImage: "wifi")
-            }
+            transport(usb: ADBOutputParser.isUSBSerial(serial))
         }
+    }
+
+    private func transport(usb: Bool) -> some View {
+        usb ? Label("Cabo USB", systemImage: "cable.connector") : Label("Wi-Fi", systemImage: "wifi")
     }
 
     private func problemView(_ problem: ConnectionProblem) -> some View {
@@ -212,7 +210,7 @@ struct MenuView: View {
                 .foregroundStyle(.secondary)
                 .padding(.top, 2)
             VStack(spacing: 0) {
-                ForEach(app.recentCalls.prefix(Self.recentLimit)) { call in
+                ForEach(app.recentCalls) { call in
                     RecentCallRow(call: call, name: displayName(call), photo: photo(call)) { redial(call) }
                         .disabled(call.number == nil)
                 }
@@ -257,27 +255,15 @@ struct MenuView: View {
                     .buttonStyle(MenuRowStyle())
                     .disabled(!app.isAppConnected)
                 MirrorMenuItem(mirror: app.mirror, deviceName: app.deviceName)
-                Button("Fotos e Vídeos do \(app.deviceName)…") {
-                    openWindow(id: GalleryBrowser.windowID)
-                    NSApp.activate()
+                Group {
+                    Button("Fotos e Vídeos do \(app.deviceName)…") { openWindow.activating(id: GalleryBrowser.windowID) }
+                    Button("Tirar Foto com o \(app.deviceName)") { app.takePhoto() }
+                    Button("Arquivos do \(app.deviceName)…") { openWindow.activating(id: FileBrowser.windowID) }
+                    Button("Enviar Arquivo para o \(app.deviceName)…") { app.chooseFilesToSend() }
+                    Button("Enviar Texto Copiado para o \(app.deviceName)") { app.sendClipboard() }
                 }
                 .buttonStyle(MenuRowStyle())
                 .disabled(!app.isAppConnected)
-                Button("Tirar Foto com o \(app.deviceName)") { app.takePhoto() }
-                    .buttonStyle(MenuRowStyle())
-                    .disabled(!app.isAppConnected)
-                Button("Arquivos do \(app.deviceName)…") {
-                    openWindow(id: FileBrowser.windowID)
-                    NSApp.activate()
-                }
-                .buttonStyle(MenuRowStyle())
-                .disabled(!app.isAppConnected)
-                Button("Enviar Arquivo para o \(app.deviceName)…") { app.chooseFilesToSend() }
-                    .buttonStyle(MenuRowStyle())
-                    .disabled(!app.isAppConnected)
-                Button("Enviar Texto Copiado para o \(app.deviceName)") { app.sendClipboard() }
-                    .buttonStyle(MenuRowStyle())
-                    .disabled(!app.isAppConnected)
             }
             SettingsLink { Text("Ajustes do \(Bundle.appName)…") }
                 .buttonStyle(MenuRowStyle())
@@ -286,8 +272,6 @@ struct MenuView: View {
                 .buttonStyle(MenuRowStyle())
         }
     }
-
-    private static let recentLimit = 4
 
     private func displayName(_ call: RecentCall) -> String? {
         if let name = call.name { return name }
@@ -310,8 +294,7 @@ struct MenuView: View {
     }
 
     private func showSetup() {
-        openWindow(id: SetupWindow.id)
-        NSApp.activate()
+        openWindow.activating(id: SetupWindow.id)
     }
 }
 

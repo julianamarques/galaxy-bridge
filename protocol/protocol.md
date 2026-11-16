@@ -44,7 +44,11 @@ If the major version in `hello` differs, the Mac sends `error` with code `versio
 { "type": "hello", "body": { "version": 1, "appVersion": "0.1.0", "name": "Galaxy S25", "model": "SM-S931B" } }
 ```
 
-`name` is the name the user gave the device. `model` is the hardware model.
+`name` is the name the user gave the device. `model` is the hardware model. The Mac's `hello` may add `addresses`, its IPv4 addresses on the local network, and `port`, the port it listens on, so a phone connected by cable can reach it over Wi-Fi later without discovery:
+
+```json
+{ "type": "hello", "body": { "version": 1, "appVersion": "0.1.0", "name": "MacBook Air", "model": "Mac16,12", "addresses": ["192.168.0.10"], "port": 52800 } }
+```
 
 ### `pair.request` — phone → Mac
 
@@ -208,10 +212,10 @@ From the Mac, starts (`on: true`) or stops ringing the phone so the user can fin
 ### `calls.recent` — phone → Mac
 
 ```json
-{ "type": "calls.recent", "body": { "calls": [ { "number": "+5586999990001", "name": "Maria", "contact": "3789r1-2A4E", "kind": "missed", "time": 1760700000000, "duration": 0 } ] } }
+{ "type": "calls.recent", "body": { "calls": [ { "number": "+5586999990001", "name": "Maria", "contact": "3789r1-2A4E", "kind": "missed", "time": 1760700000000 } ] } }
 ```
 
-The phone's latest calls, newest first, up to 8. Sent after `hello` and whenever the call history changes; not sent without the call log permission. `kind` is `incoming`, `outgoing`, `missed` or `declined` (blocked calls count as declined), `time` is in milliseconds since 1970 and `duration` in seconds. `number` is left out for private numbers; `name` and `contact` when the number isn't a contact.
+The phone's latest calls, newest first, up to 4. Sent after `hello` and whenever the call history changes; not sent without the call log permission. `kind` is `incoming`, `outgoing`, `missed` or `declined` (blocked calls count as declined), `time` is in milliseconds since 1970. `number` is left out for private numbers; `name` and `contact` when the number isn't a contact.
 
 ### `gallery.request` / `gallery.results` / `gallery.import` — Mac → phone / phone → Mac / Mac → phone
 
@@ -221,10 +225,10 @@ The phone's latest calls, newest first, up to 8. Sent after `hello` and whenever
 { "type": "gallery.import", "body": { "id": "1000012345" } }
 ```
 
-The latest photos on the phone, newest first, up to `limit` (at most 40), each with a JPEG thumbnail of about 200 pixels in base64. The Mac's photo window pages through everything with `offset`, filters by `album` (a `gallery.albumList` id) and adds videos with `"videos": true`. A video's `id` starts with `video:` and it has a `duration` in seconds.
+The phone's photos and videos, newest first (by the date taken), up to `limit` (at most 40), each with a JPEG thumbnail of about 200 pixels in base64. The Mac's photo window pages through everything with `offset` and filters by `album` (a `gallery.albumList` id). A video's `id` starts with `video:` and it has a `duration` in seconds.
 
 ```json
-{ "type": "gallery.request", "id": "g2", "body": { "limit": 30, "offset": 60, "album": "-1739773001", "videos": true } }
+{ "type": "gallery.request", "id": "g2", "body": { "limit": 30, "offset": 60, "album": "-1739773001" } }
 { "type": "gallery.albums", "id": "a1" }
 { "type": "gallery.albumList", "replyTo": "a1", "body": { "albums": [ { "id": "-1739773001", "name": "Camera", "count": 1532 } ] } }
 ```

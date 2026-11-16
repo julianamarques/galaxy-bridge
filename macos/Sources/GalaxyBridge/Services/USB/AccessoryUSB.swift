@@ -11,6 +11,8 @@ final class AccessoryUSB {
     private static let googleVendor = 0x18D1
     private static let accessoryProducts = Array(0x2D00...0x2D05)
     private static let phoneVendors: Set<Int> = [0x04E8]
+    nonisolated private static let switchAttempts = 5
+    nonisolated private static let switchRetryDelay: TimeInterval = 1
     nonisolated private static let strings = [
         manufacturer,
         model,
@@ -22,15 +24,12 @@ final class AccessoryUSB {
 
     var isEnabled: () -> Bool = { false }
     var port: () -> UInt16? = { nil }
-    var onLinkChange: ((Bool) -> Void)?
 
     private let switchQueue = DispatchQueue(label: "GalaxyBridge.usb.switch")
     private var notifyPort: IONotificationPortRef?
     private var iterators: [io_iterator_t] = []
     private var link: AccessoryLink?
     private var switched: Set<UInt64> = []
-
-    var isLinked: Bool { link != nil }
 
     func start() {
         guard notifyPort == nil, let notifyPort = IONotificationPortCreate(kIOMainPortDefault) else { return }
@@ -85,11 +84,16 @@ final class AccessoryUSB {
         IOObjectRetain(service)
         switchQueue.async {
             defer { IOObjectRelease(service) }
-            do {
-                try Self.switchToAccessory(service)
-                Log.connection.info("Celular no cabo: pedindo o modo acessório")
-            } catch {
-                Log.connection.info("O celular no cabo não aceitou o modo acessório: \(error.localizedDescription, privacy: .public)")
+            for attempt in 1...Self.switchAttempts {
+                do {
+                    try Self.switchToAccessory(service)
+                    Log.connection.info("Celular no cabo: pedindo o modo acessório")
+                    return
+                } catch where attempt < Self.switchAttempts {
+                    Thread.sleep(forTimeInterval: Self.switchRetryDelay)
+                } catch {
+                    Log.connection.info("O celular no cabo não aceitou o modo acessório: \(error.localizedDescription, privacy: .public)")
+                }
             }
         }
     }
@@ -103,12 +107,10 @@ final class AccessoryUSB {
                 guard let self, self.link === link else { return }
                 self.link = nil
                 Log.connection.info("Cabo USB desconectado")
-                self.onLinkChange?(false)
             }
             self.link = link
             link.start()
             Log.connection.info("Cabo USB conectado ao Galaxy")
-            onLinkChange?(true)
         } catch {
             Log.connection.error("Não foi possível abrir o cabo USB: \(error.localizedDescription, privacy: .public)")
         }

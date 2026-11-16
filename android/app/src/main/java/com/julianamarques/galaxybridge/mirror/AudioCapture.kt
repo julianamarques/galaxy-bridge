@@ -3,7 +3,7 @@ package com.julianamarques.galaxybridge.mirror
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.pm.PackageManager
+import com.julianamarques.galaxybridge.Permission
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
@@ -15,7 +15,7 @@ class AudioCapture(private val projection: MediaProjection, private val output: 
 
     @SuppressLint("MissingPermission")
     fun run(context: Context) {
-        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
+        if (!Permission.has(context, Manifest.permission.RECORD_AUDIO)) return
         val config = AudioPlaybackCaptureConfiguration.Builder(projection)
             .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
             .addMatchingUsage(AudioAttributes.USAGE_GAME)

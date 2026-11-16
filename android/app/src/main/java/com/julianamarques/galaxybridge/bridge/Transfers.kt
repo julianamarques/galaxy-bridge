@@ -73,15 +73,11 @@ class Transfers(private val context: Context) {
         )
     }
 
-    private class Failure(message: String) : IOException(message)
-
     private fun describeError(error: Throwable): String =
-        (error as? Failure)?.message ?: context.getString(R.string.transfer_connection_lost, error.javaClass.simpleName)
+        (error as? BridgeConnection.Unavailable)?.message ?: context.getString(R.string.transfer_connection_lost, error.javaClass.simpleName)
 
     private fun openMac(): BridgeConnection {
-        val mac = PairingStore.current(context) ?: throw Failure(context.getString(R.string.transfer_not_paired))
-        val connection = BridgeConnection.open(context, mac) ?: throw Failure(context.getString(R.string.transfer_mac_not_found))
-        return connection.apply {
+        return BridgeConnection.openPaired(context).apply {
             receiveTimeoutMs = RESULT_TIMEOUT_MS
             sendBufferBytes = SEND_BUFFER_BYTES
         }

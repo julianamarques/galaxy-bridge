@@ -14,9 +14,7 @@ import android.graphics.drawable.Icon
 import android.os.Bundle
 import android.service.notification.NotificationListenerService.Ranking
 import android.service.notification.StatusBarNotification
-import android.util.Base64
 import com.julianamarques.galaxybridge.protocol.PhoneNotification
-import java.io.ByteArrayOutputStream
 import java.util.concurrent.ConcurrentHashMap
 
 object NotificationRelay {
@@ -105,10 +103,7 @@ object NotificationRelay {
             ?: extras.parcelable<Icon>(Notification.EXTRA_PICTURE_ICON)?.loadDrawable(context)?.let(::draw)
             ?: messageImage(context, extras)
             ?: return null
-        val scale = minOf(1f, IMAGE_SIZE.toFloat() / maxOf(bitmap.width, bitmap.height))
-        val scaled = if (scale < 1f) Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true) else bitmap
-        val jpeg = ByteArrayOutputStream().also { scaled.compress(Bitmap.CompressFormat.JPEG, IMAGE_QUALITY, it) }.toByteArray()
-        Base64.encodeToString(jpeg, Base64.NO_WRAP)
+        bitmap.toBase64(IMAGE_SIZE, quality = IMAGE_QUALITY)
     }.getOrNull()
 
     private fun messageImage(context: Context, extras: Bundle): Bitmap? {
@@ -135,7 +130,6 @@ object NotificationRelay {
             setBounds(0, 0, ICON_SIZE, ICON_SIZE)
             draw(Canvas(bitmap))
         }
-        val png = ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
-        Base64.encodeToString(png, Base64.NO_WRAP)
+        bitmap.toBase64(ICON_SIZE, Bitmap.CompressFormat.PNG, 100)
     }.getOrNull()
 }

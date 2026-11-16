@@ -33,7 +33,7 @@ struct MediaSection: View {
 
     @ViewBuilder
     private var artwork: some View {
-        if let data = media.artwork, let image = NSImage(data: data) {
+        if let image = app.mediaArtwork {
             Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
         } else if let app = media.app, let icon = self.app.phoneApps.icon(app) {
             Image(nsImage: icon).resizable().aspectRatio(contentMode: .fit)

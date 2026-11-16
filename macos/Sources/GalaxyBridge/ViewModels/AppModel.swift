@@ -42,12 +42,13 @@ final class AppModel: ObservableObject {
     @Published private(set) var isRinging = false
     @Published private(set) var recentCalls: [RecentCall] = []
     @Published private(set) var media: MediaState?
+    @Published private(set) var mediaArtwork: NSImage?
     @Published private(set) var phoneStatus: PhoneStatus?
     let fileBrowser = FileBrowser()
     let galleryBrowser = GalleryBrowser()
     let mirror = MirrorController()
     let usb = AccessoryUSB()
-    @Published private(set) var isAppOverUSB = false
+    var isAppOverUSB: Bool { isAppConnected && bridge?.phoneHost == "127.0.0.1" }
     @Published var setupRequested = false
 
     lazy var setup = SetupModel(app: self)
@@ -95,7 +96,7 @@ final class AppModel: ObservableObject {
             return AppTransport(send: { [weak bridge] in bridge?.send($0) }, stopStream: { [weak bridge] in bridge?.stopMirrorStream() })
         }
         mirror.deviceName = { [weak self] in self?.deviceName ?? "Galaxy" }
-        fileBrowser.offer = { [weak self] url, folder in self?.bridge?.offer(url, folder: folder) != nil }
+        fileBrowser.offer = { [weak self] url, folder in _ = self?.bridge?.offer(url, folder: folder) }
         phoneApps.onMutedChange = { [weak self] muted in
             self?.bridge?.send(.notificationFilter(NotificationFilter(muted: muted.sorted())))
         }
@@ -380,15 +381,15 @@ final class AppModel: ObservableObject {
 
     func sendClipboard() {
         guard let text = NSPasteboard.general.string(forType: .string), !text.isEmpty else {
-            return notifier.clipboard(String(localized: "Não há texto copiado"), text: String(localized: "Copie um texto no Mac e tente de novo."))
+            return notifier.info(String(localized: "Não há texto copiado"), text: String(localized: "Copie um texto no Mac e tente de novo."))
         }
         guard text.count <= Clipboard.maxLength else {
-            return notifier.clipboard(String(localized: "Texto grande demais"), text: String(localized: "Envie textos longos como arquivo."))
+            return notifier.info(String(localized: "Texto grande demais"), text: String(localized: "Envie textos longos como arquivo."))
         }
         guard bridge?.send(.clipboard(Clipboard(text: text))) != nil else {
-            return notifier.clipboard(String(localized: "O \(deviceName) não está conectado"), text: text)
+            return notifier.info(String(localized: "O \(deviceName) não está conectado"), text: text)
         }
-        notifier.clipboard(String(localized: "Copiado no \(deviceName)"), text: text)
+        notifier.info(String(localized: "Copiado no \(deviceName)"), text: text)
     }
 
     private func mirrorStateChanged(_ state: MirrorState) {
@@ -423,13 +424,13 @@ final class AppModel: ObservableObject {
 
     func openOnPhone(_ url: URL) {
         guard bridge?.send(.link(Link(url: url.absoluteString))) != nil else {
-            return notifier.clipboard(String(localized: "O \(deviceName) não está conectado"), text: url.absoluteString)
+            return notifier.info(String(localized: "O \(deviceName) não está conectado"), text: url.absoluteString)
         }
-        notifier.clipboard(String(localized: "Link enviado para o \(deviceName)"), text: String(localized: "Toque na notificação do celular para abrir."))
+        notifier.info(String(localized: "Link enviado para o \(deviceName)"), text: String(localized: "Toque na notificação do celular para abrir."))
     }
 
     private func openFromPhone(_ link: String) {
-        guard let url = URL(string: link), ["http", "https"].contains(url.scheme?.lowercased()) else { return }
+        guard let url = URL(string: link), url.isWebLink else { return }
         NSWorkspace.shared.open(url)
     }
 
@@ -491,7 +492,7 @@ final class AppModel: ObservableObject {
 
     func takePhoto() {
         guard bridge?.send(.cameraCapture) != nil else { return }
-        notifier.clipboard(String(localized: "Tire a foto no \(deviceName)"), text: String(localized: "Ela chega no Mac copiada, pronta para colar."))
+        notifier.info(String(localized: "Tire a foto no \(deviceName)"), text: String(localized: "Ela chega no Mac copiada, pronta para colar."))
     }
 
     private func batteryChanged(from old: Battery?) {
@@ -515,15 +516,12 @@ final class AppModel: ObservableObject {
         let previous = call?.call == state.call ? call : nil
         let wasAnswered = previous != nil && callAnsweredAt != nil
         switch state.state {
-        case .ringing:
+        case .ringing, .voicemail:
             call = state
             callAnsweredAt = nil
         case .active:
             call = state
             if !wasAnswered { callAnsweredAt = Date() }
-        case .voicemail:
-            call = state
-            callAnsweredAt = nil
         case .ended:
             let caller = previous == nil || callerName.isEmpty ? (state.name ?? state.number ?? "") : callerName
             if state.direction == .incoming, !wasAnswered, declinedCall != state.call, state.declined != true {
@@ -531,8 +529,7 @@ final class AppModel: ObservableObject {
             }
             if declinedCall == state.call { declinedCall = nil }
             guard previous != nil || call == nil else { return }
-            call = nil
-            callAnsweredAt = nil
+            dropCall()
         }
     }
 
@@ -628,12 +625,13 @@ extension AppModel {
             let identity = try Identity.loadOrCreate(in: Self.supportDirectory.appendingPathComponent("identity", isDirectory: true))
             let store = store ?? PairingStore(file: Self.pairingStoreFile)
             let hello = Hello(
-                appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0",
+                appVersion: Bundle.appVersion ?? "0",
                 name: SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "Mac",
                 model: Self.hardwareModel
             )
             let bridge = BridgeServer(identity: identity, store: store, hello: hello)
             bridge.onEvent = { [weak self] in self?.handle($0) }
+            bridge.addresses = { LocalNetwork.interfaces().filter { $0.name.hasPrefix("en") }.map(\.address) }
             bridge.start()
             notifier.requestAuthorization()
             self.bridge = bridge
@@ -655,12 +653,10 @@ extension AppModel {
         case .connected(let phone):
             appPhone = phone
             isAppConnected = true
-            isAppOverUSB = bridge?.phoneHost == "127.0.0.1"
             callError = nil
             bridge?.send(.notificationFilter(NotificationFilter(muted: phoneApps.muted.sorted())))
         case .disconnected:
             isAppConnected = false
-            isAppOverUSB = false
             dropCall()
             requestedPhotos.removeAll()
             photos.removeAll()
@@ -715,7 +711,7 @@ extension AppModel {
             if mirror.isActive {
                 mirror.clipboardArrived(text)
             } else {
-                notifier.clipboard(String(localized: "Copiado do \(deviceName)"), text: text)
+                notifier.info(String(localized: "Copiado do \(deviceName)"), text: text)
             }
         case .notificationPosted(let notification):
             notificationPosted(notification)
@@ -731,11 +727,12 @@ extension AppModel {
         case .galleryAlbums(let albums, let replyTo):
             galleryBrowser.received(albums, replyTo: replyTo)
         case .gallery(let photos, let replyTo):
-            _ = galleryBrowser.received(photos, replyTo: replyTo)
+            galleryBrowser.received(photos, replyTo: replyTo)
         case .link(let link):
             openFromPhone(link)
         case .media(let state):
             Log.phone.info("Mídia: \(state.app ?? "nada", privacy: .public), tocando: \(state.playing), título: \(state.title != nil)")
+            if state.artwork != media?.artwork { mediaArtwork = state.artwork.flatMap(NSImage.init(data:)) }
             media = state.title == nil ? nil : state
         case .files(let listing, let replyTo):
             fileBrowser.received(listing, replyTo: replyTo)
@@ -750,11 +747,7 @@ extension AppModel {
         case .error(let error, let replyTo):
             if replyTo != nil, replyTo == searchRequest {
                 contactsError = error.message
-            } else if galleryBrowser.failed(error.message, replyTo: replyTo) {
-                break
-            } else if fileBrowser.failed(error.message, replyTo: replyTo) {
-                break
-            } else {
+            } else if !galleryBrowser.failed(error.message, replyTo: replyTo), !fileBrowser.failed(error.message, replyTo: replyTo) {
                 callError = error.message
             }
         }

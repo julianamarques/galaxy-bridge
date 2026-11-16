@@ -12,6 +12,7 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.net.InetAddress
+import java.nio.ByteBuffer
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.ConcurrentHashMap
@@ -151,13 +152,7 @@ object UsbTunnel {
     }
 
     private fun header(frame: ByteArray, at: Int, type: Int, channel: Int, length: Int) {
-        frame[at] = type.toByte()
-        frame[at + 1] = (channel shr 8).toByte()
-        frame[at + 2] = channel.toByte()
-        frame[at + 3] = (length shr 24).toByte()
-        frame[at + 4] = (length shr 16).toByte()
-        frame[at + 5] = (length shr 8).toByte()
-        frame[at + 6] = length.toByte()
+        ByteBuffer.wrap(frame, at, HEADER).put(type.toByte()).putShort(channel.toShort()).putInt(length)
     }
 
     private fun close(channel: Int) {

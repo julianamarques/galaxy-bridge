@@ -17,7 +17,7 @@ final class Notifier: NSObject {
     nonisolated private static let numberInfo = "number"
     nonisolated private static let callBackAction = "call-back"
     private static let missedCategory = "missed"
-    private static let clipboardPreview = 120
+    private static let preview = 120
     private static let actionPrefix = "action-"
 
     override init() {
@@ -34,13 +34,11 @@ final class Notifier: NSObject {
 
     func missed(call: String, caller: String, number: String?, toVoicemail: Bool) {
         let body = toVoicemail ? String(localized: "\(caller) · correio de voz") : caller
-        let content = content(title: String(localized: "Ligação perdida"), body: body, sound: true)
-        if let number {
-            registerMissedCategory()
-            content.categoryIdentifier = Self.missedCategory
-            content.userInfo = [Self.numberInfo: number]
-        }
-        center.add(UNNotificationRequest(identifier: "missed-\(call)", content: content, trigger: nil))
+        if number != nil { registerMissedCategory() }
+        post(
+            "missed-\(call)", title: String(localized: "Ligação perdida"), body: body, sound: true,
+            userInfo: number.map { [Self.numberInfo: $0] } ?? [:], category: number.map { _ in Self.missedCategory }
+        )
     }
 
     private func registerMissedCategory() {
@@ -67,13 +65,14 @@ final class Notifier: NSObject {
         post("battery", title: title, body: body, sound: sound)
     }
 
-    func clipboard(_ title: String, text: String) {
-        post("clipboard", title: title, body: String(text.prefix(Self.clipboardPreview)))
+    func info(_ title: String, text: String) {
+        post("info", title: title, body: String(text.prefix(Self.preview)))
     }
 
-    private func post(_ id: String, title: String, body: String, sound: Bool = false, userInfo: [AnyHashable: Any] = [:]) {
+    private func post(_ id: String, title: String, body: String, sound: Bool = false, userInfo: [AnyHashable: Any] = [:], category: String? = nil) {
         let content = content(title: title, body: body, sound: sound)
         content.userInfo = userInfo
+        if let category { content.categoryIdentifier = category }
         center.add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
     }
 
@@ -86,18 +85,13 @@ final class Notifier: NSObject {
     }
 
     func show(_ notification: PhoneNotification, icon: URL?) {
-        let content = UNMutableNotificationContent()
-        content.title = notification.title ?? notification.appName
+        let content = content(title: notification.title ?? notification.appName, body: notification.text ?? "", sound: !notification.silent)
         if notification.title != nil { content.subtitle = notification.appName }
-        content.body = notification.text ?? ""
         content.threadIdentifier = notification.app
         content.categoryIdentifier = category(for: notification.actions)
-        if !notification.silent { content.sound = .default }
-        if let image = notification.image, let attachment = Self.attachment(image: image) {
-            content.attachments = [attachment]
-        } else if let icon, let attachment = Self.attachment(copying: icon) {
-            content.attachments = [attachment]
-        }
+        let attachment = notification.image.flatMap { image in Self.attachment(extension: "jpg") { try image.write(to: $0) } }
+            ?? icon.flatMap { icon in Self.attachment(extension: "png") { try FileManager.default.copyItem(at: icon, to: $0) } }
+        if let attachment { content.attachments = [attachment] }
         center.add(UNNotificationRequest(identifier: Self.phonePrefix + notification.key, content: content, trigger: nil))
     }
 
@@ -114,21 +108,11 @@ final class Notifier: NSObject {
         }
     }
 
-    private static func attachment(image: Data) -> UNNotificationAttachment? {
-        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
-        guard (try? image.write(to: file)) != nil else { return nil }
-        guard let attachment = try? UNNotificationAttachment(identifier: "image", url: file) else {
+    private static func attachment(extension ext: String, write: (URL) throws -> Void) -> UNNotificationAttachment? {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + "." + ext)
+        guard (try? write(file)) != nil else { return nil }
+        guard let attachment = try? UNNotificationAttachment(identifier: ext, url: file) else {
             try? FileManager.default.removeItem(at: file)
-            return nil
-        }
-        return attachment
-    }
-
-    private static func attachment(copying icon: URL) -> UNNotificationAttachment? {
-        let copy = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".png")
-        guard (try? FileManager.default.copyItem(at: icon, to: copy)) != nil else { return nil }
-        guard let attachment = try? UNNotificationAttachment(identifier: "icon", url: copy) else {
-            try? FileManager.default.removeItem(at: copy)
             return nil
         }
         return attachment

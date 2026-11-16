@@ -68,9 +68,9 @@ final class AccessoryLink: @unchecked Sendable {
         buffer.append(chunk)
         while buffer.count >= Self.headerLength {
             let bytes = [UInt8](buffer.prefix(Self.headerLength))
-            let length = Int(bytes[3]) << 24 | Int(bytes[4]) << 16 | Int(bytes[5]) << 8 | Int(bytes[6])
+            let length = Int(bytes.bigEndian(at: 3, as: UInt32.self))
             guard buffer.count >= Self.headerLength + length else { return }
-            let channel = UInt16(bytes[1]) << 8 | UInt16(bytes[2])
+            let channel = bytes.bigEndian(at: 1, as: UInt16.self)
             let start = buffer.startIndex + Self.headerLength
             let payload = buffer.subdata(in: start..<start + length)
             buffer.removeSubrange(buffer.startIndex..<start + length)

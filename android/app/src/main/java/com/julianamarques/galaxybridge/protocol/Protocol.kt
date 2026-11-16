@@ -18,6 +18,8 @@ data class Hello(
     val appVersion: String,
     val name: String,
     val model: String,
+    val addresses: List<String>? = null,
+    val port: Int? = null,
 )
 
 @Serializable
@@ -167,7 +169,6 @@ data class RecentCall(
     val contact: String? = null,
     val kind: String,
     val time: Long,
-    val duration: Int,
 ) {
     companion object {
         const val INCOMING = "incoming"
@@ -181,7 +182,7 @@ data class RecentCall(
 data class RecentCalls(val calls: List<RecentCall>)
 
 @Serializable
-data class GalleryRequest(val limit: Int, val offset: Int? = null, val album: String? = null, val videos: Boolean? = null)
+data class GalleryRequest(val limit: Int, val offset: Int? = null, val album: String? = null)
 
 @Serializable
 data class GalleryPhoto(val id: String, val name: String, val time: Long, val thumbnail: String, val duration: Int? = null)
