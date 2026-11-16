@@ -7,7 +7,7 @@ Everything the Play Console asks for, and the order to do it in. The account is 
 | File | For |
 |---|---|
 | [listing.md](listing.md) | Store listing: name, short and full descriptions in English and Portuguese, category |
-| [privacy-policy.md](privacy-policy.md) | The privacy policy, published at <https://julianamarques.dev/en/galaxy-bridge/privacy/> (English) and <https://julianamarques.dev/galaxy-bridge/privacy/> (Portuguese); update the site when it changes |
+| [`website/`](../../website) | The privacy policy in Portuguese (`privacy/`) and English (`en/privacy/`), published by GitHub Pages (`.github/workflows/pages.yml`) at <https://julianamarques.dev/galaxy-bridge/privacy/> and <https://julianamarques.dev/galaxy-bridge/en/privacy/> |
 | [declarations.md](declarations.md) | Data safety answers, permission declarations, accessibility, foreground services, app access |
 | `graphics/icon-512.png` | App icon (512 × 512) |
 | `graphics/feature-graphic.png`, `graphics/feature-graphic-pt.png` | Feature graphic (1024 × 500), English and Portuguese |
