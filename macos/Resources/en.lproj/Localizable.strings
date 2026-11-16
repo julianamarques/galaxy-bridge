@@ -60,8 +60,8 @@
 "Esquecer Este Galaxy…" = "Forget This Galaxy…";
 "Esquecer o %@?" = "Forget %@?";
 "Este Galaxy foi configurado só pelo cabo. Conecte-o ao Mac com um cabo USB ou clique em Configurar Wi-Fi para usá-lo também sem fio." = "This Galaxy was set up with a cable only. Connect it to the Mac with a USB cable, or click Set Up Wi-Fi to use it wirelessly too.";
-"Este Galaxy já está conectado a este Mac pelo Wi-Fi, por exemplo pelo Galaxy Mirror. Você pode usá-lo sem parear de novo." = "This Galaxy is already connected to this Mac over Wi-Fi, for example by Galaxy Mirror. You can use it without pairing again.";
-"Este Galaxy já está conectado a este Mac pelo cabo USB, por exemplo pelo Galaxy Mirror. Você pode usá-lo sem parear de novo." = "This Galaxy is already connected to this Mac with a USB cable, for example by Galaxy Mirror. You can use it without pairing again.";
+"Este Galaxy já está conectado a este Mac pelo Wi-Fi, por exemplo por outro app. Você pode usá-lo sem parear de novo." = "This Galaxy is already connected to this Mac over Wi-Fi, for example by another app. You can use it without pairing again.";
+"Este Galaxy já está conectado a este Mac pelo cabo USB, por exemplo por outro app. Você pode usá-lo sem parear de novo." = "This Galaxy is already connected to this Mac with a USB cable, for example by another app. You can use it without pairing again.";
 "Faltam alguns componentes" = "Some components are missing";
 "Galaxy" = "Galaxy";
 "Galaxy encontrado em %@" = "Galaxy found at %@";

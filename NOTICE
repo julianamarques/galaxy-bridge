@@ -19,7 +19,3 @@ scrcpy server 5.0 (https://github.com/Genymobile/scrcpy)
 Copyright (C) 2018 Genymobile, Copyright (C) 2018-2026 Romain Vimont.
 Licensed under the Apache License, Version 2.0 (see scrcpy-LICENSE.txt).
 It runs on the phone while the screen is mirrored.
-
-Parts of the connection code (GalaxyKit) and the screen mirroring code
-come from Galaxy Mirror (https://github.com/julianamarques/galaxy-mirror),
-by the same author.

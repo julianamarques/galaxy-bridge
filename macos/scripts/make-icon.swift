@@ -2,7 +2,6 @@ import AppKit
 import SwiftUI
 
 // O ícone do Galaxy Bridge: um Mac e um Galaxy ligados por uma ponte em arco.
-// Segue o desenho do ícone do Galaxy Mirror (mesmo formato e proporções), com outra cor.
 
 private let deck: CGFloat = 530
 private let screenGradient = LinearGradient(

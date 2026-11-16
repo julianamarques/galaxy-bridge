@@ -25,12 +25,12 @@ final class MirrorWindowController: NSWindowController, NSWindowDelegate {
         window.level = alwaysOnTop ? .floating : .normal
         window.backgroundColor = .black
         window.isReleasedWhenClosed = false
-        window.setFrameAutosaveName("GalaxyMirrorWindow")
+        window.setFrameAutosaveName("PhoneMirrorWindow")
         super.init(window: window)
 
         window.delegate = self
         window.addTitlebarAccessoryViewController(navigationAccessory())
-        if !window.setFrameUsingName("GalaxyMirrorWindow") { window.center() }
+        if !window.setFrameUsingName("PhoneMirrorWindow") { window.center() }
     }
 
     @available(*, unavailable)

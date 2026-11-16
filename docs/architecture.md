@@ -13,7 +13,6 @@ Status: **Phase 1 done** (2026-10-17). The Mac and the Android app connect, pair
 ### Non-goals
 
 - **Call audio on the Mac is not implemented.** Ordinary Android apps cannot directly capture the carrier call's digital audio, and the tested macOS HFP path fails (see [Phase 2 results](#phase-2-results)). Calls are answered from the Mac and the conversation stays on the phone or connected earbuds. App-only alternatives remain under [investigation](call-audio-investigation.md); none is validated yet.
-- **Screen mirroring.** That stays in Galaxy Mirror, which needs `adb` to inject touches.
 - **Internet relay** (using the phone when it is away from the Mac). Possible later, out of scope now.
 
 ## Overview
@@ -55,7 +54,7 @@ galaxy-bridge/
 └── docs/
 ```
 
-`GalaxyKit` (the adb code shared with Galaxy Mirror) leaves Galaxy Bridge once the Android app covers status and calls. It can live on in Galaxy Mirror or become its own package.
+`GalaxyKit` (the adb code) can leave Galaxy Bridge and become its own package once the Android app covers status and calls.
 
 ## Connection
 
@@ -77,7 +76,7 @@ TLS 1.3 with **mutual authentication and pinned self-signed certificates** — t
 
 ### Pairing
 
-Same flow as Galaxy Mirror, the other way around: the **Mac shows the QR code** and the phone scans it.
+The **Mac shows the QR code** and the phone scans it.
 
 1. The user clicks **Add Galaxy** on the Mac. The Mac creates a one-time token (128 random bits, valid for 2 minutes) and shows a QR code:
    `galaxybridge://pair?v=1&host=192.168.1.20&port=52800&fp=<sha256 of the Mac certificate>&token=<token>`
@@ -126,7 +125,7 @@ Keep-alive: the **Mac** sends `ping` every 2 minutes and the phone answers `pong
 
 ## Android app
 
-- **Language and UI:** Kotlin, Jetpack Compose with Material 3. Minimum Android 13 (API 33); the adb connection still works from Android 11, like Galaxy Mirror. Package ID `com.julianamarques.galaxybridge`.
+- **Language and UI:** Kotlin, Jetpack Compose with Material 3. Minimum Android 13 (API 33); the adb connection still works from Android 11. Package ID `com.julianamarques.galaxybridge`.
 - **`BridgeService`:** a foreground service of type `connectedDevice`, with a silent ongoing notification ("Connected to MacBook Air"). It declares `FOREGROUND_SERVICE_CONNECTED_DEVICE`, plus one of the permissions the [service type requires](https://developer.android.com/guide/components/fg-service-types) (the network ones, such as `CHANGE_WIFI_MULTICAST_STATE`, which discovery needs anyway; confirm against the list in Phase 0). It starts on boot (`RECEIVE_BOOT_COMPLETED`; Android 15 forbids starting some service types from that broadcast, but not `connectedDevice`) and when the app is opened. It holds no wakelock.
 - **`StatusMonitor`:** battery from `ACTION_BATTERY_CHANGED`, countries from `TelephonyManager` (`networkCountryIso`, `simCountryIso`).
 - **`CallTracker` and `NotificationListener`:** (approach confirmed in Phase 0, see below)
