@@ -64,4 +64,17 @@ No form, but reviewers check it. Use case: companion app for a connected device 
 
 ## App access (for the reviewers)
 
-The app needs the Galaxy Bridge app for macOS to do anything beyond its introduction. Provide in **App access**: a link to download the Mac app, the steps (open it on a Mac on the same Wi-Fi, click **Continue**, scan the QR code with the phone) and a video of the whole flow, since the reviewers may not have a Mac.
+The app needs the Galaxy Bridge app for macOS to do anything beyond its introduction. In **App access**, choose "All or some functionality is restricted" and add one instruction with this text, plus the link to the demo video of the whole flow, since the reviewers may not have a Mac:
+
+```
+Galaxy Bridge is a companion app: it connects the phone to the Galaxy Bridge app for macOS. No account or login is needed.
+
+1. On a Mac with macOS 14 or later, download and open https://github.com/julianamarques/galaxy-bridge/releases/latest/download/Galaxy-Bridge.dmg and drag Galaxy Bridge to Applications. The app is not notarized: on first launch, allow it in System Settings > Privacy & Security > Open Anyway.
+2. Open Galaxy Bridge on the Mac and click Continue. It shows a QR code.
+3. With the phone on the same Wi-Fi network as the Mac (or connected to it with a USB cable), open Galaxy Bridge on the phone, tap "Scan the Mac's code" and point the camera at the QR code.
+4. The introduction then asks for the permission of each feature. Incoming calls, notifications, photos, files and screen mirroring then show up on the Mac.
+
+Demo video of the whole flow: <link>
+```
+
+Privacy policy URL: https://github.com/julianamarques/galaxy-bridge/wiki/Privacy-Policy

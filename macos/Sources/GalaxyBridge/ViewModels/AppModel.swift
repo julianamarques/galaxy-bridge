@@ -626,7 +626,7 @@ extension AppModel {
             let store = store ?? PairingStore(file: Self.pairingStoreFile)
             let hello = Hello(
                 appVersion: Bundle.appVersion ?? "0",
-                name: SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "Mac",
+                name: Self.computerName,
                 model: Self.hardwareModel
             )
             let bridge = BridgeServer(identity: identity, store: store, hello: hello)
@@ -765,6 +765,13 @@ extension AppModel {
     private func clearAppPhone() {
         appPhone = nil
         isAppConnected = false
+    }
+
+    private static var computerName: String {
+        #if DEBUG
+        if let name = ProcessInfo.processInfo.environment["GALAXY_PREVIEW_NAME"] { return name }
+        #endif
+        return SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "Mac"
     }
 
     private static var hardwareModel: String {

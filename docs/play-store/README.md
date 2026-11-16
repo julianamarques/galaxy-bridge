@@ -11,8 +11,9 @@ Everything the Play Console asks for, and the order to do it in. The account is 
 | [declarations.md](declarations.md) | Data safety answers, permission declarations, accessibility, foreground services, app access |
 | `graphics/icon-512.png` | App icon (512 × 512) |
 | `graphics/feature-graphic.png`, `graphics/feature-graphic-pt.png` | Feature graphic (1024 × 500), English and Portuguese |
+| `screenshots/en/`, `screenshots/pt/` | Phone screenshots (1080 × 2090), in the order they should appear |
 
-Still missing: phone screenshots (at least 2, 1080 × 1920 or larger, 9:16) and the demo videos the declarations ask for.
+Still missing: the demo videos the declarations ask for.
 
 ## Build
 

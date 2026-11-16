@@ -60,7 +60,7 @@
     <string name="permission_contacts">Contacts</string>
     <string name="permission_contacts_reason">To search contacts and show their photos on the Mac. The contacts stay on the Galaxy.</string>
     <string name="permission_photos">Photos</string>
-    <string name="permission_photos_reason">To show your latest photos on the Mac and import them from there.</string>
+    <string name="permission_photos_reason">To show all your photos and videos on the Mac and import them from there.</string>
     <string name="permission_all_files">All files</string>
     <string name="permission_all_files_reason">To browse the Galaxy\'s folders from the Mac and save files where you choose.</string>
     <string name="permission_mirror_control">Control from the Mac</string>
@@ -157,7 +157,7 @@
     <string name="feature_clipboard">Clipboard</string>
     <string name="feature_clipboard_on">Share text to copy it on the Mac</string>
     <string name="feature_photos">Photos</string>
-    <string name="feature_photos_on">Latest ones in the Mac\'s menu</string>
+    <string name="feature_photos_on">Every photo and video on the Mac</string>
     <string name="feature_find">Find my phone</string>
     <string name="feature_find_on">Rings it from the Mac, even on silent</string>
     <string name="feature_needs_permission">Tap to allow</string>

@@ -59,7 +59,7 @@
     <string name="permission_contacts">Contatos</string>
     <string name="permission_contacts_reason">Para buscar contatos e mostrar as fotos deles no Mac. Os contatos ficam no Galaxy.</string>
     <string name="permission_photos">Fotos</string>
-    <string name="permission_photos_reason">Para mostrar as fotos mais recentes no Mac e importá-las de lá.</string>
+    <string name="permission_photos_reason">Para mostrar todas as fotos e vídeos no Mac e importá-los de lá.</string>
     <string name="permission_all_files">Todos os arquivos</string>
     <string name="permission_all_files_reason">Para navegar nas pastas do Galaxy pelo Mac e salvar arquivos onde você escolher.</string>
     <string name="permission_mirror_control">Controle pelo Mac</string>
@@ -155,7 +155,7 @@
     <string name="feature_clipboard">Área de transferência</string>
     <string name="feature_clipboard_on">Compartilhe um texto para copiá-lo no Mac</string>
     <string name="feature_photos">Fotos</string>
-    <string name="feature_photos_on">As mais recentes no menu do Mac</string>
+    <string name="feature_photos_on">Todas as fotos e vídeos no Mac</string>
     <string name="feature_find">Encontrar o celular</string>
     <string name="feature_find_on">Toca pelo Mac, mesmo no silencioso</string>
     <string name="feature_needs_permission">Toque para permitir</string>
