@@ -1,6 +1,6 @@
 # Galaxy Bridge architecture
 
-Status: **Phase 1 done** (2026-10-17). The Mac and the Android app connect, pair and stay connected, with status and calls from the Mac; the `adb` connection remains as an alternative. Phase 2 onwards is still a proposal. This document describes the move to a companion Android app, so that the phone no longer needs Developer options.
+Status: **Phases 1 to 4 done**, plus the features added after them (screen mirroring, photos, the file browser, the USB cable, media and more; see the README). The Mac app is released on GitHub (1.0.x) and the Android app is in a Google Play closed test (2026-11); the `adb` connection remains as an alternative. This document records how the project moved to a companion Android app, so that the phone no longer needs Developer options, and what each phase found.
 
 ## Goals
 
@@ -78,7 +78,7 @@ TLS 1.3 with **mutual authentication and pinned self-signed certificates** — t
 
 The **Mac shows the QR code** and the phone scans it.
 
-1. The user clicks **Add Galaxy** on the Mac. The Mac creates a one-time token (128 random bits, valid for 2 minutes) and shows a QR code:
+1. The user clicks **Usar o App no Galaxy…** in the Mac's settings (or continues the setup window on first launch). The Mac creates a one-time token (128 random bits, valid for 2 minutes) and shows a QR code:
    `galaxybridge://pair?v=1&host=192.168.1.20&port=52800&fp=<sha256 of the Mac certificate>&token=<token>`
 2. The phone scans it with the [Google code scanner](https://developers.google.com/ml-kit/vision/barcode-scanning/code-scanner) (Play services; no camera permission needed).
 3. The phone opens a TLS connection. It checks that the Mac's certificate matches `fp`, and sends its own certificate during the handshake.
@@ -97,28 +97,29 @@ Each message is a 4-byte big-endian length followed by UTF-8 JSON:
 
 - `id` is set on requests. The answer carries the same `id` in `replyTo`.
 - Unknown `type`s are ignored, so either app can be updated first. `hello` carries the protocol version. A major version change refuses the connection and asks the user to update the older app.
-- Messages are capped at 1 MB. Files, in a later phase, will use a separate TLS connection per transfer, so they never block calls or notifications.
+- Messages are capped at 1 MB. Files and the mirrored screen use a separate TLS connection each, so they never block calls or notifications (see [Phase 4 results](#phase-4-results)).
 - Swift uses `Codable` and Kotlin uses `kotlinx.serialization`. Each message has a fixture in `protocol/fixtures/` that both test suites decode and re-encode.
 
 Keep-alive: the **Mac** sends `ping` every 2 minutes and the phone answers `pong`. Phase 0 showed that the phone's own timers are delayed by minutes while the CPU sleeps, that a sleeping phone can go quiet for up to 15 minutes, and that waking it every minute costs battery. So the Mac pings every 2 minutes, even while the phone is sending status updates (the phone counts only what it receives, so it would otherwise give up after 6 minutes), and gives the phone 60 seconds to answer: a network check took 48 s once in light idle. A phone that has really gone (battery dead, out of Wi-Fi) is noticed within about 3 minutes. A phone that shuts down or restarts closes the connection first, so the Mac notices at once. The Mac app does the same when it quits, waiting up to 1 second for the close to go out: Network.framework runs TCP inside the app's process, so once the process is gone nothing answers the phone, and it would wait out its own 6 minutes. The phone drops the connection after 6 minutes without any message. The phone reconnects when it notices the drop, or when `ConnectivityManager` reports a network change. The exact intervals are in [protocol.md](../protocol/protocol.md).
 
 ## Messages
 
+The first messages, from Phases 1 to 3. [protocol.md](../protocol/protocol.md) has the full, current list, including photos, files, transfers, mirroring and media.
+
 | Type | Direction | Body |
 |---|---|---|
 | `hello` | both | protocol version, app version, device name, model |
 | `pair.request` / `pair.accepted` / `pair.rejected` | phone → Mac / Mac → phone | token, name, model / reason |
-| `status` | phone → Mac | battery level, charging, network country, SIM country |
+| `status` | phone → Mac | battery level, charging, network and SIM countries, and later signal, storage, Do Not Disturb and accessories |
 | `call.place` | Mac → phone | number (E.164, already normalized on the Mac) |
 | `call.state` | phone → Mac | call ID, `ringing` / `active` / `voicemail` / `ended`, direction, number, contact name |
 | `call.answer` / `call.decline` / `call.end` | Mac → phone | call ID |
 | `contacts.search` / `contacts.results` | Mac → phone / phone → Mac | query, limit / contacts (ID, name, numbers with labels, has photo) |
 | `photo.request` / `photo` | Mac → phone / phone → Mac | contact ID / thumbnail, base64 |
-| `notification.posted` | phone → Mac | key, app, title, text, time, icon ID, actions (ID, title, accepts reply) |
+| `notification.posted` | phone → Mac | key, app, title, text, time, the app's icon on its first notification, actions (ID, title, accepts reply) |
 | `notification.removed` | phone → Mac | key |
 | `notification.action` | Mac → phone | key, action ID, reply text |
 | `notification.dismiss` | Mac → phone | key |
-| `icon.request` / `icon` | Mac → phone / phone → Mac | icon ID / PNG data, cached on the Mac per app |
 | `ping` / `pong` | both | — |
 
 `status` is sent on connect and whenever something changes, instead of every minute.
@@ -126,11 +127,11 @@ Keep-alive: the **Mac** sends `ping` every 2 minutes and the phone answers `pong
 ## Android app
 
 - **Language and UI:** Kotlin, Jetpack Compose with Material 3. Minimum Android 13 (API 33); the adb connection still works from Android 11. Package ID `com.julianamarques.galaxybridge`.
-- **`BridgeService`:** a foreground service of type `connectedDevice`, with a silent ongoing notification ("Connected to MacBook Air"). It declares `FOREGROUND_SERVICE_CONNECTED_DEVICE`, plus one of the permissions the [service type requires](https://developer.android.com/guide/components/fg-service-types) (the network ones, such as `CHANGE_WIFI_MULTICAST_STATE`, which discovery needs anyway; confirm against the list in Phase 0). It starts on boot (`RECEIVE_BOOT_COMPLETED`; Android 15 forbids starting some service types from that broadcast, but not `connectedDevice`) and when the app is opened. It holds no wakelock.
+- **`BridgeService`:** a foreground service of type `connectedDevice`, with a silent ongoing notification ("Connected to MacBook Air"). It declares `FOREGROUND_SERVICE_CONNECTED_DEVICE`, plus one of the permissions the [service type requires](https://developer.android.com/guide/components/fg-service-types) (the network ones, such as `CHANGE_WIFI_MULTICAST_STATE`, which discovery needs anyway; confirmed in Phase 0). It starts on boot (`RECEIVE_BOOT_COMPLETED`; Android 15 forbids starting some service types from that broadcast, but not `connectedDevice`) and when the app is opened. It holds no wakelock.
 - **`StatusMonitor`:** battery from `ACTION_BATTERY_CHANGED`, countries from `TelephonyManager` (`networkCountryIso`, `simCountryIso`).
 - **`CallTracker` and `NotificationListener`:** (approach confirmed in Phase 0, see below)
   - Call state through `TelephonyCallback` (`READ_PHONE_STATE`).
-  - Caller name and number from the dialer's call notification (`com.samsung.android.incallui`, `Notification.CallStyle`): its title is the contact name and its `callPerson` carries the number as a `tel:` URI, in national format (`086…`), so the Mac normalizes it with PhoneNumberKit. `PhoneStateListener` with `READ_CALL_LOG` also has the number, but that permission is restricted on Google Play, so the app doesn't ask for it.
+  - Caller name and number from the dialer's call notification (`com.samsung.android.incallui`, `Notification.CallStyle`): its title is the contact name and its `callPerson` carries the number as a `tel:` URI, in national format (`086…`), so the Mac normalizes it with PhoneNumberKit. `PhoneStateListener` with `READ_CALL_LOG` also has the number, but the notification is enough; the app asks for `READ_CALL_LOG` for other reasons (see [Phase 2 results](#phase-2-results)).
   - Answer and decline with `TelecomManager.acceptRingingCall()` and `endCall()` (`ANSWER_PHONE_CALLS`). Both are deprecated since Android 10 but work on One UI 9; `endCall()` also hangs up an active call.
   - Outgoing calls with `TelecomManager.placeCall()` (`CALL_PHONE`). It does not start an activity, so Android's limits on starting activities from the background don't apply.
 - **`NotificationRelay`:** a `NotificationListenerService`. It skips ongoing, silent and group-summary notifications and Galaxy Bridge's own. Replies fill the action's `RemoteInput`.
@@ -141,7 +142,7 @@ Keep-alive: the **Mac** sends `ping` every 2 minutes and the phone answers `pong
 
 - **`BridgeProtocol`** (new library target, no UI): message types, framing, the TLS identity and fingerprints, the pairing store, and `BridgeServer`. Unit-tested with the fixtures, and end to end with a test TLS client.
 - **`BridgeServer`:** `NWListener` with TLS. It accepts one connection per paired phone, publishes the connection state and routes messages to the features.
-- **UI:** the same menu and settings as today. Setup changes from "turn on Wireless debugging" to "install Galaxy Bridge on the Galaxy and scan this code". The APK link is shown as a QR code too.
+- **UI:** the same menu and settings as today. Setup changes from "turn on Wireless debugging" to "install Galaxy Bridge on the Galaxy and scan this code".
 - **Calls:** a floating panel in the top-right corner (`CallPanel`, a non-activating `NSPanel` on every Space) shows the caller with **Answer** and **Decline** while the phone rings, and the call's duration with **End** once answered. The menu shows the call too. A call nobody answered leaves a "Ligação perdida" notification in Notification Center. The panel replaced the planned notification with actions: macOS folds two actions into an "Options" menu, and a time-sensitive notification needs an entitlement that local signing can't have. The existing dialer and `tel:` handler send `call.place` instead of running adb.
 - **Notifications:** mirrored into Notification Center under the app's name and icon, with **Reply** as a text-input action. Removing one on either side removes it on the other.
 
@@ -155,12 +156,12 @@ Keep-alive: the **Mac** sends `ping` every 2 minutes and the phone answers `pong
 
 Installs from a store skip all three. Installs through `adb` are exempt too, which is fine for development but not for users.
 
-Options, to decide before Phase 1 ships to anyone else:
+Decided: **Google Play only.** The Galaxy Store only accepts Android apps from corporate sellers (a registered company and a D-U-N-S number), and every Galaxy has the Play Store too.
 
 | Store | Cost | Notes |
 |---|---|---|
-| Google Play | US$ 25, once | Reaches every Android phone. New personal accounts must run a closed test (12 testers for 14 days) before publishing. Policy review for notification access, `ANSWER_PHONE_CALLS` and the battery exemption. `READ_CALL_LOG` falls under the SMS and Call Log policy; the app uses it to tell a declined call from a missed one and to list the recent calls, so on Google Play it would need a policy declaration or those two features would have to go. |
-| Galaxy Store | Free seller account | Fits a Galaxy-focused app and is preinstalled on every Galaxy. Samsung reviews each release. |
+| Google Play | US$ 25, once | Reaches every Android phone. New personal accounts must run a closed test (12 testers for 14 days) before publishing. Policy review for notification access, `ANSWER_PHONE_CALLS` and the battery exemption. `READ_CALL_LOG` falls under the SMS and Call Log policy; the app uses it to tell a declined call from a missed one and to list the recent calls, so on Google Play it needs a policy declaration (submitted as a connected device companion app). |
+| Galaxy Store | Free, but Android apps need a corporate seller account | Preinstalled on every Galaxy. A personal seller account can only publish Galaxy Watch and other non-Android content. |
 
 Whatever the store, keep the signing key backed up: an app signed with a different key cannot update the installed one.
 
@@ -274,7 +275,7 @@ Galaxy S25, 2026-10-18, a dozen calls from another phone:
 - **The caller's name reaches the Mac in the same second the phone starts ringing.** The dialer's first notification already carries the name; the number comes in an update under a second later. Answering, declining and hanging up from the Mac act at once.
 - **The phone side:** `CallTracker` follows `TelephonyCallback`'s call state (ringing, off-hook, idle) and `NotificationListener` reads the caller from the dialer's `CallStyle` notification (`com.samsung.android.incallui`). Answer and decline use `TelecomManager.acceptRingingCall()` and `endCall()`.
 - **Declining sends the caller to the carrier's voicemail**, from the Mac and from the phone alike: that is how rejecting works.
-- **A declined call is told from a missed one through the call log.** Android ends both the same way, so after an unanswered incoming call the phone reads its newest call log entry (One UI writes `REJECTED_TYPE`, 5, or `MISSED_TYPE`, 3), retrying for up to 3 s, and marks the `ended` with `declined`. It needs `READ_CALL_LOG`, part of the Calls permission; Google Play restricts it, which doesn't matter outside the Play Store. Without it, a call declined on the phone still shows on the Mac as missed. Because the `ended` can now arrive late, the Mac only clears the call it shows when the `ended` is for that call.
+- **A declined call is told from a missed one through the call log.** Android ends both the same way, so after an unanswered incoming call the phone reads its newest call log entry (One UI writes `REJECTED_TYPE`, 5, or `MISSED_TYPE`, 3), retrying for up to 3 s, and marks the `ended` with `declined`. It needs `READ_CALL_LOG`, part of the Calls permission; Google Play restricts it, so the app declares it as a connected device companion app (see [Distribution](#distribution)). Without it, a call declined on the phone still shows on the Mac as missed. Because the `ended` can now arrive late, the Mac only clears the call it shows when the `ended` is for that call.
 - **Direct voicemail:** after about 20 seconds unanswered, One UI picks up and the call goes off-hook as if answered. A second before that, the dialer's notification changes: its text becomes "Correio de voz direto" and the Samsung extra `android.ongoingActivityNoti.nowbarCallChronometerWithText` turns `true` (it stays `false` when the user answers). The phone uses that extra, with the text as a fallback, only while the call goes from ringing to off-hook (or within 3 s after), so a call put on hold later isn't mistaken for voicemail. It then reports `voicemail` instead of `active`: the Mac hides the panel and, when the call ends, posts "Ligação perdida · … · correio de voz".
 
 **Call audio over Bluetooth** — spike `spikes/phase2-handsfree`, 2026-10-18. macOS still has a public API for the Mac to act as a Bluetooth hands-free device, the role a headset or a car kit plays (`IOBluetoothHandsFreeDevice`, since macOS 10.7, not deprecated). With the S25 paired over Bluetooth, the control side works: the Mac connects as hands-free, and the phone reports the call state, signal, battery and the caller's number (`+CLCC`), and advertises codec negotiation. The audio doesn't: every `connectSCO` and `transferAudioToComputer` fails with `kIOReturnUnsupported` (`0xe00002c7`), and no audio device appears in Core Audio. A second run ruled out the two settings that could have caused it: with codec negotiation off (so only narrowband CVSD, no mSBC) and microphone access granted, it fails the same way. Read-only inspection on 2026-10-19 of macOS 27.0.1 build 26A434 found that both codec branches of `connectSCO` construct this error directly in the connected state; `transferAudioToComputer` calls that same method. This explains the failure of the tested API on this build, rather than establishing that every possible Bluetooth path is unavailable. See the [call-audio investigation](call-audio-investigation.md) for evidence and remaining hypotheses. The Mac and phone should not remain paired through this nonfunctional audio spike, since the phone may select an audio endpoint that cannot play the call.
@@ -312,12 +313,11 @@ Galaxy S25, 2026-10-18, a dozen calls from another phone:
 ## Testing
 
 - **Protocol:** every message fixture is decoded and re-encoded by `swift test` and by the Android unit tests, so the two implementations can't drift apart.
-- **Mac:** unit tests for framing, pairing (token expiry, reuse, wrong fingerprint) and the message router.
-- **Android:** unit tests for the monitors' parsing, instrumented tests for `BridgeService`'s reconnection.
+- **Mac:** unit tests for framing and messages, pairing (token expiry, reuse, wrong fingerprint), `BridgeServer` and transfers, plus the adb code's parsing and phone numbers.
+- **Android:** unit tests for the protocol, the pairing link and shared links. Reconnection is checked by hand and through the diagnostic log.
 - **Manual checklist on the S25** for each phase, covering restart, Wi-Fi changes, screen off, and battery saver.
 
 ## Open questions
 
-- **App name on the phone:** "Galaxy Bridge" as well, or something that says what it does from the phone's point of view ("Galaxy Bridge for Mac")?
 - **More than one Mac per phone, or more than one phone per Mac.** The protocol allows both. The first versions will support one of each, to keep the UI simple.
 - **Bluetooth LE presence.** Android's `CompanionDeviceManager` can wake the app when a paired device comes near, and an association also exempts the app from some background limits. It would need the Mac to advertise over BLE. Worth evaluating after Phase 2.

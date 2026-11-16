@@ -2,11 +2,11 @@
 
 ## Supported Versions
 
-Galaxy Bridge is in development and has no published releases yet. Security fixes go to the main branch, for both the Mac app and the Android app.
+Security fixes go to the main branch and ship in the next version of the Mac app (on the Releases page) and of the Android app (on Google Play). Only the latest version is supported.
 
 | Version              | Supported |
 | -------------------- | --------- |
-| Main branch (0.1.x)  | Yes       |
+| 1.0.x                | Yes       |
 | Earlier              | No        |
 
 ## Reporting a Vulnerability

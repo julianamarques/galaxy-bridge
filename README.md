@@ -36,7 +36,9 @@ There are two ways to connect:
 2. Open the file and drag **Galaxy Bridge** to **Applications**.
 3. On the phone, install the Galaxy Bridge app for Android (coming to Google Play) and scan the QR code the Mac shows. Without it, the Mac app connects over adb.
 
-The app is only signed locally. On another Mac, macOS blocks the first launch saying it cannot verify the developer: allow it in **System Settings › Privacy & Security › Open Anyway**.
+The Android app reads calls, contacts, notifications, photos and files only to send them to the paired Mac; see the [privacy policy](https://github.com/julianamarques/galaxy-bridge/wiki/Privacy-Policy).
+
+The Mac app is only signed locally. On another Mac, macOS blocks the first launch saying it cannot verify the developer: allow it in **System Settings › Privacy & Security › Open Anyway**.
 
 ## Requirements
 
@@ -70,7 +72,7 @@ DRY_RUN=1 ./scripts/release.sh 1.1.0   # shows the notes without changing anythi
 
 It sets the version in `Resources/Info.plist`, commits and pushes it, builds the universal `.dmg` and creates the GitHub release with it.
 
-`swift test` (in `macos/`) runs the tests. The app icon is drawn in SwiftUI by `scripts/make-icon.swift`; run it after changing the drawing to regenerate `Resources/AppIcon.icns`. In debug builds, `GALAXY_PREVIEW_MENU=1` shows the menu in a regular window, `GALAXY_PREVIEW_SETTINGS=1` opens Settings at launch, `GALAXY_PREVIEW_CALL=1` and `GALAXY_PREVIEW_TRANSFER=1` show a fake call and transfer in the activity panel, and `GALAXY_START_MIRROR=1` starts mirroring at launch, and `GALAXY_PREVIEW_SETUP=1` opens the setup window on its welcome screen, to check the design without clicking the menu bar.
+`swift test` (in `macos/`) runs the tests. The app icon is drawn in SwiftUI by `scripts/make-icon.swift`; run it after changing the drawing to regenerate `Resources/AppIcon.icns`. In debug builds, `GALAXY_PREVIEW_MENU=1` shows the menu in a regular window, `GALAXY_PREVIEW_SETTINGS=1` opens Settings at launch, `GALAXY_PREVIEW_CALL=1` and `GALAXY_PREVIEW_TRANSFER=1` show a fake call and transfer in the activity panel, `GALAXY_START_MIRROR=1` starts mirroring at launch and `GALAXY_PREVIEW_SETUP=1` opens the setup window on its welcome screen, to check the design without clicking the menu bar. `GALAXY_PREVIEW_NAME` replaces the Mac's name in the app, for screenshots.
 
 The build script copies the Swift package resources (PhoneNumberKit's phone number data) into the app and downloads `adb` (`scripts/fetch-adb.sh`, platform-tools 37.0.1) and the scrcpy server (`scripts/fetch-scrcpy.sh`, 5.0) and checks their checksums. Keep it the same as other apps on the Mac that bundle `adb`: two different `adb` versions restart each other's server and drop the connection.
 
@@ -109,7 +111,7 @@ To pair: on the Mac, **Settings › Usar o App no Galaxy…** (or the setup wind
 
 Both apps are in English and Brazilian Portuguese, following the system language (other languages get English). The Android app's language can also be picked in **Settings › Apps › Galaxy Bridge › Language**.
 
-- **Mac:** the code keeps the Portuguese text as keys (`String(localized:)`, `Text("…")`), and `macos/Resources/en.lproj` holds the English: `Localizable.strings`, `InfoPlist.strings` (the Local Network prompt) and `ServicesMenu.strings` (the Finder's "Send to Galaxy"). `scripts/check-translations.sh` asks the Swift compiler for every localizable text and lists the ones without an English translation; run it after changing any text.
+- **Mac:** the code keeps the Portuguese text as keys (`String(localized:)`, `Text("…")`), and `macos/Resources/en.lproj` holds the English: `Localizable.strings`, `InfoPlist.strings` (the Local Network prompt) and `ServicesMenu.strings` (the Finder's "Send to Galaxy"). `scripts/check-translations.sh` asks the Swift compiler for every localizable text and lists the ones without an English translation and the translations no text uses anymore; run it after changing any text.
 - **Android:** `res/values/strings.xml` is English and `res/values-pt/strings.xml` Portuguese. Texts shown to the user belong there, not in the code.
 
 ## Structure
@@ -138,7 +140,7 @@ android/                  the Android app (Kotlin, Jetpack Compose)
     └── ui/               pairing, introduction and home screens
 protocol/                 protocol reference and JSON fixtures shared by both test suites
 docs/                     architecture, plans and test results
-spikes/                   Phase 0 experiments (throwaway)
+spikes/                   throwaway experiments: Phase 0 and the Bluetooth hands-free test
 ```
 
 ## How it works
@@ -149,7 +151,7 @@ spikes/                   Phase 0 experiments (throwaway)
 - **Guided introduction** — after pairing, both apps walk through the features page by page, in the style of Apple's Continuity setup: on the Mac, what each feature does and where it lives; on the phone, each feature with the permission it needs (**Permitir** or **Agora não**). **Settings › Sobre › Rever Introdução** on the Mac and **Rever introdução** in the phone app's About card show it again.
 - **Dock** — the app lives in the menu bar, and shows in the Dock and in ⌘Tab only while one of its windows (mirroring, photos, files, Settings) is open.
 - **Battery** — the Android app sends it when it changes; with adb, `dumpsys battery` every minute.
-- **Calls** — the Android app dials with `TelecomManager.placeCall()`; with adb, `am start -a android.intent.action.CALL`. Numbers are formatted as you type and dialed in international format (`+55 86 99999-0001`) with [PhoneNumberKit](https://github.com/PhoneNumberKit/PhoneNumberKit), using the country of the network the Galaxy is on (so it follows you when traveling), then the SIM's country, then the Mac's region. The audio stays on the phone (or on the earbuds connected to it). **Settings › Calls** makes the app the default handler for `tel:` links; macOS asks for confirmation.
+- **Calls** — the Android app dials with `TelecomManager.placeCall()`; with adb, `am start -a android.intent.action.CALL`. Numbers are formatted as you type and dialed in international format (`+55 86 99999-0001`) with [PhoneNumberKit](https://github.com/PhoneNumberKit/PhoneNumberKit), using the country of the network the Galaxy is on (so it follows you when traveling), then the SIM's country, then the Mac's region. The audio stays on the phone (or on the earbuds connected to it). **Settings › Ligações** makes the app the default handler for `tel:` links; macOS asks for confirmation.
 - **Clipboard (Android app)** — "Enviar Texto Copiado para o …" in the menu copies the Mac's text to the phone; sharing text to "Enviar para o Mac" on the phone copies it to the Mac. Outside screen mirroring, nothing is synced in the background.
 - **Files (Android app)** — "Enviar para o Mac" in Android's share sheet saves photos and files to the Mac's Downloads; "Enviar para o Galaxy" in the Finder's context menu, or "Enviar Arquivo para o …" in the menu, saves them to `Download/Galaxy Bridge` on the phone. Each transfer has its own encrypted connection, and a panel in the top-right corner shows the progress. If the Finder doesn't list the service, turn it on in **System Settings › Keyboard › Keyboard Shortcuts › Services**.
 - **Notifications (Android app)** — the phone's notifications show in the Mac's Notification Center under the sending app's name, with their buttons, including **Reply** with a text field. Pictures in them (a photo sent on WhatsApp, a screenshot, a big picture) come along and show in the notification on the Mac. Dismissing one on either side dismisses it on the other. Ongoing, silent and call notifications stay on the phone, and **Settings › Notificações** turns off the apps you don't want on the Mac.
