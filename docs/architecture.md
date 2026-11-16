@@ -86,7 +86,7 @@ Same flow as Galaxy Mirror, the other way around: the **Mac shows the QR code** 
 4. The phone sends `pair.request` with the token, its name and its model. The Mac checks the token, stores the phone's fingerprint and answers `pair.accepted`. The token cannot be used again.
 5. From then on, every connection is mutually pinned. **Forget** on either side removes the other's fingerprint.
 
-If the camera cannot be used, the Mac also shows a six-digit code that the phone can type. The Mac's address comes from Bonjour, and the code stands in for the token. The phone then shows the first characters of the Mac's fingerprint and the user confirms they match the Mac's screen.
+Pairing needs the QR code. An earlier six-digit code was removed: the phone sent it before knowing which Mac it was talking to, and a code that short can be guessed in moments by someone in the middle of the network.
 
 ### Framing and messages
 

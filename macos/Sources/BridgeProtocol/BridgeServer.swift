@@ -25,7 +25,7 @@ public final class BridgeServer {
         case clipboard(String)
         case ring(Bool)
         case recentCalls([RecentCall])
-        case gallery([GalleryPhoto], replyTo: String?)
+        case gallery(GalleryResults, replyTo: String?)
         case galleryAlbums([GalleryAlbum], replyTo: String?)
         case link(String)
         case media(MediaState)
@@ -309,7 +309,7 @@ public final class BridgeServer {
         case .callsRecent(let recent) where connection === active:
             onEvent?(.recentCalls(recent.calls))
         case .galleryResults(let results) where connection === active:
-            onEvent?(.gallery(results.photos, replyTo: envelope.replyTo))
+            onEvent?(.gallery(results, replyTo: envelope.replyTo))
         case .galleryAlbumList(let list) where connection === active:
             onEvent?(.galleryAlbums(list.albums, replyTo: envelope.replyTo))
         case .link(let link) where connection === active:

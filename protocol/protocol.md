@@ -7,7 +7,7 @@ Version **1**. How the Mac app and the Android app talk to each other. The desig
 - The **Mac listens** on TCP port 52800 (or any free port if that one is taken) and advertises the Bonjour service `_galaxybridge._tcp`. Its TXT record has `v` (protocol version) and `id` (the first 16 hex digits of the Mac's certificate fingerprint).
 - The **phone connects**: first to the last address that worked, then to whatever Bonjour finds with the paired Mac's `id`.
 - **TLS 1.3 only**, with a client certificate. Both certificates are self-signed P-256 certificates. Each side checks the other's **fingerprint** (the SHA-256 of the DER certificate, as 64 lowercase hex digits) instead of a certificate authority.
-- The Mac accepts an unknown phone certificate only while it is showing a pairing code.
+- The Mac accepts an unknown phone certificate only while it is showing a pairing QR code. The QR code carries the Mac's fingerprint, so the phone pins the Mac from the first connection.
 
 ## Framing
 
@@ -56,7 +56,7 @@ If the major version in `hello` differs, the Mac sends `error` with code `versio
 { "type": "pair.request", "body": { "secret": "q3HcKk0b5mJ8b1yZ1Xr7Ag", "name": "Galaxy S25", "model": "SM-S931B" } }
 ```
 
-`secret` is the token from the QR code, or the six-digit code the user typed. The Mac accepts it once, for 2 minutes. Five wrong six-digit codes cancel the pairing.
+`secret` is the token from the QR code. The Mac accepts it once, for 2 minutes. Five wrong secrets cancel the pairing.
 
 ### `pair.accepted` — Mac → phone
 
@@ -70,7 +70,7 @@ If the major version in `hello` differs, the Mac sends `error` with code `versio
 { "type": "pair.rejected", "body": { "reason": "expired" } }
 ```
 
-`reason`: `expired` (no pairing in progress, or the code timed out) or `invalid` (wrong secret).
+`reason`: `expired` (no pairing in progress, or the QR code timed out) or `invalid` (wrong secret).
 
 ### `unpair` — both directions
 
@@ -225,7 +225,7 @@ The phone's latest calls, newest first, up to 4. Sent after `hello` and whenever
 { "type": "gallery.import", "body": { "id": "1000012345" } }
 ```
 
-The phone's photos and videos, newest first (by the date taken), up to `limit` (at most 40), each with a JPEG thumbnail of about 200 pixels in base64. The Mac's photo window pages through everything with `offset` and filters by `album` (a `gallery.albumList` id). A video's `id` starts with `video:` and it has a `duration` in seconds.
+The phone's photos and videos, newest first (by the date taken), up to `limit` (at most 40), each with a JPEG thumbnail of about 200 pixels in base64. `more` says whether there are photos after this page; a page can come back short, or even empty, when some thumbnails can't be made. When the photos can't be read the phone answers `error` (`failed`). The Mac's photo window pages through everything with `offset` and filters by `album` (a `gallery.albumList` id). A video's `id` starts with `video:` and it has a `duration` in seconds.
 
 ```json
 { "type": "gallery.request", "id": "g2", "body": { "limit": 30, "offset": 60, "album": "-1739773001" } }
@@ -269,7 +269,7 @@ A web address (`http` or `https`) to open on the other side. The Mac opens it in
 { "type": "files.get", "body": { "path": "DCIM/Camera/20261017_111110.jpg" } }
 ```
 
-Paths are relative to the phone's shared storage (`/storage/emulated/0`), `""` being its root; the phone refuses anything outside it. The listing leaves out hidden files and puts folders first. `files.get` asks the phone to send that file, as a regular phone-to-Mac transfer. Without the All files access the phone answers `error` (`permission`), and `failed` when the folder doesn't exist.
+Paths are relative to the phone's shared storage (`/storage/emulated/0`), `""` being its root; the phone refuses anything outside it. The listing leaves out hidden files and puts folders first. It holds at most 5,000 items; when the folder has more, `truncated` is `true`. `files.get` asks the phone to send that file, as a regular phone-to-Mac transfer. Without the All files access the phone answers `error` (`permission`), and `failed` when the folder doesn't exist.
 
 To send a file into a folder, the Mac adds `folder` to `transfer.offer`; the phone saves it there (with a number added to the name if it exists) instead of `Download/Galaxy Bridge`.
 

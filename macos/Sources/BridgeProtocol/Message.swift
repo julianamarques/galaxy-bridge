@@ -591,9 +591,11 @@ public struct GalleryPhoto: Codable, Equatable, Identifiable, Sendable {
 
 public struct GalleryResults: Codable, Equatable, Sendable {
     public var photos: [GalleryPhoto]
+    public var more: Bool?
 
-    public init(photos: [GalleryPhoto]) {
+    public init(photos: [GalleryPhoto], more: Bool? = nil) {
         self.photos = photos
+        self.more = more
     }
 }
 
@@ -681,10 +683,12 @@ public struct PhoneFile: Codable, Equatable, Identifiable, Sendable {
 public struct FilesListing: Codable, Equatable, Sendable {
     public var path: String
     public var files: [PhoneFile]
+    public var truncated: Bool?
 
-    public init(path: String, files: [PhoneFile]) {
+    public init(path: String, files: [PhoneFile], truncated: Bool? = nil) {
         self.path = path
         self.files = files
+        self.truncated = truncated
     }
 }
 

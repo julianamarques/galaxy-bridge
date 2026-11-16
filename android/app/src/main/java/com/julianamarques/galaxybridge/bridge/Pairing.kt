@@ -19,11 +19,6 @@ object Pairing {
         return connection.use { request(context, it, link.token) }
     }
 
-    fun connect(found: MacFinder.Found): BridgeConnection = BridgeConnection.open(found.host, found.port, pinnedMac = null)
-
-    fun pair(context: Context, connection: BridgeConnection, code: String): Result =
-        connection.use { request(context, it, code) }
-
     private fun request(context: Context, connection: BridgeConnection, secret: String): Result {
         val hello = PhoneInfo.hello(context)
         try {

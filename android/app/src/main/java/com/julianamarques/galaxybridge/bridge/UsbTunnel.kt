@@ -31,6 +31,7 @@ object UsbTunnel {
     private const val PACKET = 512
     private const val CHUNK = 16 * 1024
     private const val USB_BUFFER = 16 * 1024
+    private const val MAX_PAYLOAD = 1 shl 20
 
     @Volatile var port: Int? = null
         private set
@@ -41,7 +42,7 @@ object UsbTunnel {
         private set
 
     private var accessory: UsbAccessory? = null
-    private var descriptor: ParcelFileDescriptor? = null
+    @Volatile private var descriptor: ParcelFileDescriptor? = null
     private var server: ServerSocket? = null
     private var output: DataOutputStream? = null
     private val channels = ConcurrentHashMap<Int, Socket>()
@@ -72,7 +73,7 @@ object UsbTunnel {
         port = server.localPort
         readyAt = System.currentTimeMillis()
         Diagnostics.record(context, "Cabo USB conectado ao Mac")
-        thread(name = "usb-read") { readUsb(input, context) }
+        thread(name = "usb-read") { readUsb(input, descriptor, context) }
         thread(name = "usb-accept") { accept(server) }
         onChange?.invoke()
     }
@@ -80,6 +81,15 @@ object UsbTunnel {
     @Synchronized
     fun stop() {
         if (accessory == null) return
+        end()
+    }
+
+    @Synchronized
+    private fun stop(session: ParcelFileDescriptor) {
+        if (descriptor === session) end()
+    }
+
+    private fun end() {
         port = null
         accessory = null
         runCatching { server?.close() }
@@ -122,13 +132,15 @@ object UsbTunnel {
         }
     }
 
-    private fun readUsb(input: DataInputStream, context: Context) {
+    private fun readUsb(input: DataInputStream, session: ParcelFileDescriptor, context: Context) {
         try {
             while (true) {
                 val type = input.readUnsignedByte()
                 val channel = input.readUnsignedShort()
                 val length = input.readInt()
+                if (length !in 0..MAX_PAYLOAD) throw IOException("Tamanho inválido no cabo: $length")
                 val payload = ByteArray(length).also(input::readFully)
+                if (descriptor !== session) break
                 if (type == RESET) {
                     channels.values.forEach { runCatching { it.close() } }
                     channels.clear()
@@ -147,8 +159,9 @@ object UsbTunnel {
             }
         } catch (_: IOException) {
         }
+        if (descriptor !== session) return
         Diagnostics.record(context, "Cabo USB desconectado do Mac")
-        stop()
+        stop(session)
     }
 
     private fun header(frame: ByteArray, at: Int, type: Int, channel: Int, length: Int) {

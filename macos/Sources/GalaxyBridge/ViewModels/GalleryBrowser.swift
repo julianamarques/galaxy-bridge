@@ -71,13 +71,13 @@ final class GalleryBrowser: ObservableObject {
         for id in ids { _ = send?(.galleryImport(GalleryID(id: id))) }
     }
 
-    func received(_ photos: [GalleryPhoto], replyTo: String?) {
+    func received(_ results: GalleryResults, replyTo: String?) {
         guard replyTo != nil, replyTo == request else { return }
         request = nil
         isLoading = false
         offset += Self.pageSize
-        hasMore = !photos.isEmpty
-        entries += photos.compactMap { photo in
+        hasMore = results.more ?? !results.photos.isEmpty
+        entries += results.photos.compactMap { photo in
             NSImage(data: photo.thumbnail).map {
                 GalleryEntry(id: photo.id, name: photo.name, date: Date(millis: photo.time), image: $0, duration: photo.duration)
             }

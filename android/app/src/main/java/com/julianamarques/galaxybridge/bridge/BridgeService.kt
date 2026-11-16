@@ -44,7 +44,6 @@ import com.julianamarques.galaxybridge.protocol.ContactResults
 import com.julianamarques.galaxybridge.protocol.NotificationKey
 import com.julianamarques.galaxybridge.protocol.NotificationKeys
 import com.julianamarques.galaxybridge.protocol.Envelope
-import com.julianamarques.galaxybridge.protocol.GalleryResults
 import com.julianamarques.galaxybridge.protocol.GalleryAlbums
 import com.julianamarques.galaxybridge.protocol.Link
 import com.julianamarques.galaxybridge.CameraCaptureActivity
@@ -270,7 +269,11 @@ class BridgeService : Service() {
             connection.receiveTimeoutMs = RECEIVE_TIMEOUT_MS
             while (running) {
                 val envelope = connection.receive()
-                handle(envelope, connection)
+                try {
+                    handle(envelope, connection)
+                } catch (e: RuntimeException) {
+                    Diagnostics.record(this, "Falha ao tratar ${envelope.message.type}: ${e.javaClass.simpleName} ${e.message}")
+                }
             }
         } catch (e: SSLException) {
             if (!greeted && e.message.orEmpty().contains("certificate", ignoreCase = true)) {
@@ -340,8 +343,8 @@ class BridgeService : Service() {
             is Message.GalleryRequestMessage -> respond(connection, envelope) {
                 if (!PhoneGallery.canRead(this)) return@respond denied(R.string.error_photos_permission)
                 val request = message.body
-                val photos = runCatching { PhoneGallery.page(this, request.limit, request.offset ?: 0, request.album) }.getOrDefault(emptyList())
-                Message.GalleryResultsMessage(GalleryResults(photos))
+                runCatching { PhoneGallery.page(this, request.limit, request.offset ?: 0, request.album) }
+                    .fold({ Message.GalleryResultsMessage(it) }, { Message.ErrorMessage(BridgeError("failed", getString(R.string.error_photos_failed))) })
             }
             Message.GalleryAlbumsRequest -> respond(connection, envelope) {
                 if (!PhoneGallery.canRead(this)) denied(R.string.error_photos_permission)
@@ -442,7 +445,14 @@ class BridgeService : Service() {
     }
 
     private fun respond(connection: BridgeConnection, envelope: Envelope, answer: () -> Message?) {
-        runCatching { requests.execute { answer()?.let { reply(connection, envelope, it) } } }
+        runCatching {
+            requests.execute {
+                runCatching(answer)
+                    .onFailure { Diagnostics.record(this, "Falha ao responder ${envelope.message.type}: ${it.javaClass.simpleName} ${it.message}") }
+                    .getOrNull()
+                    ?.let { reply(connection, envelope, it) }
+            }
+        }
     }
 
     private fun denied(@StringRes reason: Int) = Message.ErrorMessage(BridgeError("permission", getString(reason)))

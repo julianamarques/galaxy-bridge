@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit
 
 object PhoneFiles {
     private const val SCAN_TIMEOUT_S = 3L
+    const val MAX_FILES = 5_000
     private val root: File get() = Environment.getExternalStorageDirectory().canonicalFile
 
     fun canRead(): Boolean = Environment.isExternalStorageManager()
@@ -22,7 +23,8 @@ object PhoneFiles {
             .filter { !it.name.startsWith(".") }
             .map { PhoneFile(it.name, it.isDirectory, if (it.isDirectory) 0 else it.length(), it.lastModified()) }
             .sortedWith(compareBy<PhoneFile> { !it.folder }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name })
-        return FilesListing(relative(folder), files)
+        val truncated = files.size > MAX_FILES
+        return FilesListing(relative(folder), files.take(MAX_FILES), truncated.takeIf { it })
     }
 
     fun file(path: String): File? = resolve(path)?.takeIf { it.isFile && canRead() }

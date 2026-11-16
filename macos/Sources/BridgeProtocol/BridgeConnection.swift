@@ -15,7 +15,9 @@ final class BridgeConnection {
     private var whenCancelled: (@MainActor () -> Void)?
 
     var onMessage: ((Envelope) -> Void)?
-    var onRawFrame: ((Data) -> Void)?
+    var onRawFrame: ((Data) -> Void)? {
+        didSet { decoder.maxLength = onRawFrame == nil ? Frame.maxLength : Frame.maxVideoLength }
+    }
     var onClose: (() -> Void)?
 
     var host: String? {

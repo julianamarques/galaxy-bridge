@@ -46,6 +46,8 @@ class BridgeConnection private constructor(
             writer.execute {
                 try {
                     synchronized(output) { Frames.write(output, envelope) }
+                } catch (e: Frames.TooLarge) {
+                    Log.w(TAG, "${envelope.message.type} não enviada: ${e.message}")
                 } catch (e: IOException) {
                     close()
                 }

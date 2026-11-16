@@ -33,10 +33,8 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
@@ -50,7 +48,6 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.ScreenShare
-import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PhotoLibrary
@@ -67,9 +64,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -89,9 +83,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -200,15 +192,6 @@ fun SetupScreen(pairing: PairingController, refresh: Int) {
                     Spacer(Modifier.width(10.dp))
                     Text(stringResource(R.string.scan_mac_code), style = MaterialTheme.typography.titleMedium)
                 }
-                OutlinedButton(
-                    onClick = pairing::startCode,
-                    enabled = !working,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                ) {
-                    Icon(Icons.Rounded.Keyboard, contentDescription = null)
-                    Spacer(Modifier.width(10.dp))
-                    Text(stringResource(R.string.type_code))
-                }
                 when (val step = pairing.step) {
                     PairingStep.Working -> Row(verticalAlignment = Alignment.CenterVertically) {
                         LoadingIndicator(Modifier.size(32.dp))
@@ -221,84 +204,6 @@ fun SetupScreen(pairing: PairingController, refresh: Int) {
             }
         }
     }
-    when (val step = pairing.step) {
-        is PairingStep.CodeEntry -> CodeDialog(step, pairing)
-        is PairingStep.Confirm -> AlertDialog(
-            onDismissRequest = pairing::cancel,
-            title = { Text(stringResource(R.string.check_mac)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(stringResource(R.string.check_mac_question))
-                    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
-                        Text(
-                            step.fingerprint,
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                            textAlign = TextAlign.Center,
-                        )
-                    }
-                    Text(stringResource(R.string.check_mac_warning), style = MaterialTheme.typography.bodySmall)
-                }
-            },
-            confirmButton = { Button(onClick = pairing::confirm) { Text(stringResource(R.string.check_mac_match)) } },
-            dismissButton = { TextButton(onClick = pairing::cancel) { Text(stringResource(R.string.cancel)) } },
-        )
-        else -> Unit
-    }
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun CodeDialog(step: PairingStep.CodeEntry, pairing: PairingController) {
-    AlertDialog(
-        onDismissRequest = pairing::cancel,
-        icon = { Icon(Icons.Rounded.Keyboard, contentDescription = null) },
-        title = { Text(stringResource(R.string.type_code)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                when {
-                    step.searching -> Row(verticalAlignment = Alignment.CenterVertically) {
-                        LoadingIndicator(Modifier.size(28.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.searching_mac))
-                    }
-                    step.macs.isEmpty() -> Text(stringResource(R.string.no_mac_found))
-                    step.macs.size == 1 -> Text(stringResource(R.string.mac_named, step.macs.first().name))
-                    else -> step.macs.forEach { mac ->
-                        Row(
-                            Modifier.fillMaxWidth().selectable(selected = mac == step.selected, onClick = { pairing.select(mac) }),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(selected = mac == step.selected, onClick = { pairing.select(mac) })
-                            Text(mac.name)
-                        }
-                    }
-                }
-                OutlinedTextField(
-                    value = step.code,
-                    onValueChange = pairing::updateCode,
-                    label = { Text(stringResource(R.string.six_digit_code)) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    textStyle = MaterialTheme.typography.headlineSmall.copy(fontFamily = FontFamily.Monospace),
-                )
-                step.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            }
-        },
-        confirmButton = {
-            if (!step.searching && step.macs.isEmpty()) {
-                Button(onClick = pairing::startCode) { Text(stringResource(R.string.search_again)) }
-            } else {
-                Button(
-                    onClick = pairing::submitCode,
-                    enabled = step.selected != null && step.code.length == 6 && !step.connecting,
-                ) { Text(stringResource(if (step.connecting) R.string.connecting else R.string.continue_label)) }
-            }
-        },
-        dismissButton = { TextButton(onClick = pairing::cancel) { Text(stringResource(R.string.cancel)) } },
-    )
 }
 
 @Composable

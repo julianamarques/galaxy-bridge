@@ -131,7 +131,6 @@
 "Recusar" = "Decline";
 "Saiba Mais…" = "Learn More…";
 "Sair do %@" = "Quit %@";
-"Sem câmera? Toque em **Digitar código**, use **%@** e confira se o celular mostra **%@**." = "No camera? Tap **Type code**, enter **%1$@** and check that the phone shows **%2$@**.";
 "Tentar Novamente" = "Try Again";
 "Texto grande demais" = "Text too long";
 "Toque em **Escanear código do Mac** e aponte a câmera para o código acima." = "Tap **Scan the Mac's code** and point the camera at the code above.";
@@ -186,6 +185,7 @@
 "Não foi possível abrir a pasta" = "Couldn't open the folder";
 "O Galaxy não está conectado." = "The Galaxy isn't connected.";
 "Pasta vazia" = "Empty folder";
+"Mostrando os primeiros %lld itens desta pasta." = "Showing the first %lld items in this folder.";
 "Pastas" = "Folders";
 "Pausar" = "Pause";
 "Próxima Faixa" = "Next Track";

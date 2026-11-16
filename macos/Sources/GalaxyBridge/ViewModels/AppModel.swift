@@ -726,8 +726,8 @@ extension AppModel {
             for contact in calls.compactMap(\.contact) { requestPhoto(contact) }
         case .galleryAlbums(let albums, let replyTo):
             galleryBrowser.received(albums, replyTo: replyTo)
-        case .gallery(let photos, let replyTo):
-            galleryBrowser.received(photos, replyTo: replyTo)
+        case .gallery(let results, let replyTo):
+            galleryBrowser.received(results, replyTo: replyTo)
         case .link(let link):
             openFromPhone(link)
         case .media(let state):

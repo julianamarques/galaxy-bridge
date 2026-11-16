@@ -74,14 +74,13 @@ struct BridgeServerTests {
         #expect(server.phone == nil)
     }
 
-    @Test func rejectsWrongCode() async throws {
+    @Test func rejectsWrongSecret() async throws {
         let port = try await start()
-        let session = server.beginPairing()
+        server.beginPairing()
         let phone = try TestPhone()
         try await phone.connect(port: port, pinning: server.identity.fingerprint)
-        let wrong = session.code == "000000" ? "000001" : "000000"
         phone.send(Envelope(.hello(phone.hello)))
-        phone.send(Envelope(.pairRequest(PairRequest(secret: wrong, name: "Intruso", model: "X"))))
+        phone.send(Envelope(.pairRequest(PairRequest(secret: "123456", name: "Intruso", model: "X"))))
         #expect(try await phone.next() == .pairRejected(PairRejected(reason: .invalid)))
         #expect(server.store.phones.isEmpty)
         #expect(server.pairing != nil)

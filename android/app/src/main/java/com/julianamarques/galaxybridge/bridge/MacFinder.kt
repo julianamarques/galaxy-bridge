@@ -17,12 +17,7 @@ class MacFinder(context: Context) {
     private val context = context.applicationContext
     private val nsd = context.getSystemService(NsdManager::class.java)
 
-    fun find(timeoutMs: Long, matches: (Found) -> Boolean): Found? =
-        search(timeoutMs, matches).firstOrNull()
-
-    fun findAll(timeoutMs: Long): List<Found> = search(timeoutMs) { false }
-
-    private fun search(timeoutMs: Long, stopAt: (Found) -> Boolean): List<Found> {
+    fun find(timeoutMs: Long, matches: (Found) -> Boolean): Found? {
         val wifi = context.getSystemService(WifiManager::class.java)
         val lock = wifi.createMulticastLock("galaxybridge-discovery").apply {
             setReferenceCounted(false)
@@ -42,7 +37,6 @@ class MacFinder(context: Context) {
             }
             override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
         }
-        val results = mutableListOf<Found>()
         try {
             nsd.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener)
             val deadline = System.currentTimeMillis() + timeoutMs
@@ -51,8 +45,7 @@ class MacFinder(context: Context) {
                 if (remaining <= 0) break
                 val info = services.poll(remaining, TimeUnit.MILLISECONDS) ?: break
                 val found = resolve(info) ?: continue
-                if (results.none { it.host == found.host && it.port == found.port }) results += found
-                if (stopAt(found)) return listOf(found)
+                if (matches(found)) return found
             }
         } catch (e: Exception) {
             Diagnostics.record(context, "Busca interrompida: ${e.message}")
@@ -60,7 +53,7 @@ class MacFinder(context: Context) {
             runCatching { nsd.stopServiceDiscovery(listener) }
             lock.release()
         }
-        return results
+        return null
     }
 
     @Suppress("DEPRECATION")

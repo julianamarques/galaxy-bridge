@@ -10,6 +10,7 @@ import android.util.Size
 import com.julianamarques.galaxybridge.Permission
 import com.julianamarques.galaxybridge.protocol.GalleryAlbum
 import com.julianamarques.galaxybridge.protocol.GalleryPhoto
+import com.julianamarques.galaxybridge.protocol.GalleryResults
 
 object PhoneGallery {
     private const val THUMBNAIL_PX = 200
@@ -23,7 +24,7 @@ object PhoneGallery {
 
     fun canRead(context: Context): Boolean = Permission.Photos.isGranted(context)
 
-    fun page(context: Context, limit: Int, offset: Int, album: String?): List<GalleryPhoto> {
+    fun page(context: Context, limit: Int, offset: Int, album: String?): GalleryResults {
         val resolver = context.contentResolver
         val selection = buildString {
             append(MEDIA_SELECTION)
@@ -33,7 +34,7 @@ object PhoneGallery {
             putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
             if (album != null) putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, arrayOf(album))
             putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, "COALESCE(${MediaStore.MediaColumns.DATE_TAKEN}, ${MediaStore.MediaColumns.DATE_ADDED} * 1000) DESC")
-            putInt(ContentResolver.QUERY_ARG_LIMIT, limit.coerceIn(1, MAX_LIMIT))
+            putInt(ContentResolver.QUERY_ARG_LIMIT, limit.coerceIn(1, MAX_LIMIT) + 1)
             putInt(ContentResolver.QUERY_ARG_OFFSET, offset.coerceAtLeast(0))
         }
         val projection = arrayOf(
@@ -44,9 +45,10 @@ object PhoneGallery {
             MediaStore.Files.FileColumns.MEDIA_TYPE,
             MediaStore.MediaColumns.DURATION,
         )
+        val pageSize = limit.coerceIn(1, MAX_LIMIT)
         return resolver.query(FILES, projection, query, null)?.use { cursor ->
-            buildList {
-                while (cursor.moveToNext()) {
+            val photos = buildList {
+                while (cursor.position + 1 < pageSize && cursor.moveToNext()) {
                     val id = cursor.getLong(0)
                     val video = cursor.getInt(4) == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
                     val uri = ContentUris.withAppendedId(if (video) VIDEOS else IMAGES, id)
@@ -57,7 +59,8 @@ object PhoneGallery {
                     add(GalleryPhoto(key, cursor.getString(1) ?: "$id", time, thumbnail, duration))
                 }
             }
-        }.orEmpty()
+            GalleryResults(photos, more = cursor.count > pageSize)
+        } ?: throw IllegalStateException("MediaStore")
     }
 
     fun albums(context: Context): List<GalleryAlbum> {

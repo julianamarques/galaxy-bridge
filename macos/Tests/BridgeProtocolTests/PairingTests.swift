@@ -3,36 +3,33 @@ import Testing
 @testable import BridgeProtocol
 
 struct PairingSessionTests {
-    @Test func acceptsTokenOrCode() {
+    @Test func acceptsOnlyTheToken() {
         var session = PairingSession()
+        #expect(session.check("123456") == .invalid)
         #expect(session.check(session.token) == .accepted)
-        var other = PairingSession()
-        #expect(other.check(other.code) == .accepted)
     }
 
     @Test func makesUnguessableToken() {
         let session = PairingSession()
         #expect(session.token.count == 22)
-        #expect(session.code.count == 6)
-        #expect(session.code.allSatisfy { $0.isNumber })
         #expect(PairingSession().token != session.token)
     }
 
     @Test func expiresAfterTwoMinutes() {
         let start = Date()
         var session = PairingSession(now: start)
-        #expect(session.check(session.code, now: start.addingTimeInterval(119)) == .accepted)
-        #expect(session.check(session.code, now: start.addingTimeInterval(120)) == .expired)
+        #expect(session.check(session.token, now: start.addingTimeInterval(119)) == .accepted)
+        #expect(session.check(session.token, now: start.addingTimeInterval(120)) == .expired)
     }
 
-    @Test func expiresAfterFiveWrongCodes() {
+    @Test func expiresAfterFiveWrongSecrets() {
         var session = PairingSession()
-        let wrong = session.code == "000000" ? "000001" : "000000"
-        for _ in 1..<PairingSession.maxCodeAttempts {
+        let wrong = "wrong"
+        for _ in 1..<PairingSession.maxAttempts {
             #expect(session.check(wrong) == .invalid)
         }
         #expect(session.check(wrong) == .expired)
-        #expect(session.check(session.code) == .expired)
+        #expect(session.check(session.token) == .expired)
     }
 }
 

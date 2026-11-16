@@ -44,8 +44,6 @@ final class SetupModel: ObservableObject {
     @Published private(set) var isLocalNetworkDenied = false
 
     @Published private(set) var appLink: String?
-    @Published private(set) var appCode = ""
-    @Published private(set) var macFingerprint = ""
     @Published private(set) var appPairingProblem: String?
     private var appToken: String?
 
@@ -261,10 +259,7 @@ extension SetupModel {
             appPairingProblem = String(localized: "Não foi possível preparar a conexão segura deste Mac.")
             return
         }
-        let session = bridge.beginPairing()
-        appToken = session.token
-        appCode = "\(session.code.prefix(3)) \(session.code.suffix(3))"
-        macFingerprint = Fingerprint.display(bridge.identity.fingerprint)
+        appToken = bridge.beginPairing().token
         updateAppLink()
     }
 

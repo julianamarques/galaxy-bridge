@@ -128,24 +128,25 @@ class Transfers(private val context: Context) {
     }
 
     private fun receive(file: TransferFile, name: String, progress: Progress): Uri? {
-        val connection = openMac()
-        val destination = destination(file, name)
-        connection.use {
+        openMac().use {
+            var destination: Destination? = null
             try {
+                val target = destination(file, name).also { destination = it }
                 it.sendNow(Envelope(Message.TransferDownloadMessage(TransferID(file.id))))
-                destination.open().use { output ->
+                target.open().use { output ->
                     while (progress.done < file.size) {
                         val chunk = (it.receive().message as? Message.TransferChunkMessage)?.body ?: throw IOException("mensagem inesperada")
                         val bytes = Base64.decode(chunk.data, Base64.NO_WRAP)
+                        if (progress.done + bytes.size > file.size) throw IOException("o arquivo mudou durante o envio")
                         output.write(bytes)
                         progress.advance(bytes.size)
                     }
                 }
-                val uri = destination.commit()
+                val uri = target.commit()
                 it.sendNow(Envelope(Message.TransferResultMessage(TransferResult(file.id, ok = true))))
                 return uri
             } catch (e: Exception) {
-                destination.discard()
+                destination?.discard()
                 runCatching { it.sendNow(Envelope(Message.TransferResultMessage(TransferResult(file.id, ok = false, e.message)))) }
                 throw e
             }

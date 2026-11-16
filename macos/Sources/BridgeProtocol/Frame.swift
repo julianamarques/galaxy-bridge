@@ -2,6 +2,7 @@ import Foundation
 
 public enum Frame {
     public static let maxLength = 1 << 20
+    public static let maxVideoLength = 1 << 24
     private static let encoder = JSONEncoder()
     static let decoder = JSONDecoder()
 
@@ -19,6 +20,7 @@ public enum Frame {
 
 public struct FrameDecoder {
     private var buffer = Data()
+    var maxLength = Frame.maxLength
 
     public init() {}
 
@@ -27,7 +29,7 @@ public struct FrameDecoder {
         var bodies: [Data] = []
         while buffer.count >= 4 {
             let length = buffer.prefix(4).reduce(0) { $0 << 8 | Int($1) }
-            guard length <= Frame.maxLength else { throw Frame.Failure.tooLong(length) }
+            guard length <= maxLength else { throw Frame.Failure.tooLong(length) }
             guard buffer.count >= 4 + length else { break }
             let start = buffer.startIndex
             bodies.append(buffer.subdata(in: start + 4 ..< start + 4 + length))

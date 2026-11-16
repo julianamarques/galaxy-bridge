@@ -50,7 +50,6 @@ object Identity {
     fun fingerprint(der: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(der).joinToString("") { "%02x".format(it) }
 
-    fun display(fingerprint: String): String = fingerprint.take(12).uppercase().chunked(4).joinToString(" ")
 
     fun shortId(fingerprint: String): String = fingerprint.take(16)
 

@@ -53,10 +53,9 @@ public final class PairingStore {
 
 public struct PairingSession: Sendable {
     public static let lifetime: TimeInterval = 120
-    public static let maxCodeAttempts = 5
+    public static let maxAttempts = 5
 
     public let token: String
-    public let code: String
     public let expiresAt: Date
     private(set) var failedAttempts = 0
 
@@ -68,17 +67,16 @@ public struct PairingSession: Sendable {
 
     public init(now: Date = Date()) {
         token = Self.randomToken()
-        code = String(format: "%06d", Int.random(in: 0...999_999))
         expiresAt = now.addingTimeInterval(Self.lifetime)
     }
 
     public func isExpired(now: Date = Date()) -> Bool {
-        now >= expiresAt || failedAttempts >= Self.maxCodeAttempts
+        now >= expiresAt || failedAttempts >= Self.maxAttempts
     }
 
     public mutating func check(_ secret: String, now: Date = Date()) -> Check {
         guard !isExpired(now: now) else { return .expired }
-        if constantTimeEquals(secret, token) || constantTimeEquals(secret, code) { return .accepted }
+        if constantTimeEquals(secret, token) { return .accepted }
         failedAttempts += 1
         return isExpired(now: now) ? .expired : .invalid
     }

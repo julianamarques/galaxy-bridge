@@ -46,7 +46,16 @@ struct FileBrowserView: View {
         } else if browser.files.isEmpty {
             ContentUnavailableView("Pasta vazia", systemImage: "folder", description: Text("Arraste arquivos do Mac para cá para enviá-los ao \(app.deviceName)."))
         } else {
-            table
+            table.safeAreaInset(edge: .bottom) {
+                if browser.isTruncated {
+                    Text("Mostrando os primeiros \(browser.files.count) itens desta pasta.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(8)
+                        .background(.bar)
+                }
+            }
         }
     }
 

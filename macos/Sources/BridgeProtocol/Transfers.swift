@@ -123,11 +123,16 @@ final class OutgoingTransfer {
         started = true
         guard let handle = try? FileHandle(forReadingFrom: url) else { return connection.close() }
         let id = file.id
+        let size = file.size
         var sent: Int64 = 0
         func next() {
-            guard let data = try? handle.read(upToCount: Transfer.chunkSize), !data.isEmpty else {
+            guard sent < size else {
                 try? handle.close()
                 return
+            }
+            guard let data = try? handle.read(upToCount: Int(min(Int64(Transfer.chunkSize), size - sent))), !data.isEmpty else {
+                try? handle.close()
+                return connection.close()
             }
             connection.send(Envelope(.transferChunk(TransferChunk(id: id, data: data)))) {
                 sent += Int64(data.count)

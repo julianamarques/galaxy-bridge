@@ -18,9 +18,6 @@ struct AppPairingView: View {
                     Label(problem, systemImage: "exclamationmark.triangle.fill")
                         .font(.callout)
                         .foregroundStyle(.primary)
-                } else {
-                    Text("Sem câmera? Toque em **Digitar código**, use **\(setup.appCode)** e confira se o celular mostra **\(setup.macFingerprint)**.")
-                        .font(.callout)
                 }
             }
         } buttons: {

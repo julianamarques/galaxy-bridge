@@ -7,6 +7,7 @@ final class FileBrowser: ObservableObject {
 
     @Published private(set) var path = ""
     @Published private(set) var files: [PhoneFile] = []
+    @Published private(set) var isTruncated = false
     @Published private(set) var isLoading = false
     @Published private(set) var error: String?
 
@@ -62,6 +63,7 @@ final class FileBrowser: ObservableObject {
         error = nil
         path = listing.path
         files = listing.files
+        isTruncated = listing.truncated == true
     }
 
     func failed(_ message: String, replyTo: String?) -> Bool {

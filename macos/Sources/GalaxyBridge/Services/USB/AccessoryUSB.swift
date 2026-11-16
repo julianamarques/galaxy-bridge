@@ -13,6 +13,8 @@ final class AccessoryUSB {
     private static let phoneVendors: Set<Int> = [0x04E8]
     nonisolated private static let switchAttempts = 5
     nonisolated private static let switchRetryDelay: TimeInterval = 1
+    private static let reopenAttempts = 3
+    private static let reopenDelay: Duration = .seconds(1)
     nonisolated private static let strings = [
         manufacturer,
         model,
@@ -28,7 +30,9 @@ final class AccessoryUSB {
     private let switchQueue = DispatchQueue(label: "GalaxyBridge.usb.switch")
     private var notifyPort: IONotificationPortRef?
     private var iterators: [io_iterator_t] = []
+    private var callbacks: [Unmanaged<Callback>] = []
     private var link: AccessoryLink?
+    private var accessory: io_service_t = 0
     private var switched: Set<UInt64> = []
 
     func start() {
@@ -49,6 +53,9 @@ final class AccessoryUSB {
         link = nil
         iterators.forEach { IOObjectRelease($0) }
         iterators = []
+        callbacks.forEach { $0.release() }
+        callbacks = []
+        forgetAccessory()
         if let notifyPort { IONotificationPortDestroy(notifyPort) }
         notifyPort = nil
     }
@@ -71,6 +78,7 @@ final class AccessoryUSB {
         }, box.toOpaque(), &iterator)
         guard result == KERN_SUCCESS else { return box.release() }
         iterators.append(iterator)
+        callbacks.append(box)
         MainActor.assumeIsolated { box.takeUnretainedValue().drain(iterator) }
     }
 
@@ -99,7 +107,15 @@ final class AccessoryUSB {
     }
 
     private func accessoryAppeared(_ service: io_service_t) {
-        guard link == nil, let port = port() else { return }
+        forgetAccessory()
+        IOObjectRetain(service)
+        accessory = service
+        guard link == nil else { return }
+        _ = open(service)
+    }
+
+    private func open(_ service: io_service_t) -> Bool {
+        guard let port = port() else { return false }
         do {
             let interface = try IOUSBHostInterface(__ioService: service, options: [], queue: nil, interestHandler: nil)
             let link = try AccessoryLink(interface: interface, port: port)
@@ -107,13 +123,33 @@ final class AccessoryUSB {
                 guard let self, self.link === link else { return }
                 self.link = nil
                 Log.connection.info("Cabo USB desconectado")
+                self.reopen()
             }
             self.link = link
             link.start()
             Log.connection.info("Cabo USB conectado ao Galaxy")
+            return true
         } catch {
             Log.connection.error("Não foi possível abrir o cabo USB: \(error.localizedDescription, privacy: .public)")
+            return false
         }
+    }
+
+    private func reopen() {
+        Task { [weak self] in
+            for _ in 0..<Self.reopenAttempts {
+                try? await Task.sleep(for: Self.reopenDelay)
+                guard let self, self.link == nil, self.accessory != 0, self.isEnabled() else { return }
+                if self.open(self.accessory) { return }
+            }
+            self?.forgetAccessory()
+        }
+    }
+
+    private func forgetAccessory() {
+        guard accessory != 0 else { return }
+        IOObjectRelease(accessory)
+        accessory = 0
     }
 
     private nonisolated static func switchToAccessory(_ service: io_service_t) throws {

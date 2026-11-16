@@ -194,7 +194,7 @@ data class GalleryAlbum(val id: String, val name: String, val count: Int)
 data class GalleryAlbums(val albums: List<GalleryAlbum>)
 
 @Serializable
-data class GalleryResults(val photos: List<GalleryPhoto>)
+data class GalleryResults(val photos: List<GalleryPhoto>, val more: Boolean? = null)
 
 @Serializable
 data class GalleryID(val id: String)
@@ -232,7 +232,7 @@ data class FilesList(val path: String)
 data class PhoneFile(val name: String, val folder: Boolean, val size: Long, val modified: Long)
 
 @Serializable
-data class FilesListing(val path: String, val files: List<PhoneFile>)
+data class FilesListing(val path: String, val files: List<PhoneFile>, val truncated: Boolean? = null)
 
 @Serializable
 data class MirrorStart(val maxSize: Int? = null, val bitRate: Int, val audio: Boolean? = null)
