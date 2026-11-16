@@ -16,6 +16,10 @@ There are two ways to connect:
 - **The Galaxy Bridge app on the phone** (recommended). Pair once with a QR code; after that the phone reconnects on its own, over Wi-Fi or the USB cable, also after a restart, without Developer options. Everything above works with it.
 - **adb**, with nothing installed on the phone: Wireless debugging or USB debugging, the same connection [Galaxy Mirror](https://github.com/julianamarques/galaxy-mirror) uses. It covers the battery, placing calls and screen mirroring; the rest needs the app. A Galaxy already set up in Galaxy Mirror works here without pairing again.
 
+<p align="center">
+  <img src="docs/images/welcome-screen.png" width="560" alt="Galaxy Bridge welcome screen, with an illustration of a Mac and a Galaxy and the Learn More, Not Now and Continue buttons">
+</p>
+
 ## Requirements
 
 - macOS 14 or later

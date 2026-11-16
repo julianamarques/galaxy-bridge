@@ -30,6 +30,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if ProcessInfo.processInfo.environment["GALAXY_PREVIEW_CALL"] != nil { app.previewIncomingCall() }
         if ProcessInfo.processInfo.environment["GALAXY_PREVIEW_TRANSFER"] != nil { app.previewTransfer() }
         if ProcessInfo.processInfo.environment["GALAXY_START_MIRROR"] != nil { app.mirror.start() }
+        if ProcessInfo.processInfo.environment["GALAXY_PREVIEW_SETUP"] != nil {
+            app.setup.reset()
+            app.setupRequested = true
+        }
         #endif
     }
 
