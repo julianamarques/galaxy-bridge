@@ -18,6 +18,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -296,8 +297,10 @@ private fun AboutCard() {
             )
             Spacer(Modifier.height(8.dp))
             val context = LocalContext.current
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)) {
                 TextButton(onClick = { Onboarding.replay(context) }) { Text(stringResource(R.string.about_tour)) }
+                val privacy = stringResource(R.string.privacy_policy_url)
+                TextButton(onClick = { links.openUri(privacy) }) { Text(stringResource(R.string.about_privacy)) }
                 TextButton(onClick = { links.openUri(REPOSITORY) }) { Text(stringResource(R.string.about_github)) }
             }
             Text(

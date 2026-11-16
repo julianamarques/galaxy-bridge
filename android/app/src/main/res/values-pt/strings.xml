@@ -101,6 +101,8 @@
     <string name="about_version">Versão %1$s</string>
     <string name="about_description">Ligações, notificações, arquivos, mídia e espelhamento de tela entre o Galaxy e o Mac.</string>
     <string name="about_github">Ver no GitHub</string>
+    <string name="about_privacy">Privacidade</string>
+    <string name="privacy_policy_url">https://julianamarques.dev/galaxy-bridge/privacy/</string>
     <string name="about_tour">Rever introdução</string>
     <string name="tour_welcome_title">Seu Galaxy e seu Mac, juntos</string>
     <string name="tour_welcome_text">O Galaxy Bridge leva ligações, notificações, fotos e a tela do Galaxy para o Mac, pelo Wi-Fi ou pelo cabo USB. O que ele lê no Galaxy vai só para o Mac que você parear, criptografado, sem passar pela internet nem por terceiros. Vamos ativar o que você quer usar.</string>

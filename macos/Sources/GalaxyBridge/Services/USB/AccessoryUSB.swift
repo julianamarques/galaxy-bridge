@@ -20,7 +20,7 @@ final class AccessoryUSB {
         model,
         "Galaxy Bridge para Mac",
         "1",
-        "https://github.com/julianamarques/galaxy-bridge",
+        "https://play.google.com/store/apps/details?id=com.julianamarques.galaxybridge",
         "1",
     ]
 
