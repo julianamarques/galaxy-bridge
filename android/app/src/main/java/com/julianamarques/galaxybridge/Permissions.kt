@@ -9,7 +9,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.Environment
 import android.os.PowerManager
 import android.provider.Settings
@@ -37,12 +36,8 @@ enum class Permission(@StringRes val title: Int, @StringRes val reason: Int) {
                 Manifest.permission.READ_CALL_LOG,
             )
             Contacts -> listOf(Manifest.permission.READ_CONTACTS)
-            Photos -> if (Build.VERSION.SDK_INT >= 33) {
-                listOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
-            } else {
-                listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-            }
-            NearbyDevices -> if (Build.VERSION.SDK_INT >= 31) listOf(Manifest.permission.BLUETOOTH_CONNECT) else emptyList()
+            Photos -> listOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
+            NearbyDevices -> listOf(Manifest.permission.BLUETOOTH_CONNECT)
             CallerName, Battery, AllFiles, MirrorControl -> emptyList()
         }
 
@@ -68,8 +63,7 @@ enum class Permission(@StringRes val title: Int, @StringRes val reason: Int) {
     }
 
     companion object {
-        fun needed(): List<Permission> =
-            entries.filter { (it != Notifications || Build.VERSION.SDK_INT >= 33) && (it != NearbyDevices || Build.VERSION.SDK_INT >= 31) }
+        fun needed(): List<Permission> = entries
 
         fun missing(context: Context): List<Permission> = needed().filter { !it.isGranted(context) }
 

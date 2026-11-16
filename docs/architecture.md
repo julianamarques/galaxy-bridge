@@ -126,7 +126,7 @@ Keep-alive: the **Mac** sends `ping` every 2 minutes and the phone answers `pong
 
 ## Android app
 
-- **Language and UI:** Kotlin, Jetpack Compose with Material 3. Minimum Android 11 (API 30), like Galaxy Mirror. Package ID `com.julianamarques.galaxybridge`.
+- **Language and UI:** Kotlin, Jetpack Compose with Material 3. Minimum Android 13 (API 33); the adb connection still works from Android 11, like Galaxy Mirror. Package ID `com.julianamarques.galaxybridge`.
 - **`BridgeService`:** a foreground service of type `connectedDevice`, with a silent ongoing notification ("Connected to MacBook Air"). It declares `FOREGROUND_SERVICE_CONNECTED_DEVICE`, plus one of the permissions the [service type requires](https://developer.android.com/guide/components/fg-service-types) (the network ones, such as `CHANGE_WIFI_MULTICAST_STATE`, which discovery needs anyway; confirm against the list in Phase 0). It starts on boot (`RECEIVE_BOOT_COMPLETED`; Android 15 forbids starting some service types from that broadcast, but not `connectedDevice`) and when the app is opened. It holds no wakelock.
 - **`StatusMonitor`:** battery from `ACTION_BATTERY_CHANGED`, countries from `TelephonyManager` (`networkCountryIso`, `simCountryIso`).
 - **`CallTracker` and `NotificationListener`:** (approach confirmed in Phase 0, see below)
@@ -135,7 +135,7 @@ Keep-alive: the **Mac** sends `ping` every 2 minutes and the phone answers `pong
   - Answer and decline with `TelecomManager.acceptRingingCall()` and `endCall()` (`ANSWER_PHONE_CALLS`). Both are deprecated since Android 10 but work on One UI 9; `endCall()` also hangs up an active call.
   - Outgoing calls with `TelecomManager.placeCall()` (`CALL_PHONE`). It does not start an activity, so Android's limits on starting activities from the background don't apply.
 - **`NotificationRelay`:** a `NotificationListenerService`. It skips ongoing, silent and group-summary notifications and Galaxy Bridge's own. Replies fill the action's `RemoteInput`.
-- **Look:** Material 3 Expressive (`MaterialExpressiveTheme` with the expressive motion scheme, `MaterialShapes`, `LoadingIndicator`), with dynamic colors from the wallpaper on Android 12+ and a Galaxy Bridge blue otherwise. The home screen shows the Mac's name and connection status over a grid of the features, each turning into "Tap to allow" when its permission is missing. Those APIs are only public from `material3` 1.5, so the app pins `1.5.0-beta01` (the rest of Compose comes from the 2026.09.00 BOM); move to 1.5.0 stable when it ships.
+- **Look:** Material 3 Expressive (`MaterialExpressiveTheme` with the expressive motion scheme, `MaterialShapes`, `LoadingIndicator`), with dynamic colors from the wallpaper. The home screen shows the Mac's name and connection status over a grid of the features, each turning into "Tap to allow" when its permission is missing. Those APIs are only public from `material3` 1.5, so the app pins `1.5.0-beta01` (the rest of Compose comes from the 2026.09.00 BOM); move to 1.5.0 stable when it ships.
 - **Onboarding:** one screen per permission, in the order the features need them, each explaining why. It ends by asking to set the battery to **Unrestricted** (One UI's "Sleeping apps" would otherwise kill the service) and to scan the Mac's QR code.
 
 ## Mac app

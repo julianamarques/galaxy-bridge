@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
-import android.os.Build
 import android.os.PowerManager
 import android.util.Log
 import java.io.File
@@ -31,7 +30,7 @@ object Diagnostics {
     private fun state(context: Context): String {
         val power = context.getSystemService(PowerManager::class.java)
         val battery = context.getSystemService(BatteryManager::class.java)
-        val lightIdle = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && power.isDeviceLightIdleMode
+        val lightIdle = power.isDeviceLightIdleMode
         return listOfNotNull(
             "doze".takeIf { power.isDeviceIdleMode },
             "light idle".takeIf { lightIdle },

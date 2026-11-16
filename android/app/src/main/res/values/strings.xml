@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Galaxy Bridge</string>
+    <string name="app_name" translatable="false">Galaxy Bridge</string>
     <string name="channel_connection">Connection to the Mac</string>
     <string name="notification_connected">Connected to %1$s</string>
     <string name="notification_searching">Looking for %1$s…</string>
@@ -16,7 +16,7 @@
     <string name="mirror_stop">Stop</string>
     <string name="mirror_declined">Mirroring wasn\'t allowed on the Galaxy.</string>
     <string name="mirror_control_label">Galaxy Bridge — control from the Mac</string>
-    <string name="mirror_control_description">Lets the Mac tap, scroll and type on this phone while its screen is mirrored. Galaxy Bridge doesn\'t read or keep what is on the screen.</string>
+    <string name="mirror_control_description">Lets the Mac tap, scroll and type on this phone while its screen is mirrored. Galaxy Bridge uses only the selected text field for typing, and doesn\'t read or keep the rest of the screen.</string>
     <string name="link_title">Link from the Mac</string>
     <string name="camera_request_title">Take a photo for the Mac</string>
     <string name="camera_request_text">Tap to open the camera.</string>
@@ -104,19 +104,19 @@
     <string name="about_github">View on GitHub</string>
     <string name="about_tour">Review introduction</string>
     <string name="tour_welcome_title">Your Galaxy and your Mac, together</string>
-    <string name="tour_welcome_text">Galaxy Bridge brings your calls, notifications, photos and screen to the Mac, over Wi-Fi or the USB cable. Let\'s turn on what you want to use.</string>
+    <string name="tour_welcome_text">Galaxy Bridge brings your calls, notifications, photos and screen to the Mac, over Wi-Fi or the USB cable. What it reads on the Galaxy goes only to the Mac you pair, encrypted, never through the internet or to third parties. Let\'s turn on what you want to use.</string>
     <string name="tour_calls_title">Calls</string>
-    <string name="tour_calls_text">Answer, decline and make calls from the Mac, and see who is calling and the recent calls. The sound stays on the Galaxy or on the earbuds connected to it.</string>
+    <string name="tour_calls_text">Answer, decline and make calls from the Mac, and see who is calling and the recent calls. For this the app reads the Galaxy\'s call state and call history and sends the number, the contact\'s name and the time to the Mac. The sound stays on the Galaxy or on the earbuds connected to it.</string>
     <string name="tour_notifications_title">Notifications and media</string>
-    <string name="tour_notifications_text">The Galaxy\'s notifications show on the Mac, with replies and pictures, and what is playing can be controlled from the menu bar. You choose which apps on the Mac.</string>
+    <string name="tour_notifications_text">The Galaxy\'s notifications show on the Mac, with replies and pictures, and what is playing can be controlled from the menu bar. For this the app reads the content of notifications and of the media playing and sends it to the Mac. You choose which apps on the Mac.</string>
     <string name="tour_contacts_title">Contacts</string>
-    <string name="tour_contacts_text">Type a name on the Mac to find a contact and call. Your contacts stay on the Galaxy.</string>
+    <string name="tour_contacts_text">Type a name on the Mac to find a contact and call. The app reads the Galaxy\'s contacts to answer these searches and show who is calling; only the contacts found go to the Mac.</string>
     <string name="tour_files_title">Photos and files</string>
-    <string name="tour_files_text">See every photo and video on the Mac, browse the folders, take a photo with the Galaxy and send files both ways.</string>
+    <string name="tour_files_text">See every photo and video on the Mac, browse the folders, take a photo with the Galaxy and send files both ways. The app reads the Galaxy\'s photos, videos and files only when you open or ask for them on the Mac.</string>
     <string name="tour_mirror_title">Screen mirroring</string>
-    <string name="tour_mirror_text">Use the Galaxy in a window on the Mac, with the mouse and keyboard. Android asks you to confirm each time the screen is mirrored. If it says the setting is restricted, allow restricted settings in the app\'s info first.</string>
+    <string name="tour_mirror_text">Use the Galaxy in a window on the Mac, with the mouse and keyboard. The screen\'s picture and sound go only to the Mac, and Android asks you to confirm each time the screen is mirrored. For the mouse and keyboard to work, the app uses the accessibility service: it only performs on the Galaxy the taps, gestures and text you make on the Mac while mirroring, using only the selected text field for typing, and doesn\'t read or keep the rest of the screen. If Android says the setting is restricted, allow restricted settings in the app\'s info first.</string>
     <string name="tour_accessories_title">Accessories</string>
-    <string name="tour_accessories_text">See the battery of your Galaxy Buds and other Bluetooth accessories in the Mac\'s menu bar.</string>
+    <string name="tour_accessories_text">See the battery of your Galaxy Buds and other Bluetooth accessories in the Mac\'s menu bar. The app sends the Mac only the name and battery of the connected accessories.</string>
     <string name="tour_background_title">Always connected</string>
     <string name="tour_background_text">Let Galaxy Bridge run without battery restrictions so Android doesn\'t cut the connection while the screen is off. You can close the app: it keeps working in the background.</string>
     <string name="tour_done_title">All set</string>

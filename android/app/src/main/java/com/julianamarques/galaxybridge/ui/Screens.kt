@@ -1,6 +1,5 @@
 package com.julianamarques.galaxybridge.ui
 
-import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
@@ -80,6 +79,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.activity.compose.LocalActivity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -162,7 +162,7 @@ private fun PanelCard(content: @Composable ColumnScope.() -> Unit) {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SetupScreen(pairing: PairingController, refresh: Int) {
-    val activity = LocalContext.current as Activity
+    val activity = LocalActivity.current
     val working = pairing.step is PairingStep.Working
     Page {
         Hero(stringResource(R.string.app_name)) {
@@ -184,7 +184,7 @@ fun SetupScreen(pairing: PairingController, refresh: Int) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Button(
-                    onClick = { pairing.scan(activity) },
+                    onClick = { activity?.let(pairing::scan) },
                     enabled = !working,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                 ) {

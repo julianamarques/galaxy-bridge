@@ -1,11 +1,11 @@
 # Galaxy Bridge
 
-Use a Samsung Galaxy (or any Android 11+) together with your Mac, over Wi-Fi or a USB cable.
+Use a Samsung Galaxy (or any Android phone) together with your Mac, over Wi-Fi or a USB cable.
 
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-14%2B-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS 14 or later">
   <img src="https://img.shields.io/badge/Platforms-Apple%20Silicon%20%7C%20Intel-8a8a8a?style=flat-square" alt="Runs on Apple Silicon and Intel">
-  <img src="https://img.shields.io/badge/Android-11%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 11 or later">
+  <img src="https://img.shields.io/badge/Android-13%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 13 or later">
   <img src="https://img.shields.io/badge/SwiftUI-native-F05138?style=flat-square&logo=swift&logoColor=white" alt="Native SwiftUI app">
   <img src="https://img.shields.io/badge/Jetpack%20Compose-native-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white" alt="Native Jetpack Compose app">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-4c1?style=flat-square" alt="Apache 2.0 license"></a>
@@ -32,7 +32,7 @@ There are two ways to connect:
 ## Requirements
 
 - macOS 14 or later
-- A phone with Android 11+ on the same Wi-Fi network as the Mac, or connected to it with a USB cable
+- A phone on the same Wi-Fi network as the Mac, or connected to it with a USB cable: Android 13 or later for the Galaxy Bridge app, Android 11 or later for adb
 - For the Android app: the permissions of the features you use, asked one by one in the app's introduction. The ones with the biggest effect are running without battery restrictions, so Android doesn't cut the connection while the screen is off, and notification access, which carries notifications, the caller's name and media. Screen mirroring control uses an accessibility service; Android may ask to allow restricted settings in the app's info first.
 - For adb: Wireless debugging (or USB debugging and a cable) turned on
 
@@ -63,13 +63,29 @@ cd android
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
+Release builds are shrunk with R8 and signed with the upload key. Its settings live in `android/keystore.properties`, which is not committed:
+
+```properties
+storeFile=/path/to/upload.jks
+storePassword=…
+keyAlias=upload
+keyPassword=…
+```
+
+```bash
+./gradlew lintRelease           # must report no errors
+./gradlew bundleRelease         # app/build/outputs/bundle/release/app-release.aab, for Google Play
+```
+
+Without `keystore.properties` the release build is signed with the debug key, which is enough to try it on a phone.
+
 Install it with `adb` while developing. A plain APK opened on the phone is blocked by Play Protect in Brazil because of the permissions the app asks for, so users will get it from a store (see [Distribution](docs/architecture.md#distribution)).
 
 To pair: on the Mac, **Settings › Usar o App no Galaxy…** (or the setup window on first launch) shows a QR code. On the phone, open Galaxy Bridge and scan the code; the app's introduction then asks for the permissions of each feature.
 
 ## Languages
 
-Both apps are in English and Brazilian Portuguese, following the system language (other languages get English). On Android 13 and later the app's language can also be picked in **Settings › Apps › Galaxy Bridge › Language**.
+Both apps are in English and Brazilian Portuguese, following the system language (other languages get English). The Android app's language can also be picked in **Settings › Apps › Galaxy Bridge › Language**.
 
 - **Mac:** the code keeps the Portuguese text as keys (`String(localized:)`, `Text("…")`), and `macos/Resources/en.lproj` holds the English: `Localizable.strings`, `InfoPlist.strings` (the Local Network prompt) and `ServicesMenu.strings` (the Finder's "Send to Galaxy"). `scripts/check-translations.sh` asks the Swift compiler for every localizable text and lists the ones without an English translation; run it after changing any text.
 - **Android:** `res/values/strings.xml` is English and `res/values-pt/strings.xml` Portuguese. Texts shown to the user belong there, not in the code.

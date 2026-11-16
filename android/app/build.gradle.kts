@@ -1,7 +1,13 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+}
+
+val upload = Properties().apply {
+    rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
 }
 
 android {
@@ -10,10 +16,30 @@ android {
 
     defaultConfig {
         applicationId = "com.julianamarques.galaxybridge"
-        minSdk = 30
+        minSdk = 33
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+    }
+
+    signingConfigs {
+        if (!upload.isEmpty) {
+            create("upload") {
+                storeFile = file(upload.getProperty("storeFile"))
+                storePassword = upload.getProperty("storePassword")
+                keyAlias = upload.getProperty("keyAlias")
+                keyPassword = upload.getProperty("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
+        }
     }
 
     buildFeatures {

@@ -10,7 +10,6 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.Uri
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.VibrationAttributes
@@ -90,12 +89,7 @@ class PhoneRinger(private val context: Context, private val stopIntent: Intent, 
 
     private fun vibrate() {
         val effect = VibrationEffect.createWaveform(longArrayOf(0, 800, 600), 0)
-        if (Build.VERSION.SDK_INT >= 33) {
-            vibrator.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_ALARM))
-        } else {
-            @Suppress("DEPRECATION")
-            vibrator.vibrate(effect, ALARM)
-        }
+        vibrator.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_ALARM))
     }
 
     private fun notification(): Notification {

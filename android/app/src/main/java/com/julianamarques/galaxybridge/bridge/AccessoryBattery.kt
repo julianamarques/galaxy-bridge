@@ -1,5 +1,6 @@
 package com.julianamarques.galaxybridge.bridge
 
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothClass
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
@@ -11,6 +12,7 @@ import com.julianamarques.galaxybridge.Permission
 import com.julianamarques.galaxybridge.protocol.PhoneStatus
 import java.util.concurrent.ConcurrentHashMap
 
+@SuppressLint("MissingPermission")
 class AccessoryBattery(private val context: Context, private val onChange: () -> Unit) {
     @Volatile var current: List<PhoneStatus.Accessory> = emptyList()
         private set
