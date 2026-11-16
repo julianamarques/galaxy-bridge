@@ -2,6 +2,19 @@
 
 Use a Samsung Galaxy (or any Android 11+) together with your Mac, over Wi-Fi or a USB cable.
 
+<p align="center">
+  <img src="https://img.shields.io/badge/macOS-14%2B-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS 14 or later">
+  <img src="https://img.shields.io/badge/Platforms-Apple%20Silicon%20%7C%20Intel-8a8a8a?style=flat-square" alt="Runs on Apple Silicon and Intel">
+  <img src="https://img.shields.io/badge/Android-11%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 11 or later">
+  <img src="https://img.shields.io/badge/SwiftUI-native-F05138?style=flat-square&logo=swift&logoColor=white" alt="Native SwiftUI app">
+  <img src="https://img.shields.io/badge/Jetpack%20Compose-native-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white" alt="Native Jetpack Compose app">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-4c1?style=flat-square" alt="Apache 2.0 license"></a>
+</p>
+
+<p align="center">
+  <img src="docs/images/welcome-screen.png" width="560" alt="Galaxy Bridge welcome screen, with an illustration of a Mac and a Galaxy and the Learn More, Not Now and Continue buttons">
+</p>
+
 Galaxy Bridge lives in the menu bar and brings the phone to the Mac:
 
 - **Calls** — place calls from the menu or from any phone number on the Mac (`tel:` links), and answer or decline incoming calls in a panel with the caller's name and photo. The menu finds contacts as you type and lists the recent calls.
@@ -15,10 +28,6 @@ There are two ways to connect:
 
 - **The Galaxy Bridge app on the phone** (recommended). Pair once with a QR code; after that the phone reconnects on its own, over Wi-Fi or the USB cable, also after a restart, without Developer options. Everything above works with it.
 - **adb**, with nothing installed on the phone: Wireless debugging or USB debugging, the same connection [Galaxy Mirror](https://github.com/julianamarques/galaxy-mirror) uses. It covers the battery, placing calls and screen mirroring; the rest needs the app. A Galaxy already set up in Galaxy Mirror works here without pairing again.
-
-<p align="center">
-  <img src="docs/images/welcome-screen.png" width="560" alt="Galaxy Bridge welcome screen, with an illustration of a Mac and a Galaxy and the Learn More, Not Now and Continue buttons">
-</p>
 
 ## Requirements
 
