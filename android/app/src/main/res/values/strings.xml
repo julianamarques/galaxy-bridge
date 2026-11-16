@@ -16,7 +16,7 @@
     <string name="mirror_stop">Stop</string>
     <string name="mirror_declined">Mirroring wasn\'t allowed on the Galaxy.</string>
     <string name="mirror_control_label">Galaxy Bridge — control from the Mac</string>
-    <string name="mirror_control_description">Lets the Mac tap, scroll and type on this phone while its screen is mirrored. Galaxy Bridge uses only the selected text field for typing, and doesn\'t read or keep the rest of the screen.</string>
+    <string name="mirror_control_description">Lets the Mac tap, scroll and type on this phone while its screen is mirrored. Galaxy Bridge uses only the selected text field for typing and for copying what you select from the Mac, and doesn\'t read or keep the rest of the screen.</string>
     <string name="link_title">Link from the Mac</string>
     <string name="camera_request_title">Take a photo for the Mac</string>
     <string name="camera_request_text">Tap to open the camera.</string>
@@ -114,7 +114,7 @@
     <string name="tour_files_title">Photos and files</string>
     <string name="tour_files_text">See every photo and video on the Mac, browse the folders, take a photo with the Galaxy and send files both ways. The app reads the Galaxy\'s photos, videos and files only when you open or ask for them on the Mac.</string>
     <string name="tour_mirror_title">Screen mirroring</string>
-    <string name="tour_mirror_text">Use the Galaxy in a window on the Mac, with the mouse and keyboard. The screen\'s picture and sound go only to the Mac, and Android asks you to confirm each time the screen is mirrored. For the mouse and keyboard to work, the app uses the accessibility service: it only performs on the Galaxy the taps, gestures and text you make on the Mac while mirroring, using only the selected text field for typing, and doesn\'t read or keep the rest of the screen. If Android says the setting is restricted, allow restricted settings in the app\'s info first.</string>
+    <string name="tour_mirror_text">Use the Galaxy in a window on the Mac, with the mouse and keyboard. The screen\'s picture and sound go only to the Mac, and Android asks you to confirm each time the screen is mirrored. For the mouse and keyboard to work, the app uses the accessibility service: it only performs on the Galaxy the taps, gestures and text you make on the Mac while mirroring, using only the selected text field for typing and for copying what you select from the Mac, and doesn\'t read or keep the rest of the screen. If Android says the setting is restricted, allow restricted settings in the app\'s info first.</string>
     <string name="tour_accessories_title">Accessories</string>
     <string name="tour_accessories_text">See the battery of your Galaxy Buds and other Bluetooth accessories in the Mac\'s menu bar. The app sends the Mac only the name and battery of the connected accessories.</string>
     <string name="tour_background_title">Always connected</string>

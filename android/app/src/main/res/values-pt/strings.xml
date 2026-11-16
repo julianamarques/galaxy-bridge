@@ -15,7 +15,7 @@
     <string name="mirror_stop">Parar</string>
     <string name="mirror_declined">O espelhamento não foi permitido no Galaxy.</string>
     <string name="mirror_control_label">Galaxy Bridge — controle pelo Mac</string>
-    <string name="mirror_control_description">Permite que o Mac toque, role e digite neste celular enquanto a tela é espelhada. O Galaxy Bridge usa apenas o campo de texto selecionado para digitar, e não lê nem guarda o resto da tela.</string>
+    <string name="mirror_control_description">Permite que o Mac toque, role e digite neste celular enquanto a tela é espelhada. O Galaxy Bridge usa apenas o campo de texto selecionado para digitar e para copiar o que você seleciona pelo Mac, e não lê nem guarda o resto da tela.</string>
     <string name="link_title">Link do Mac</string>
     <string name="camera_request_title">Tirar foto para o Mac</string>
     <string name="camera_request_text">Toque para abrir a câmera.</string>
@@ -113,7 +113,7 @@
     <string name="tour_files_title">Fotos e arquivos</string>
     <string name="tour_files_text">Veja todas as fotos e vídeos no Mac, navegue nas pastas, tire uma foto com o Galaxy e envie arquivos nos dois sentidos. O app lê as fotos, os vídeos e os arquivos do Galaxy só quando você os abre ou pede pelo Mac.</string>
     <string name="tour_mirror_title">Espelhamento da tela</string>
-    <string name="tour_mirror_text">Use o Galaxy numa janela do Mac, com o mouse e o teclado. A imagem e o som da tela vão só para o Mac, e o Android pede para confirmar cada vez que a tela é espelhada. Para o mouse e o teclado funcionarem, o app usa o serviço de acessibilidade: ele só executa no Galaxy os toques, gestos e textos que você faz no Mac durante o espelhamento, usando apenas o campo de texto selecionado para digitar, e não lê nem guarda o resto da tela. Se o Android disser que a configuração é restrita, permita as configurações restritas nas informações do app antes.</string>
+    <string name="tour_mirror_text">Use o Galaxy numa janela do Mac, com o mouse e o teclado. A imagem e o som da tela vão só para o Mac, e o Android pede para confirmar cada vez que a tela é espelhada. Para o mouse e o teclado funcionarem, o app usa o serviço de acessibilidade: ele só executa no Galaxy os toques, gestos e textos que você faz no Mac durante o espelhamento, usando apenas o campo de texto selecionado para digitar e para copiar o que você seleciona pelo Mac, e não lê nem guarda o resto da tela. Se o Android disser que a configuração é restrita, permita as configurações restritas nas informações do app antes.</string>
     <string name="tour_accessories_title">Acessórios</string>
     <string name="tour_accessories_text">Veja a bateria dos Galaxy Buds e de outros acessórios Bluetooth na barra de menus do Mac. O app envia ao Mac só o nome e a bateria dos acessórios conectados.</string>
     <string name="tour_background_title">Sempre conectado</string>
