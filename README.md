@@ -3,6 +3,7 @@
 Use a Samsung Galaxy (or any Android phone) together with your Mac, over Wi-Fi or a USB cable.
 
 <p align="center">
+  <a href="https://github.com/julianamarques/galaxy-bridge/releases/latest"><img src="https://img.shields.io/github/v/release/julianamarques/galaxy-bridge?style=flat-square&label=release&color=007ec6" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS 14 or later">
   <img src="https://img.shields.io/badge/Platforms-Apple%20Silicon%20%7C%20Intel-8a8a8a?style=flat-square" alt="Runs on Apple Silicon and Intel">
   <img src="https://img.shields.io/badge/Android-13%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 13 or later">
@@ -29,6 +30,14 @@ There are two ways to connect:
 - **The Galaxy Bridge app on the phone** (recommended). Pair once with a QR code; after that the phone reconnects on its own, over Wi-Fi or the USB cable, also after a restart, without Developer options. Everything above works with it.
 - **adb**, with nothing installed on the phone: Wireless debugging or USB debugging. It covers the battery, placing calls and screen mirroring; the rest needs the app. A Galaxy already connected to the Mac through adb works here without pairing again.
 
+## Install
+
+1. Download `Galaxy-Bridge.dmg` from the latest version on the [Releases page](https://github.com/julianamarques/galaxy-bridge/releases).
+2. Open the file and drag **Galaxy Bridge** to **Applications**.
+3. On the phone, install the Galaxy Bridge app for Android (coming to Google Play) and scan the QR code the Mac shows. Without it, the Mac app connects over adb.
+
+The app is only signed locally. On another Mac, macOS blocks the first launch saying it cannot verify the developer: allow it in **System Settings › Privacy & Security › Open Anyway**.
+
 ## Requirements
 
 - macOS 14 or later
@@ -44,11 +53,24 @@ The Swift package in `macos/`:
 
 ```bash
 cd macos
-./scripts/build-app.sh          # builds build/Galaxy Bridge.app
+./scripts/build-app.sh          # builds build/Galaxy Bridge.app for this Mac's architecture
 ./scripts/build-app.sh debug    # debug build
+./scripts/make-dmg.sh           # builds build/Galaxy Bridge.dmg
 ```
 
-`swift test` (in `macos/`) runs the tests. The app icon is drawn in SwiftUI by `scripts/make-icon.swift`; run it after changing the drawing to regenerate `Resources/AppIcon.icns`. In debug builds, `GALAXY_PREVIEW_MENU=1` shows the menu in a regular window, `GALAXY_PREVIEW_SETTINGS=1` opens Settings at launch, `GALAXY_PREVIEW_CALL=1` and `GALAXY_PREVIEW_TRANSFER=1` show a fake call and transfer in the activity panel, and `GALAXY_START_MIRROR=1` starts mirroring at launch, to check the design without clicking the menu bar.
+Add `--universal` to `build-app.sh` or `make-dmg.sh` to build for Apple Silicon and Intel; releases always do.
+
+To publish a new version on GitHub (requires a logged-in `gh`):
+
+```bash
+DRY_RUN=1 ./scripts/release.sh 1.1.0   # shows the notes without changing anything
+./scripts/release.sh 1.1.0-beta.1      # pre-release (alpha, beta or rc)
+./scripts/release.sh 1.1.0             # stable version
+```
+
+It sets the version in `Resources/Info.plist`, commits and pushes it, builds the universal `.dmg` and creates the GitHub release with it.
+
+`swift test` (in `macos/`) runs the tests. The app icon is drawn in SwiftUI by `scripts/make-icon.swift`; run it after changing the drawing to regenerate `Resources/AppIcon.icns`. In debug builds, `GALAXY_PREVIEW_MENU=1` shows the menu in a regular window, `GALAXY_PREVIEW_SETTINGS=1` opens Settings at launch, `GALAXY_PREVIEW_CALL=1` and `GALAXY_PREVIEW_TRANSFER=1` show a fake call and transfer in the activity panel, and `GALAXY_START_MIRROR=1` starts mirroring at launch, and `GALAXY_PREVIEW_SETUP=1` opens the setup window on its welcome screen, to check the design without clicking the menu bar.
 
 The build script copies the Swift package resources (PhoneNumberKit's phone number data) into the app and downloads `adb` (`scripts/fetch-adb.sh`, platform-tools 37.0.1) and the scrcpy server (`scripts/fetch-scrcpy.sh`, 5.0) and checks their checksums. Keep it the same as other apps on the Mac that bundle `adb`: two different `adb` versions restart each other's server and drop the connection.
 

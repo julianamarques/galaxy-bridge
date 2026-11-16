@@ -6,6 +6,7 @@ extension Bundle {
     }
 
     public static var appVersion: String? {
-        main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        main.object(forInfoDictionaryKey: "GalaxyBridgeReleaseVersion") as? String
+            ?? main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
     }
 }
