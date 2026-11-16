@@ -94,5 +94,7 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSSupportsAutomaticTermination</key>
+	<false/>
 </dict>
 </plist>

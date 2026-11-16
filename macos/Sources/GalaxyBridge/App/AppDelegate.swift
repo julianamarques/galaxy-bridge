@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        ProcessInfo.processInfo.disableAutomaticTermination("O Galaxy Bridge mantém a conexão com o celular pela barra de menus")
         app.launched()
         quitGracefullyOnSIGTERM()
         dockPresence.start()
